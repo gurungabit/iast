@@ -1,0 +1,9 @@
+node_modules
+dist
+build
+.next
+coverage
+*.lock
+pnpm-lock.yaml
+gateway/python/.venv
+gateway/python/__pycache__

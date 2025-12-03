@@ -1,0 +1,48 @@
+# ============================================================================
+# Configuration
+# ============================================================================
+
+import os
+from dataclasses import dataclass, field
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+@dataclass(frozen=True)
+class ValkeyConfig:
+    """Valkey/Redis connection configuration."""
+
+    host: str = field(default_factory=lambda: os.getenv("VALKEY_HOST", "localhost"))
+    port: int = field(default_factory=lambda: int(os.getenv("VALKEY_PORT", "6379")))
+    db: int = field(default_factory=lambda: int(os.getenv("VALKEY_DB", "0")))
+    password: str | None = field(default_factory=lambda: os.getenv("VALKEY_PASSWORD"))
+
+
+@dataclass(frozen=True)
+class PTYConfig:
+    """PTY session configuration."""
+
+    shell: str = field(default_factory=lambda: os.getenv("PTY_SHELL", "/bin/zsh"))
+    cols: int = field(default_factory=lambda: int(os.getenv("PTY_COLS", "80")))
+    rows: int = field(default_factory=lambda: int(os.getenv("PTY_ROWS", "24")))
+    max_sessions: int = field(
+        default_factory=lambda: int(os.getenv("PTY_MAX_SESSIONS", "10"))
+    )
+    idle_timeout: int = field(
+        default_factory=lambda: int(os.getenv("PTY_IDLE_TIMEOUT", "3600"))
+    )
+
+
+@dataclass(frozen=True)
+class Config:
+    """Application configuration."""
+
+    valkey: ValkeyConfig = field(default_factory=ValkeyConfig)
+    pty: PTYConfig = field(default_factory=PTYConfig)
+
+
+def get_config() -> Config:
+    """Get application configuration."""
+    return Config()

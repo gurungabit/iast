@@ -1,0 +1,32 @@
+{
+  "name": "@terminal/root",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "./scripts/dev.sh",
+    "dev:web": "pnpm --filter @terminal/web dev",
+    "dev:api": "pnpm --filter @terminal/api dev",
+    "dev:gateway": "cd gateway && uv run gateway",
+    "dev:valkey": "docker compose -f infra/docker-compose.dev.yml up -d",
+    "dev:valkey:stop": "docker compose -f infra/docker-compose.dev.yml down",
+    "build": "pnpm run --recursive build",
+    "lint": "pnpm run --recursive lint",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "typecheck": "pnpm run --recursive typecheck",
+    "clean": "pnpm run --recursive clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "eslint": "^9.39.1",
+    "prettier": "^3.7.3",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.0"
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "packageManager": "pnpm@10.0.0"
+}

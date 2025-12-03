@@ -1,0 +1,88 @@
+// ============================================================================
+// Configuration Types
+// ============================================================================
+
+export interface ServerConfig {
+  host: string;
+  port: number;
+  cors: {
+    origin: string | string[];
+    credentials: boolean;
+  };
+}
+
+export interface ValkeyConfig {
+  host: string;
+  port: number;
+  password?: string;
+  db?: number;
+  tls?: boolean;
+}
+
+export interface AuthConfig {
+  jwtSecret: string;
+  tokenExpirationSeconds: number;
+  refreshTokenExpirationSeconds: number;
+  bcryptRounds: number;
+}
+
+export interface PtyConfig {
+  defaultShell: string;
+  defaultCols: number;
+  defaultRows: number;
+  scrollback: number;
+  maxSessions: number;
+}
+
+export interface AppConfig {
+  env: 'development' | 'production' | 'test';
+  logLevel: 'debug' | 'info' | 'warn' | 'error';
+  server: ServerConfig;
+  valkey: ValkeyConfig;
+  auth: AuthConfig;
+  pty: PtyConfig;
+}
+
+// ============================================================================
+// Default Configuration Values
+// ============================================================================
+
+export const DEFAULT_SERVER_CONFIG: ServerConfig = {
+  host: '0.0.0.0',
+  port: 3001,
+  cors: {
+    origin: 'http://localhost:5173',
+    credentials: true,
+  },
+};
+
+export const DEFAULT_VALKEY_CONFIG: ValkeyConfig = {
+  host: 'localhost',
+  port: 6379,
+};
+
+export const DEFAULT_AUTH_CONFIG: AuthConfig = {
+  jwtSecret: 'change-me-in-production',
+  tokenExpirationSeconds: 86400, // 24 hours
+  refreshTokenExpirationSeconds: 604800, // 7 days
+  bcryptRounds: 12,
+};
+
+export const DEFAULT_PTY_CONFIG: PtyConfig = {
+  defaultShell: '/bin/bash',
+  defaultCols: 80,
+  defaultRows: 24,
+  scrollback: 10000,
+  maxSessions: 10,
+};
+
+export function getDefaultConfig(): AppConfig {
+  return {
+    env: 'development',
+    logLevel: 'debug',
+    server: { ...DEFAULT_SERVER_CONFIG },
+    valkey: { ...DEFAULT_VALKEY_CONFIG },
+    auth: { ...DEFAULT_AUTH_CONFIG },
+    pty: { ...DEFAULT_PTY_CONFIG },
+  };
+}

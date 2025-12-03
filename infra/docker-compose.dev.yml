@@ -1,0 +1,30 @@
+# ============================================================================
+# Terminal Development Infrastructure
+# ============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Valkey (Redis-compatible) for pub/sub messaging
+  # ---------------------------------------------------------------------------
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: terminal-valkey
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey-data:/data
+    command: valkey-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  valkey-data:
+    driver: local
+
+networks:
+  default:
+    name: terminal-network
