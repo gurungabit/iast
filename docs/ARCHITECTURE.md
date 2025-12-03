@@ -110,6 +110,7 @@ terminal/
 **Technology**: React 19, Vite 7, TypeScript 5.9, Tailwind CSS v4, xterm.js
 
 **Responsibilities**:
+
 - User authentication (login/register forms)
 - Terminal UI rendering with xterm.js
 - WebSocket connection management with auto-reconnect
@@ -117,6 +118,7 @@ terminal/
 - Session persistence via localStorage
 
 **Key Files**:
+
 - `hooks/useTerminal.ts` - xterm.js integration and WebSocket handling
 - `hooks/useAuth.ts` - Authentication state management
 - `hooks/useTheme.ts` - Theme state with localStorage persistence
@@ -128,6 +130,7 @@ terminal/
 **Technology**: Fastify 5, TypeScript, ioredis, JWT, bcrypt
 
 **Responsibilities**:
+
 - REST API for authentication (login, register, token refresh)
 - WebSocket endpoint for terminal connections
 - JWT token validation
@@ -135,12 +138,14 @@ terminal/
 - Message routing between browser and PTY gateway via Valkey
 
 **Key Files**:
+
 - `routes/auth.ts` - Authentication endpoints
 - `ws/terminal.ts` - WebSocket terminal handler
 - `services/auth.ts` - JWT generation and password hashing
 - `valkey/client.ts` - Valkey pub/sub client
 
 **Endpoints**:
+
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/auth/register` | Create new user account |
@@ -154,6 +159,7 @@ terminal/
 **Technology**: TypeScript (source-only, no build step)
 
 **Responsibilities**:
+
 - Type definitions shared between frontend and backend
 - Message envelope structure for WebSocket communication
 - Error codes and error handling utilities
@@ -161,6 +167,7 @@ terminal/
 - Validation utilities
 
 **Key Types**:
+
 ```typescript
 // Message types
 type MessageType = 'data' | 'resize' | 'ping' | 'pong' | 'error' 
@@ -184,12 +191,14 @@ interface MessageEnvelope {
 **Technology**: Python 3.12+, asyncio, Pydantic v2, redis-py, structlog
 
 **Responsibilities**:
+
 - Spawn and manage PTY (pseudo-terminal) processes
 - Execute shell commands (zsh/bash)
 - Handle terminal resize events
 - Stream I/O between PTY and Valkey pub/sub
 
 **Key Files**:
+
 - `app.py` - Main entry point with signal handling
 - `pty_manager.py` - PTY session lifecycle management
 - `valkey_client.py` - Async Valkey client for pub/sub
@@ -200,11 +209,13 @@ interface MessageEnvelope {
 **Technology**: Valkey (Redis-compatible), Docker
 
 **Responsibilities**:
+
 - Message broker between API and Gateway
 - Pub/sub channels for real-time communication
 - Decouples API from Gateway for scalability
 
 **Channels**:
+
 | Channel | Direction | Purpose |
 |---------|-----------|---------|
 | `gateway.control` | API → Gateway | Session create/destroy commands |
@@ -269,16 +280,19 @@ Browser              API Server              Valkey              Gateway
 ## Security
 
 ### Authentication
+
 - Passwords hashed with bcrypt (10 rounds)
 - JWT tokens with configurable expiration (default: 24h)
 - Tokens stored in localStorage (consider HttpOnly cookies for production)
 
 ### WebSocket Security
+
 - JWT token required in query parameter for WebSocket connections
 - Token validated before establishing connection
 - Invalid tokens result in immediate connection close (code 1008)
 
 ### PTY Security
+
 - Each session runs in isolated PTY
 - Sessions tied to authenticated users
 - Graceful cleanup on disconnect
@@ -286,6 +300,7 @@ Browser              API Server              Valkey              Gateway
 ## Development
 
 ### Prerequisites
+
 - Node.js 24+
 - pnpm 10+
 - Python 3.12+
@@ -293,6 +308,7 @@ Browser              API Server              Valkey              Gateway
 - Docker (for Valkey)
 
 ### Quick Start
+
 ```bash
 # Install dependencies
 pnpm install
@@ -308,22 +324,27 @@ pnpm dev
 ```
 
 ### Demo User
+
 A demo user is automatically created on API startup:
+
 - Email: `demo@example.com`
 - Password: `demo1234`
 
 ## Scaling Considerations
 
 ### Horizontal Scaling
+
 - **API Servers**: Stateless, can run multiple instances behind load balancer
 - **Gateways**: Each gateway handles multiple PTY sessions; add more for capacity
 - **Valkey**: Single instance sufficient for moderate load; cluster for high availability
 
 ### Session Affinity
+
 - WebSocket connections are long-lived
 - Use sticky sessions or connection draining for graceful updates
 
 ### Future Improvements
+
 - [ ] Redis cluster support for Valkey
 - [ ] Session persistence across gateway restarts
 - [ ] Rate limiting on API endpoints

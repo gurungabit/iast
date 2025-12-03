@@ -43,6 +43,12 @@ class Config:
     pty: PTYConfig = field(default_factory=PTYConfig)
 
 
+_config: Config | None = None
+
+
 def get_config() -> Config:
-    """Get application configuration."""
-    return Config()
+    """Get application configuration (singleton)."""
+    global _config
+    if _config is None:
+        _config = Config()
+    return _config

@@ -9,13 +9,13 @@ from typing import Any
 import redis.asyncio as redis
 import structlog
 
-from .channels import (
+from ..core import (
     GATEWAY_CONTROL_CHANNEL,
+    ValkeyConfig,
     get_pty_control_channel,
     get_pty_input_channel,
     get_pty_output_channel,
 )
-from .config import ValkeyConfig
 
 log = structlog.get_logger()
 
@@ -74,7 +74,9 @@ class ValkeyClient:
 
         if self._pubsub:
             await self._pubsub.subscribe(GATEWAY_CONTROL_CHANNEL)
-            log.info("Subscribed to gateway control channel", channel=GATEWAY_CONTROL_CHANNEL)
+            log.info(
+                "Subscribed to gateway control channel", channel=GATEWAY_CONTROL_CHANNEL
+            )
 
     async def subscribe_to_input(
         self,
@@ -164,6 +166,7 @@ class ValkeyClient:
                 await asyncio.sleep(1)
 
 
+# Singleton instance
 _client: ValkeyClient | None = None
 
 

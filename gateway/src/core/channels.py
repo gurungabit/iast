@@ -2,6 +2,14 @@
 # Valkey Channel Helpers (matching @terminal/shared)
 # ============================================================================
 
+"""
+Channel naming conventions:
+- gateway.control     - Global control channel for session creation
+- pty.input.<id>      - Input to PTY (keystrokes from user)
+- pty.output.<id>     - Output from PTY (terminal output)
+- pty.control.<id>    - Control messages (resize, destroy)
+"""
+
 
 def get_pty_input_channel(session_id: str) -> str:
     """Get the input channel for a PTY session."""

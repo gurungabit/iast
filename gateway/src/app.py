@@ -7,9 +7,13 @@ import signal
 
 import structlog
 
-from .config import get_config
-from .pty_manager import get_pty_manager, init_pty_manager
-from .valkey_client import close_valkey_client, init_valkey_client
+from .core import get_config
+from .services import (
+    close_valkey_client,
+    get_pty_manager,
+    init_pty_manager,
+    init_valkey_client,
+)
 
 # Configure structlog
 structlog.configure(

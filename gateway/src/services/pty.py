@@ -3,11 +3,12 @@
 # ============================================================================
 
 import asyncio
+import fcntl
 import os
 import pty
+import select
 import signal
 import struct
-import fcntl
 import termios
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -15,9 +16,8 @@ from typing import TYPE_CHECKING
 
 import structlog
 
-from .config import PTYConfig
-from .errors import ErrorCodes, TerminalError
-from .models import (
+from ..core import ErrorCodes, PTYConfig, TerminalError
+from ..models import (
     DataMessage,
     ResizeMessage,
     SessionCreateMessage,
@@ -31,7 +31,7 @@ from .models import (
 )
 
 if TYPE_CHECKING:
-    from .valkey_client import ValkeyClient
+    from .valkey import ValkeyClient
 
 log = structlog.get_logger()
 
@@ -87,7 +87,9 @@ class PTYManager:
         if existing:
             log.info("Reusing existing PTY session", session_id=session_id)
             # Send session created message so the client knows it's connected
-            msg = create_session_created_message(session_id, existing.shell, existing.pid)
+            msg = create_session_created_message(
+                session_id, existing.shell, existing.pid
+            )
             await self._valkey.publish_output(session_id, serialize_message(msg))
             return existing
 
@@ -248,7 +250,9 @@ class PTYManager:
         while True:
             try:
                 # Wait for data to be available
-                ready = await loop.run_in_executor(None, self._wait_for_data, session.fd)
+                ready = await loop.run_in_executor(
+                    None, self._wait_for_data, session.fd
+                )
 
                 if not ready:
                     # Timeout, check if process is still running
@@ -256,7 +260,12 @@ class PTYManager:
                         pid, status = os.waitpid(session.pid, os.WNOHANG)
                         if pid != 0:
                             # Process has exited
-                            log.debug("Process exited", session_id=session.session_id, pid=pid, status=status)
+                            log.debug(
+                                "Process exited",
+                                session_id=session.session_id,
+                                pid=pid,
+                                status=status,
+                            )
                             break
                     except ChildProcessError:
                         # Process already reaped
@@ -281,7 +290,11 @@ class PTYManager:
                     session.last_activity = datetime.now()
 
                 except OSError as e:
-                    log.debug("OSError reading from PTY", session_id=session.session_id, error=str(e))
+                    log.debug(
+                        "OSError reading from PTY",
+                        session_id=session.session_id,
+                        error=str(e),
+                    )
                     break
 
             except asyncio.CancelledError:
@@ -297,8 +310,6 @@ class PTYManager:
         """Wait for data to be available on fd (blocking, run in executor).
         Returns True if data is available, False on timeout.
         """
-        import select
-
         ready, _, _ = select.select([fd], [], [], 1.0)
         return len(ready) > 0
 
@@ -345,9 +356,13 @@ class PTYManager:
             # Try to extract session_id from the message for error response
             try:
                 parsed = parse_message(raw_data)
-                if hasattr(parsed, 'session_id'):
-                    error_msg = create_error_message(parsed.session_id, e.code, e.message)
-                    await self._valkey.publish_output(parsed.session_id, serialize_message(error_msg))
+                if hasattr(parsed, "session_id"):
+                    error_msg = create_error_message(
+                        parsed.session_id, e.code, e.message
+                    )
+                    await self._valkey.publish_output(
+                        parsed.session_id, serialize_message(error_msg)
+                    )
             except Exception:
                 pass
             log.warning("Gateway control error", error=str(e))
@@ -355,6 +370,7 @@ class PTYManager:
             log.exception("Handle gateway control error")
 
 
+# Singleton instance
 _manager: PTYManager | None = None
 
 

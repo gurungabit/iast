@@ -2,8 +2,10 @@
 # Error Codes (matching @terminal/shared)
 # ============================================================================
 
+from enum import StrEnum
 
-class ErrorCodes:
+
+class ErrorCodes(StrEnum):
     """Error codes matching the TypeScript shared package."""
 
     # Authentication errors (E1xxx)
@@ -42,10 +44,13 @@ class ErrorCodes:
 class TerminalError(Exception):
     """Custom error with error code."""
 
-    def __init__(self, code: str, message: str) -> None:
+    def __init__(self, code: str | ErrorCodes, message: str) -> None:
         super().__init__(message)
-        self.code = code
+        self.code = str(code)
         self.message = message
+
+    def __repr__(self) -> str:
+        return f"TerminalError({self.code!r}, {self.message!r})"
 
     def to_dict(self) -> dict[str, str]:
         """Convert to dictionary."""

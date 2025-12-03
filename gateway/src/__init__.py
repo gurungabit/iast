@@ -1,16 +1,30 @@
 # ============================================================================
 # Terminal Gateway Package
 # ============================================================================
+"""
+PTY Gateway for terminal sessions.
+
+Structure:
+    src/
+    ├── core/           # Configuration, errors, channels
+    ├── models/         # Pydantic message models
+    ├── services/       # Valkey client, PTY manager
+    └── app.py          # Application entry point
+"""
 
 from .app import main
-from .channels import (
+from .core import (
     GATEWAY_CONTROL_CHANNEL,
+    Config,
+    ErrorCodes,
+    PTYConfig,
+    TerminalError,
+    ValkeyConfig,
+    get_config,
     get_pty_control_channel,
     get_pty_input_channel,
     get_pty_output_channel,
 )
-from .config import Config, PTYConfig, ValkeyConfig, get_config
-from .errors import ErrorCodes, TerminalError
 from .models import (
     DataMessage,
     ErrorMessage,
@@ -30,11 +44,14 @@ from .models import (
     parse_message,
     serialize_message,
 )
-from .pty_manager import PTYManager, PTYSession, get_pty_manager, init_pty_manager
-from .valkey_client import (
+from .services import (
+    PTYManager,
+    PTYSession,
     ValkeyClient,
     close_valkey_client,
+    get_pty_manager,
     get_valkey_client,
+    init_pty_manager,
     init_valkey_client,
 )
 
