@@ -18,12 +18,12 @@ export const ERROR_CODES = {
   SESSION_LIMIT_EXCEEDED: 'E2004',
   SESSION_INVALID_STATE: 'E2005',
 
-  // PTY Errors (3xxx)
-  PTY_SPAWN_FAILED: 'E3001',
-  PTY_WRITE_FAILED: 'E3002',
-  PTY_RESIZE_FAILED: 'E3003',
-  PTY_ALREADY_CLOSED: 'E3004',
-  PTY_NOT_FOUND: 'E3005',
+  // Terminal Errors (3xxx) - TN3270
+  TERMINAL_CONNECTION_FAILED: 'E3001',
+  TERMINAL_WRITE_FAILED: 'E3002',
+  TERMINAL_RESIZE_FAILED: 'E3003',
+  TERMINAL_ALREADY_CLOSED: 'E3004',
+  TERMINAL_NOT_FOUND: 'E3005',
 
   // WebSocket Errors (4xxx)
   WS_CONNECTION_FAILED: 'E4001',
@@ -118,11 +118,11 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ERROR_CODES.SESSION_LIMIT_EXCEEDED]: 'Maximum session limit exceeded',
   [ERROR_CODES.SESSION_INVALID_STATE]: 'Invalid session state',
 
-  [ERROR_CODES.PTY_SPAWN_FAILED]: 'Failed to spawn PTY process',
-  [ERROR_CODES.PTY_WRITE_FAILED]: 'Failed to write to PTY',
-  [ERROR_CODES.PTY_RESIZE_FAILED]: 'Failed to resize PTY',
-  [ERROR_CODES.PTY_ALREADY_CLOSED]: 'PTY is already closed',
-  [ERROR_CODES.PTY_NOT_FOUND]: 'PTY not found',
+  [ERROR_CODES.TERMINAL_CONNECTION_FAILED]: 'Failed to connect to terminal',
+  [ERROR_CODES.TERMINAL_WRITE_FAILED]: 'Failed to write to terminal',
+  [ERROR_CODES.TERMINAL_RESIZE_FAILED]: 'Failed to resize terminal',
+  [ERROR_CODES.TERMINAL_ALREADY_CLOSED]: 'Terminal is already closed',
+  [ERROR_CODES.TERMINAL_NOT_FOUND]: 'Terminal not found',
 
   [ERROR_CODES.WS_CONNECTION_FAILED]: 'WebSocket connection failed',
   [ERROR_CODES.WS_MESSAGE_INVALID]: 'Invalid WebSocket message',

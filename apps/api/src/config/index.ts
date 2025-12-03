@@ -52,12 +52,10 @@ export function loadConfig(): AppConfig {
       refreshTokenExpirationSeconds: getEnvNumber('REFRESH_TOKEN_EXPIRATION_SECONDS', defaults.auth.refreshTokenExpirationSeconds),
       bcryptRounds: getEnvNumber('BCRYPT_ROUNDS', defaults.auth.bcryptRounds),
     },
-    pty: {
-      defaultShell: getEnvString('DEFAULT_SHELL', defaults.pty.defaultShell),
-      defaultCols: getEnvNumber('DEFAULT_COLS', defaults.pty.defaultCols),
-      defaultRows: getEnvNumber('DEFAULT_ROWS', defaults.pty.defaultRows),
-      scrollback: getEnvNumber('SCROLLBACK', defaults.pty.scrollback),
-      maxSessions: getEnvNumber('MAX_SESSIONS', defaults.pty.maxSessions),
+    tn3270: {
+      host: getEnvString('TN3270_HOST', defaults.tn3270.host),
+      port: getEnvNumber('TN3270_PORT', defaults.tn3270.port),
+      maxSessions: getEnvNumber('TN3270_MAX_SESSIONS', defaults.tn3270.maxSessions),
     },
   };
 }

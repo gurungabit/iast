@@ -21,9 +21,9 @@ import {
 export function createTerminalSession(userId: string, providedSessionId?: string): TerminalSession {
   // Check session limit
   const activeCount = getActiveSessionCount(userId);
-  if (activeCount >= config.pty.maxSessions) {
+  if (activeCount >= config.tn3270.maxSessions) {
     throw TerminalError.fromCode(ERROR_CODES.SESSION_LIMIT_EXCEEDED, {
-      maxSessions: config.pty.maxSessions,
+      maxSessions: config.tn3270.maxSessions,
       activeCount,
     });
   }

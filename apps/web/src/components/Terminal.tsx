@@ -1,16 +1,14 @@
 // ============================================================================
-// Terminal Component
+// Terminal Component - TN3270 Terminal
 // ============================================================================
 
 import { useEffect, useState, useRef } from 'react';
 import { useTerminal } from '../hooks/useTerminal';
 import type { ConnectionStatus } from '../types';
-import type { TerminalType } from '@terminal/shared';
 import '@xterm/xterm/css/xterm.css';
 
 interface TerminalProps {
   sessionId?: string;
-  terminalType?: TerminalType;
   autoConnect?: boolean;
   onStatusChange?: (status: ConnectionStatus) => void;
 }
@@ -83,7 +81,7 @@ function getStatusText(status: ConnectionStatus): string {
   }
 }
 
-export function Terminal({ sessionId, terminalType = 'pty', autoConnect = true, onStatusChange }: TerminalProps): React.ReactNode {
+export function Terminal({ sessionId, autoConnect = true, onStatusChange }: TerminalProps): React.ReactNode {
   const {
     terminalRef,
     status,
@@ -93,9 +91,8 @@ export function Terminal({ sessionId, terminalType = 'pty', autoConnect = true, 
     disconnect,
     focus,
     sendKey,
-  } = useTerminal({ sessionId, terminalType, autoConnect });
+  } = useTerminal({ sessionId, autoConnect });
 
-  const isTn3270 = terminalType === 'tn3270';
   const [keyMenuOpen, setKeyMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -128,7 +125,7 @@ export function Terminal({ sessionId, terminalType = 'pty', autoConnect = true, 
   };
 
   return (
-    <div className={`flex flex-col h-full bg-zinc-950 ${isTn3270 ? 'w-fit' : 'w-full'}`}>
+    <div className="flex flex-col h-full bg-zinc-950 w-fit">
       {/* Status bar */}
       <div className="flex items-center justify-between px-3 py-2 bg-zinc-900 border-b border-zinc-800 text-xs font-sans">
         <div className="flex items-center gap-3">
@@ -140,8 +137,8 @@ export function Terminal({ sessionId, terminalType = 'pty', autoConnect = true, 
             <span className="text-zinc-100 font-medium">{getStatusText(status)}</span>
           </div>
           
-          {/* PF/PA Keys Dropdown for TN3270 */}
-          {isTn3270 && status === 'connected' && (
+          {/* PF/PA Keys Dropdown */}
+          {status === 'connected' && (
             <div ref={menuRef} className="relative">
               <button
                 onClick={() => setKeyMenuOpen(!keyMenuOpen)}
@@ -204,11 +201,9 @@ export function Terminal({ sessionId, terminalType = 'pty', autoConnect = true, 
         </div>
 
         <div className="flex items-center gap-3">
-          {isTn3270 && (
-            <span className="text-zinc-300 text-[11px]">
-              Cursor: ({cursorPosition.row + 1},{cursorPosition.col + 1})
-            </span>
-          )}
+          <span className="text-zinc-300 text-[11px]">
+            Cursor: ({cursorPosition.row + 1},{cursorPosition.col + 1})
+          </span>
           <span className="text-zinc-400 text-[11px]">
             Session: {activeSessionId}
           </span>
@@ -235,7 +230,7 @@ export function Terminal({ sessionId, terminalType = 'pty', autoConnect = true, 
       {/* Terminal container */}
       <div
         ref={terminalRef}
-        className={`p-1 ${isTn3270 ? '' : 'flex-1 overflow-hidden'}`}
+        className="p-1"
         onClick={focus}
       />
     </div>

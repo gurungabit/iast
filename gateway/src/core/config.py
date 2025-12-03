@@ -21,21 +21,6 @@ class ValkeyConfig:
 
 
 @dataclass(frozen=True)
-class PTYConfig:
-    """PTY session configuration."""
-
-    shell: str = field(default_factory=lambda: os.getenv("PTY_SHELL", "/bin/zsh"))
-    cols: int = field(default_factory=lambda: int(os.getenv("PTY_COLS", "80")))
-    rows: int = field(default_factory=lambda: int(os.getenv("PTY_ROWS", "24")))
-    max_sessions: int = field(
-        default_factory=lambda: int(os.getenv("PTY_MAX_SESSIONS", "10"))
-    )
-    idle_timeout: int = field(
-        default_factory=lambda: int(os.getenv("PTY_IDLE_TIMEOUT", "3600"))
-    )
-
-
-@dataclass(frozen=True)
 class TN3270Config:
     """TN3270 terminal session configuration.
 
@@ -63,7 +48,6 @@ class Config:
     """Application configuration."""
 
     valkey: ValkeyConfig = field(default_factory=ValkeyConfig)
-    pty: PTYConfig = field(default_factory=PTYConfig)
     tn3270: TN3270Config = field(default_factory=TN3270Config)
 
 

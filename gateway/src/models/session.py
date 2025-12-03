@@ -26,7 +26,7 @@ class SessionCreateMeta(BaseModel):
 
 
 class SessionCreateMessage(BaseMessage):
-    """Request to create a PTY session."""
+    """Request to create a TN3270 session."""
 
     type: Literal[MessageType.SESSION_CREATE] = MessageType.SESSION_CREATE
     meta: SessionCreateMeta | None = None
@@ -38,7 +38,7 @@ class SessionCreateMessage(BaseMessage):
 
 
 class SessionDestroyMessage(BaseMessage):
-    """Request to destroy a PTY session."""
+    """Request to destroy a TN3270 session."""
 
     type: Literal[MessageType.SESSION_DESTROY] = MessageType.SESSION_DESTROY
     meta: dict[str, Any] | None = None
@@ -57,7 +57,7 @@ class SessionCreatedMeta(BaseModel):
 
 
 class SessionCreatedMessage(BaseMessage):
-    """PTY session created confirmation."""
+    """TN3270 session created confirmation."""
 
     type: Literal[MessageType.SESSION_CREATED] = MessageType.SESSION_CREATED
     meta: SessionCreatedMeta
@@ -88,7 +88,7 @@ class SessionDestroyedMeta(BaseModel):
 
 
 class SessionDestroyedMessage(BaseMessage):
-    """PTY session destroyed confirmation."""
+    """TN3270 session destroyed confirmation."""
 
     type: Literal[MessageType.SESSION_DESTROYED] = MessageType.SESSION_DESTROYED
     meta: SessionDestroyedMeta | None = None

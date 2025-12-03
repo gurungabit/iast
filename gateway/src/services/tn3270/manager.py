@@ -241,7 +241,7 @@ class TN3270Manager:
 
         except Exception as e:
             log.exception("Failed to create TN3270 session", session_id=session_id)
-            raise TerminalError(ErrorCodes.PTY_SPAWN_FAILED, str(e)) from e
+            raise TerminalError(ErrorCodes.TERMINAL_CONNECTION_FAILED, str(e)) from e
 
     def _create_tnz_connection(
         self,
@@ -376,7 +376,7 @@ class TN3270Manager:
         except Exception as e:
             log.exception("Process input error", session_id=session.session_id)
             error_msg = create_error_message(
-                session.session_id, ErrorCodes.PTY_WRITE_FAILED, str(e)
+                session.session_id, ErrorCodes.TERMINAL_WRITE_FAILED, str(e)
             )
             await self._valkey.publish_tn3270_output(
                 session.session_id, serialize_message(error_msg)

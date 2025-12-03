@@ -10,13 +10,11 @@ import {
   createErrorMessage,
   createPongMessage,
   isDataMessage,
-  isResizeMessage,
   isPingMessage,
   isSessionCreateMessage,
   isSessionDestroyMessage,
   TerminalError,
   ERROR_CODES,
-  type TerminalType,
 } from '@terminal/shared';
 import { verifyToken } from '../services/auth';
 import { createTerminalSession, endTerminalSession, touchSession } from '../services/session';
@@ -28,7 +26,6 @@ interface TerminalParams {
 
 interface TerminalQuery {
   token?: string;
-  type?: TerminalType;
 }
 
 export function terminalWebSocket(fastify: FastifyInstance): void {
@@ -40,7 +37,7 @@ export function terminalWebSocket(fastify: FastifyInstance): void {
     Querystring: TerminalQuery;
   }>) => {
     const { sessionId } = request.params;
-    const { token, type: terminalType = 'pty' } = request.query;
+    const { token } = request.query;
 
     let userId: string | null = null;
     let isAuthenticated = false;
@@ -89,18 +86,18 @@ export function terminalWebSocket(fastify: FastifyInstance): void {
 
     const valkey = getValkeyClient();
 
-    // Subscribe to terminal output (PTY or TN3270)
+    // Subscribe to TN3270 terminal output
     const handleOutput = (message: string): void => {
       if (socket.readyState === socket.OPEN) {
         socket.send(message);
       }
     };
 
-    valkey.subscribeToOutput(sessionId, handleOutput, terminalType).catch((err: unknown) => {
-      fastify.log.error({ err, terminalType }, 'Failed to subscribe to output');
+    valkey.subscribeToOutput(sessionId, handleOutput).catch((err: unknown) => {
+      fastify.log.error({ err }, 'Failed to subscribe to TN3270 output');
     });
 
-    fastify.log.info({ sessionId, terminalType }, 'Terminal WebSocket connected');
+    fastify.log.info({ sessionId }, 'TN3270 Terminal WebSocket connected');
 
     // Handle incoming messages
     socket.on('message', (data: Buffer) => {
@@ -109,36 +106,24 @@ export function terminalWebSocket(fastify: FastifyInstance): void {
         touchSession(sessionId);
 
         if (isDataMessage(message)) {
-          // Forward input to terminal (PTY or TN3270) via Valkey
-          valkey.publishInput(sessionId, message, terminalType).catch((err: unknown) => {
-            fastify.log.error({ err, terminalType }, 'Failed to publish input');
-          });
-        } else if (isResizeMessage(message)) {
-          // Forward resize to terminal via Valkey control channel
-          valkey.publishControl(sessionId, message, terminalType).catch((err: unknown) => {
-            fastify.log.error({ err, terminalType }, 'Failed to publish resize');
+          // Forward input to TN3270 terminal via Valkey
+          valkey.publishInput(sessionId, message).catch((err: unknown) => {
+            fastify.log.error({ err }, 'Failed to publish TN3270 input');
           });
         } else if (isPingMessage(message)) {
           // Respond with pong
           const pong = createPongMessage(sessionId);
           socket.send(serializeMessage(pong));
         } else if (isSessionCreateMessage(message)) {
-          // Forward session create to appropriate gateway control channel
-          fastify.log.info({ sessionId: message.sessionId, terminalType }, 'Forwarding session create to gateway');
-          
-          if (terminalType === 'tn3270') {
-            valkey.publishTn3270Control(message).catch((err: unknown) => {
-              fastify.log.error({ err }, 'Failed to publish TN3270 session create');
-            });
-          } else {
-            valkey.publishGatewayControl(message).catch((err: unknown) => {
-              fastify.log.error({ err }, 'Failed to publish session create');
-            });
-          }
+          // Forward session create to TN3270 gateway control channel
+          fastify.log.info({ sessionId: message.sessionId }, 'Forwarding session create to TN3270 gateway');
+          valkey.publishTn3270Control(message).catch((err: unknown) => {
+            fastify.log.error({ err }, 'Failed to publish TN3270 session create');
+          });
         } else if (isSessionDestroyMessage(message)) {
-          // Forward session destroy to gateway
-          valkey.publishControl(sessionId, message, terminalType).catch((err: unknown) => {
-            fastify.log.error({ err, terminalType }, 'Failed to publish session destroy');
+          // Forward session destroy to TN3270 gateway
+          valkey.publishControl(sessionId, message).catch((err: unknown) => {
+            fastify.log.error({ err }, 'Failed to publish TN3270 session destroy');
           });
         }
       } catch (err) {
@@ -154,8 +139,8 @@ export function terminalWebSocket(fastify: FastifyInstance): void {
 
     // Handle close
     socket.on('close', () => {
-      valkey.unsubscribeFromOutput(sessionId, terminalType).catch((err: unknown) => {
-        fastify.log.error({ err, terminalType }, 'Failed to unsubscribe');
+      valkey.unsubscribeFromOutput(sessionId).catch((err: unknown) => {
+        fastify.log.error({ err }, 'Failed to unsubscribe from TN3270');
       });
       endTerminalSession(sessionId, userId);
     });

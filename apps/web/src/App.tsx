@@ -2,14 +2,13 @@
 // Main App Component
 // ============================================================================
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useTheme } from './hooks/useTheme';
 import { Terminal } from './components/Terminal';
 import { LoginForm } from './components/LoginForm';
 import { RegisterForm } from './components/RegisterForm';
 import { ThemeToggle } from './components/ThemeToggle';
-import type { TerminalType } from '@terminal/shared';
 
 type AuthView = 'login' | 'register';
 
@@ -17,13 +16,6 @@ function App(): React.ReactNode {
   const { state: authState, login, register, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [authView, setAuthView] = useState<AuthView>('login');
-
-  // Read terminal type from URL query params
-  const terminalType = useMemo<TerminalType>(() => {
-    const params = new URLSearchParams(window.location.search);
-    const type = params.get('type');
-    return type === 'tn3270' ? 'tn3270' : 'pty';
-  }, []);
 
   // Show loading spinner while checking auth
   if (authState.isLoading) {
@@ -71,7 +63,7 @@ function App(): React.ReactNode {
       <header className="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800">
         <div className="flex items-center gap-3">
           <span className="text-lg font-semibold text-gray-900 dark:text-zinc-100">
-            {terminalType === 'tn3270' ? 'TN3270 Terminal' : 'Terminal'}
+            TN3270 Terminal
           </span>
         </div>
 
@@ -92,12 +84,11 @@ function App(): React.ReactNode {
       </header>
 
       {/* Terminal */}
-      <main className={`flex-1 overflow-auto flex ${terminalType === 'tn3270' ? 'p-4 gap-4' : ''}`}>
-        <Terminal terminalType={terminalType} autoConnect={true} />
+      <main className="flex-1 overflow-auto flex p-4 gap-4">
+        <Terminal autoConnect={true} />
         
         {/* Side panel for TN3270 */}
-        {terminalType === 'tn3270' && (
-          <div className="flex-1 min-w-[300px] p-4 rounded-lg border bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800">
+        <div className="flex-1 min-w-[300px] p-4 rounded-lg border bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800">
             <h2 className="text-base font-semibold mb-4 text-gray-900 dark:text-zinc-100">
               3270 Controls
             </h2>
@@ -179,7 +170,6 @@ function App(): React.ReactNode {
               </div>
             </div>
           </div>
-        )}
       </main>
     </div>
   );

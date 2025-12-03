@@ -2,28 +2,27 @@
 # Terminal Gateway Package
 # ============================================================================
 """
-PTY Gateway for terminal sessions.
+TN3270 Gateway for terminal sessions.
 
 Structure:
     src/
     ├── core/           # Configuration, errors, channels
     ├── models/         # Pydantic message models
-    ├── services/       # Valkey client, PTY manager
+    ├── services/       # Valkey client, TN3270 manager
     └── app.py          # Application entry point
 """
 
 from .app import main
 from .core import (
-    GATEWAY_CONTROL_CHANNEL,
+    TN3270_CONTROL_CHANNEL,
     Config,
     ErrorCodes,
-    PTYConfig,
+    TN3270Config,
     TerminalError,
     ValkeyConfig,
     get_config,
-    get_pty_control_channel,
-    get_pty_input_channel,
-    get_pty_output_channel,
+    get_tn3270_input_channel,
+    get_tn3270_output_channel,
 )
 from .models import (
     DataMessage,
@@ -45,13 +44,14 @@ from .models import (
     serialize_message,
 )
 from .services import (
-    PTYManager,
-    PTYSession,
+    TN3270Manager,
+    TN3270Session,
+    TN3270Renderer,
     ValkeyClient,
     close_valkey_client,
-    get_pty_manager,
+    get_tn3270_manager,
     get_valkey_client,
-    init_pty_manager,
+    init_tn3270_manager,
     init_valkey_client,
 )
 
@@ -59,14 +59,13 @@ __all__ = [
     # App
     "main",
     # Channels
-    "get_pty_input_channel",
-    "get_pty_output_channel",
-    "get_pty_control_channel",
-    "GATEWAY_CONTROL_CHANNEL",
+    "get_tn3270_input_channel",
+    "get_tn3270_output_channel",
+    "TN3270_CONTROL_CHANNEL",
     # Config
     "Config",
     "ValkeyConfig",
-    "PTYConfig",
+    "TN3270Config",
     "get_config",
     # Errors
     "ErrorCodes",
@@ -89,11 +88,12 @@ __all__ = [
     "create_error_message",
     "create_session_created_message",
     "create_session_destroyed_message",
-    # PTY Manager
-    "PTYManager",
-    "PTYSession",
-    "get_pty_manager",
-    "init_pty_manager",
+    # TN3270 Manager
+    "TN3270Manager",
+    "TN3270Session",
+    "TN3270Renderer",
+    "get_tn3270_manager",
+    "init_tn3270_manager",
     # Valkey Client
     "ValkeyClient",
     "get_valkey_client",

@@ -1,5 +1,5 @@
 # ============================================================================
-# PTY Gateway Application
+# TN3270 Gateway Application
 # ============================================================================
 
 import asyncio
@@ -10,9 +10,7 @@ import structlog
 from .core import get_config
 from .services import (
     close_valkey_client,
-    get_pty_manager,
     get_tn3270_manager,
-    init_pty_manager,
     init_tn3270_manager,
     init_valkey_client,
 )
@@ -44,13 +42,6 @@ async def shutdown(sig: signal.Signals | None = None) -> None:
     else:
         log.info("Shutting down")
 
-    # Destroy all PTY sessions
-    try:
-        pty_manager = get_pty_manager()
-        await pty_manager.destroy_all_sessions()
-    except RuntimeError:
-        pass
-
     # Destroy all TN3270 sessions
     try:
         tn3270_manager = get_tn3270_manager()
@@ -76,10 +67,9 @@ async def async_main() -> None:
     config = get_config()
 
     log.info(
-        "Starting PTY Gateway",
+        "Starting TN3270 Gateway",
         valkey_host=config.valkey.host,
         valkey_port=config.valkey.port,
-        pty_max_sessions=config.pty.max_sessions,
         tn3270_host=config.tn3270.host,
         tn3270_port=config.tn3270.port,
         tn3270_max_sessions=config.tn3270.max_sessions,
@@ -88,13 +78,12 @@ async def async_main() -> None:
     # Initialize Valkey client
     valkey = await init_valkey_client(config.valkey)
 
-    # Initialize PTY manager and start listening
-    pty_manager = init_pty_manager(config.pty, valkey)
-    await pty_manager.start()
-
     # Initialize TN3270 manager and start listening
     tn3270_manager = init_tn3270_manager(config.tn3270, valkey)
     await tn3270_manager.start()
+
+    # Start the Valkey message listener
+    await valkey.start_listening()
 
     # Setup signal handlers
     loop = asyncio.get_running_loop()
@@ -105,7 +94,7 @@ async def async_main() -> None:
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, handle_signal, sig)
 
-    log.info("PTY Gateway ready, waiting for connections...")
+    log.info("TN3270 Gateway ready, waiting for connections...")
 
     # Keep running until shutdown
     await _shutdown_event.wait()

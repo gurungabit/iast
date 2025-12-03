@@ -88,7 +88,7 @@ export interface ErrorMessage extends BaseMessageEnvelope {
 // Session Messages
 // ============================================================================
 
-export type TerminalType = 'pty' | 'tn3270';
+export type TerminalType = 'tn3270';
 
 export interface SessionCreateMeta {
   terminalType?: TerminalType;

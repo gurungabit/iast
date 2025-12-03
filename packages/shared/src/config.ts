@@ -26,11 +26,9 @@ export interface AuthConfig {
   bcryptRounds: number;
 }
 
-export interface PtyConfig {
-  defaultShell: string;
-  defaultCols: number;
-  defaultRows: number;
-  scrollback: number;
+export interface TN3270Config {
+  host: string;
+  port: number;
   maxSessions: number;
 }
 
@@ -40,7 +38,7 @@ export interface AppConfig {
   server: ServerConfig;
   valkey: ValkeyConfig;
   auth: AuthConfig;
-  pty: PtyConfig;
+  tn3270: TN3270Config;
 }
 
 // ============================================================================
@@ -68,11 +66,9 @@ export const DEFAULT_AUTH_CONFIG: AuthConfig = {
   bcryptRounds: 12,
 };
 
-export const DEFAULT_PTY_CONFIG: PtyConfig = {
-  defaultShell: '/bin/bash',
-  defaultCols: 80,
-  defaultRows: 24,
-  scrollback: 10000,
+export const DEFAULT_TN3270_CONFIG: TN3270Config = {
+  host: 'localhost',
+  port: 3270,
   maxSessions: 10,
 };
 
@@ -83,6 +79,6 @@ export function getDefaultConfig(): AppConfig {
     server: { ...DEFAULT_SERVER_CONFIG },
     valkey: { ...DEFAULT_VALKEY_CONFIG },
     auth: { ...DEFAULT_AUTH_CONFIG },
-    pty: { ...DEFAULT_PTY_CONFIG },
+    tn3270: { ...DEFAULT_TN3270_CONFIG },
   };
 }

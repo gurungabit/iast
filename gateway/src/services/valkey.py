@@ -10,12 +10,8 @@ import redis.asyncio as redis
 import structlog
 
 from ..core import (
-    GATEWAY_CONTROL_CHANNEL,
     TN3270_CONTROL_CHANNEL,
     ValkeyConfig,
-    get_pty_control_channel,
-    get_pty_input_channel,
-    get_pty_output_channel,
     get_tn3270_input_channel,
     get_tn3270_output_channel,
 )
@@ -24,7 +20,7 @@ log = structlog.get_logger()
 
 
 class ValkeyClient:
-    """Async Valkey/Redis client for PTY and TN3270 communication."""
+    """Async Valkey/Redis client for TN3270 communication."""
 
     def __init__(self, config: ValkeyConfig) -> None:
         self._config = config
@@ -68,19 +64,6 @@ class ValkeyClient:
 
         log.info("Disconnected from Valkey")
 
-    async def subscribe_to_gateway_control(
-        self,
-        handler: Callable[[str], Coroutine[Any, Any, None]],
-    ) -> None:
-        """Subscribe to the global gateway control channel for PTY session creation."""
-        self._handlers[GATEWAY_CONTROL_CHANNEL] = handler
-
-        if self._pubsub:
-            await self._pubsub.subscribe(GATEWAY_CONTROL_CHANNEL)
-            log.info(
-                "Subscribed to gateway control channel", channel=GATEWAY_CONTROL_CHANNEL
-            )
-
     async def subscribe_to_tn3270_control(
         self,
         handler: Callable[[str], Coroutine[Any, Any, None]],
@@ -94,56 +77,6 @@ class ValkeyClient:
                 "Subscribed to TN3270 control channel",
                 channel=TN3270_CONTROL_CHANNEL,
             )
-
-    async def subscribe_to_input(
-        self,
-        session_id: str,
-        handler: Callable[[str], Coroutine[Any, Any, None]],
-    ) -> None:
-        """Subscribe to input channel for a session."""
-        channel = get_pty_input_channel(session_id)
-        self._handlers[channel] = handler
-
-        if self._pubsub:
-            await self._pubsub.subscribe(channel)
-            log.debug("Subscribed to input", session_id=session_id, channel=channel)
-
-    async def subscribe_to_control(
-        self,
-        session_id: str,
-        handler: Callable[[str], Coroutine[Any, Any, None]],
-    ) -> None:
-        """Subscribe to control channel for a session."""
-        channel = get_pty_control_channel(session_id)
-        self._handlers[channel] = handler
-
-        if self._pubsub:
-            await self._pubsub.subscribe(channel)
-            log.debug("Subscribed to control", session_id=session_id, channel=channel)
-
-    async def unsubscribe_session(self, session_id: str) -> None:
-        """Unsubscribe from all channels for a session."""
-        input_channel = get_pty_input_channel(session_id)
-        control_channel = get_pty_control_channel(session_id)
-
-        if self._pubsub:
-            await self._pubsub.unsubscribe(input_channel, control_channel)
-
-        self._handlers.pop(input_channel, None)
-        self._handlers.pop(control_channel, None)
-
-        log.debug("Unsubscribed session", session_id=session_id)
-
-    async def unsubscribe_tn3270_session(self, session_id: str) -> None:
-        """Unsubscribe from all TN3270 channels for a session."""
-        input_channel = get_tn3270_input_channel(session_id)
-
-        if self._pubsub:
-            await self._pubsub.unsubscribe(input_channel)
-
-        self._handlers.pop(input_channel, None)
-
-        log.debug("Unsubscribed TN3270 session", session_id=session_id)
 
     async def subscribe_to_tn3270_input(
         self,
@@ -160,13 +93,16 @@ class ValkeyClient:
                 "Subscribed to TN3270 input", session_id=session_id, channel=channel
             )
 
-    async def publish_output(self, session_id: str, data: str) -> None:
-        """Publish output to a session's PTY output channel."""
-        if not self._publisher:
-            return
+    async def unsubscribe_tn3270_session(self, session_id: str) -> None:
+        """Unsubscribe from all TN3270 channels for a session."""
+        input_channel = get_tn3270_input_channel(session_id)
 
-        channel = get_pty_output_channel(session_id)
-        await self._publisher.publish(channel, data)
+        if self._pubsub:
+            await self._pubsub.unsubscribe(input_channel)
+
+        self._handlers.pop(input_channel, None)
+
+        log.debug("Unsubscribed TN3270 session", session_id=session_id)
 
     async def publish_tn3270_output(self, session_id: str, data: str) -> None:
         """Publish output to a session's TN3270 output channel."""

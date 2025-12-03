@@ -5,16 +5,12 @@
 import Redis from 'ioredis';
 import { config } from '../config';
 import {
-  getPtyInputChannel,
-  getPtyOutputChannel,
-  getPtyControlChannel,
   getTn3270InputChannel,
   getTn3270OutputChannel,
   getTn3270ControlChannel,
   getGatewayControlChannel,
   getSessionsChannel,
   type MessageEnvelope,
-  type TerminalType,
   serializeMessage,
 } from '@terminal/shared';
 
@@ -59,25 +55,20 @@ export class ValkeyClient {
     });
   }
 
-  // PTY channel methods
-  async publishInput(sessionId: string, message: MessageEnvelope, terminalType: TerminalType = 'pty'): Promise<void> {
-    const channel = terminalType === 'tn3270' 
-      ? getTn3270InputChannel(sessionId) 
-      : getPtyInputChannel(sessionId);
+  // TN3270 channel methods
+  async publishInput(sessionId: string, message: MessageEnvelope): Promise<void> {
+    const channel = getTn3270InputChannel(sessionId);
     await this.publisher.publish(channel, serializeMessage(message));
   }
 
-  async publishOutput(sessionId: string, message: MessageEnvelope, terminalType: TerminalType = 'pty'): Promise<void> {
-    const channel = terminalType === 'tn3270'
-      ? getTn3270OutputChannel(sessionId)
-      : getPtyOutputChannel(sessionId);
+  async publishOutput(sessionId: string, message: MessageEnvelope): Promise<void> {
+    const channel = getTn3270OutputChannel(sessionId);
     await this.publisher.publish(channel, serializeMessage(message));
   }
 
-  async publishControl(sessionId: string, message: MessageEnvelope, terminalType: TerminalType = 'pty'): Promise<void> {
-    const channel = terminalType === 'tn3270'
-      ? getTn3270InputChannel(sessionId)  // TN3270 uses input channel for control
-      : getPtyControlChannel(sessionId);
+  async publishControl(sessionId: string, message: MessageEnvelope): Promise<void> {
+    // TN3270 uses input channel for control messages
+    const channel = getTn3270InputChannel(sessionId);
     await this.publisher.publish(channel, serializeMessage(message));
   }
 
@@ -96,18 +87,14 @@ export class ValkeyClient {
     await this.publisher.publish(channel, serializeMessage(message));
   }
 
-  async subscribeToOutput(sessionId: string, handler: (message: string) => void, terminalType: TerminalType = 'pty'): Promise<void> {
-    const channel = terminalType === 'tn3270'
-      ? getTn3270OutputChannel(sessionId)
-      : getPtyOutputChannel(sessionId);
+  async subscribeToOutput(sessionId: string, handler: (message: string) => void): Promise<void> {
+    const channel = getTn3270OutputChannel(sessionId);
     this.sessionSubscribers.set(sessionId, handler);
     await this.subscriber.subscribe(channel);
   }
 
-  async unsubscribeFromOutput(sessionId: string, terminalType: TerminalType = 'pty'): Promise<void> {
-    const channel = terminalType === 'tn3270'
-      ? getTn3270OutputChannel(sessionId)
-      : getPtyOutputChannel(sessionId);
+  async unsubscribeFromOutput(sessionId: string): Promise<void> {
+    const channel = getTn3270OutputChannel(sessionId);
     this.sessionSubscribers.delete(sessionId);
     await this.subscriber.unsubscribe(channel);
   }

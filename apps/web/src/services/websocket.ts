@@ -1,14 +1,12 @@
 // ============================================================================
-// WebSocket Service - Terminal Communication
+// WebSocket Service - TN3270 Terminal Communication
 // ============================================================================
 
 import { config } from '../config';
 import type { ConnectionStatus } from '../types';
 import {
   type MessageEnvelope,
-  type TerminalType,
   createDataMessage,
-  createResizeMessage,
   createPingMessage,
   createSessionCreateMessage,
   createSessionDestroyMessage,
@@ -26,7 +24,6 @@ export type WebSocketEventHandler = {
 export class TerminalWebSocket {
   private ws: WebSocket | null = null;
   private sessionId: string;
-  private terminalType: TerminalType;
   private handlers: WebSocketEventHandler;
   private reconnectAttempts = 0;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -34,10 +31,9 @@ export class TerminalWebSocket {
   private isClosing = false;
   private seq = 0;
 
-  constructor(sessionId: string, handlers: WebSocketEventHandler, terminalType: TerminalType = 'pty') {
+  constructor(sessionId: string, handlers: WebSocketEventHandler) {
     this.sessionId = sessionId;
     this.handlers = handlers;
-    this.terminalType = terminalType;
   }
 
   connect(): void {
@@ -51,7 +47,6 @@ export class TerminalWebSocket {
     const token = getStoredToken();
     const params = new URLSearchParams();
     if (token) params.set('token', token);
-    if (this.terminalType !== 'pty') params.set('type', this.terminalType);
     const queryString = params.toString();
     const url = `${config.wsBaseUrl}/terminal/${this.sessionId}${queryString ? `?${queryString}` : ''}`;
 
@@ -75,11 +70,11 @@ export class TerminalWebSocket {
       this.handlers.onStatusChange('connected');
       this.startHeartbeat();
 
-      // Send session create message
+      // Send session create message for TN3270 terminal
       const createMsg = createSessionCreateMessage(this.sessionId, {
-        terminalType: this.terminalType,
-        cols: config.terminal.defaultCols,
-        rows: config.terminal.defaultRows,
+        terminalType: 'tn3270',
+        cols: 80,
+        rows: 43,
       });
       this.sendRaw(serializeMessage(createMsg));
     };
@@ -160,12 +155,6 @@ export class TerminalWebSocket {
     this.sendRaw(serializeMessage(message));
   }
 
-  sendResize(cols: number, rows: number): void {
-    const message = createResizeMessage(this.sessionId, cols, rows);
-    message.seq = ++this.seq;
-    this.sendRaw(serializeMessage(message));
-  }
-
   disconnect(): void {
     this.isClosing = true;
 
@@ -200,8 +189,7 @@ export class TerminalWebSocket {
 
 export function createTerminalWebSocket(
   sessionId: string,
-  handlers: WebSocketEventHandler,
-  terminalType: TerminalType = 'pty'
+  handlers: WebSocketEventHandler
 ): TerminalWebSocket {
-  return new TerminalWebSocket(sessionId, handlers, terminalType);
+  return new TerminalWebSocket(sessionId, handlers);
 }

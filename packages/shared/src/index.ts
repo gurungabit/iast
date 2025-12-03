@@ -6,9 +6,6 @@
 export {
   CHANNEL_PREFIX,
   type ChannelPrefix,
-  getPtyInputChannel,
-  getPtyOutputChannel,
-  getPtyControlChannel,
   getTn3270InputChannel,
   getTn3270OutputChannel,
   getTn3270ControlChannel,
@@ -108,12 +105,12 @@ export {
   type ServerConfig,
   type ValkeyConfig,
   type AuthConfig,
-  type PtyConfig,
+  type TN3270Config,
   type AppConfig,
   DEFAULT_SERVER_CONFIG,
   DEFAULT_VALKEY_CONFIG,
   DEFAULT_AUTH_CONFIG,
-  DEFAULT_PTY_CONFIG,
+  DEFAULT_TN3270_CONFIG,
   getDefaultConfig,
 } from './config';
 
