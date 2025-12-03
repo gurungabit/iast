@@ -5,12 +5,19 @@
 import { useEffect, useState, useRef } from 'react';
 import { useTerminal } from '../hooks/useTerminal';
 import type { ConnectionStatus } from '../types';
+import type { ASTStatusMeta } from '@terminal/shared';
 import '@xterm/xterm/css/xterm.css';
+
+interface TerminalApi {
+  runAST: (astName: string, params?: Record<string, unknown>) => void;
+}
 
 interface TerminalProps {
   sessionId?: string;
   autoConnect?: boolean;
   onStatusChange?: (status: ConnectionStatus) => void;
+  onReady?: (api: TerminalApi) => void;
+  onASTStatus?: (status: ASTStatusMeta) => void;
 }
 
 // PF and PA key definitions
@@ -81,7 +88,7 @@ function getStatusText(status: ConnectionStatus): string {
   }
 }
 
-export function Terminal({ sessionId, autoConnect = true, onStatusChange }: TerminalProps): React.ReactNode {
+export function Terminal({ sessionId, autoConnect = true, onStatusChange, onReady, onASTStatus }: TerminalProps): React.ReactNode {
   const {
     terminalRef,
     status,
@@ -91,7 +98,13 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange }: Term
     disconnect,
     focus,
     sendKey,
-  } = useTerminal({ sessionId, autoConnect });
+    runAST,
+  } = useTerminal({ sessionId, autoConnect, onASTStatus });
+
+  // Expose API to parent
+  useEffect(() => {
+    onReady?.({ runAST });
+  }, [onReady, runAST]);
 
   const [keyMenuOpen, setKeyMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -202,7 +215,7 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange }: Term
 
         <div className="flex items-center gap-3">
           <span className="text-zinc-300 text-[11px]">
-            Cursor: ({cursorPosition.row + 1},{cursorPosition.col + 1})
+            Cursor: ({cursorPosition.row},{cursorPosition.col})
           </span>
           <span className="text-zinc-400 text-[11px]">
             Session: {activeSessionId}

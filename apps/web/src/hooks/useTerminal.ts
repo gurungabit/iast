@@ -15,12 +15,14 @@ import {
 import {
   type MessageEnvelope,
   type TN3270Field,
+  type ASTStatusMeta,
   isDataMessage,
   isErrorMessage,
   isSessionCreatedMessage,
   isSessionDestroyedMessage,
   isPongMessage,
   isTN3270ScreenMessage,
+  isASTStatusMessage,
 } from '@terminal/shared';
 import { generateSessionId } from '@terminal/shared';
 import {
@@ -31,6 +33,8 @@ import {
 export interface UseTerminalOptions {
   sessionId?: string;
   autoConnect?: boolean;
+  /** Callback when AST status is received */
+  onASTStatus?: (status: ASTStatusMeta) => void;
 }
 
 export interface UseTerminalReturn {
@@ -53,6 +57,8 @@ export interface UseTerminalReturn {
   moveCursor: (row: number, col: number) => void;
   /** Check if a position is in an input field */
   isInputPosition: (row: number, col: number) => boolean;
+  /** Run an AST (Automated Streamlined Transaction) */
+  runAST: (astName: string, params?: Record<string, unknown>) => void;
 }
 
 // TN3270 uses fixed 80x43 (IBM-3278-4-E)
@@ -60,7 +66,7 @@ const FIXED_COLS = 80;
 const FIXED_ROWS = 43;
 
 export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn {
-  const { autoConnect = true } = options;
+  const { autoConnect = true, onASTStatus } = options;
 
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const terminalInstance = useRef<Terminal | null>(null);
@@ -109,8 +115,11 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
       terminalInstance.current.write(`\r\n\x1b[33mSession ended\x1b[0m\r\n`);
     } else if (isPongMessage(message)) {
       // Heartbeat response, ignore
+    } else if (isASTStatusMessage(message)) {
+      // Forward AST status to the callback
+      onASTStatus?.(message.meta);
     }
-  }, []);
+  }, [onASTStatus]);
 
   // Handle status changes
   const handleStatusChange = useCallback((newStatus: ConnectionStatus): void => {
@@ -318,6 +327,11 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
     setCursorPosition({ row, col });
   }, []);
 
+  // Run an AST (Automated Streamlined Transaction)
+  const runAST = useCallback((astName: string, params?: Record<string, unknown>): void => {
+    wsRef.current?.sendASTRun(astName, params);
+  }, []);
+
   return {
     terminalRef,
     status,
@@ -334,5 +348,6 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
     focus,
     moveCursor,
     isInputPosition,
+    runAST,
   };
 }

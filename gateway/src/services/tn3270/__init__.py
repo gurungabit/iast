@@ -2,6 +2,7 @@
 # TN3270 Service - 3270 Terminal Emulation via tnz
 # ============================================================================
 
+from .host import Host, ScreenField, ScreenPosition
 from .manager import (
     TN3270Manager,
     TN3270Session,
@@ -11,6 +12,9 @@ from .manager import (
 from .renderer import TN3270Renderer
 
 __all__ = [
+    "Host",
+    "ScreenField",
+    "ScreenPosition",
     "TN3270Manager",
     "TN3270Session",
     "TN3270Renderer",

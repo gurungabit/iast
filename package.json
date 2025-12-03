@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "./scripts/dev.sh",
+    "app": "./scripts/dev.sh app",
     "dev:web": "pnpm --filter @terminal/web dev",
     "dev:api": "pnpm --filter @terminal/api dev",
     "dev:gateway": "cd gateway && uv run gateway",

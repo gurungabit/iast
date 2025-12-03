@@ -33,6 +33,8 @@ class MessageType(StrEnum):
     SESSION_DESTROYED = "session.destroyed"
     TN3270_SCREEN = "tn3270.screen"
     TN3270_CURSOR = "tn3270.cursor"
+    AST_RUN = "ast.run"
+    AST_STATUS = "ast.status"
 
 
 # Type alias for all message types

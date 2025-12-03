@@ -13,6 +13,7 @@ import {
   isPingMessage,
   isSessionCreateMessage,
   isSessionDestroyMessage,
+  isASTRunMessage,
   TerminalError,
   ERROR_CODES,
 } from '@terminal/shared';
@@ -109,6 +110,12 @@ export function terminalWebSocket(fastify: FastifyInstance): void {
           // Forward input to TN3270 terminal via Valkey
           valkey.publishInput(sessionId, message).catch((err: unknown) => {
             fastify.log.error({ err }, 'Failed to publish TN3270 input');
+          });
+        } else if (isASTRunMessage(message)) {
+          // Forward AST run request to TN3270 gateway via input channel
+          fastify.log.info({ sessionId, astName: message.meta.astName }, 'Forwarding AST run request');
+          valkey.publishInput(sessionId, message).catch((err: unknown) => {
+            fastify.log.error({ err }, 'Failed to publish AST run request');
           });
         } else if (isPingMessage(message)) {
           // Respond with pong

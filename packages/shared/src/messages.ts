@@ -13,7 +13,9 @@ export type MessageType =
   | 'session.created'
   | 'session.destroyed'
   | 'tn3270.screen'
-  | 'tn3270.cursor';
+  | 'tn3270.cursor'
+  | 'ast.run'
+  | 'ast.status';
 
 export type Encoding = 'utf-8' | 'base64';
 
@@ -194,6 +196,46 @@ export interface TN3270CursorMessage extends BaseMessageEnvelope {
 }
 
 // ============================================================================
+// AST Messages - Automated Streamlined Transactions
+// ============================================================================
+
+export type ASTStatusType = 'pending' | 'running' | 'success' | 'failed' | 'timeout';
+
+export interface ASTRunMeta {
+  /** Name of the AST to run */
+  astName: string;
+  /** Optional parameters for the AST */
+  params?: Record<string, unknown>;
+}
+
+export interface ASTRunMessage extends BaseMessageEnvelope {
+  type: 'ast.run';
+  payload: string;
+  meta: ASTRunMeta;
+}
+
+export interface ASTStatusMeta {
+  /** Name of the AST */
+  astName: string;
+  /** Current status */
+  status: ASTStatusType;
+  /** Optional message */
+  message?: string;
+  /** Optional error details */
+  error?: string;
+  /** Execution duration in seconds */
+  duration?: number;
+  /** Additional data from the AST */
+  data?: Record<string, unknown>;
+}
+
+export interface ASTStatusMessage extends BaseMessageEnvelope {
+  type: 'ast.status';
+  payload: string;
+  meta: ASTStatusMeta;
+}
+
+// ============================================================================
 // Union Type
 // ============================================================================
 
@@ -208,7 +250,9 @@ export type MessageEnvelope =
   | SessionCreatedMessage
   | SessionDestroyedMessage
   | TN3270ScreenMessage
-  | TN3270CursorMessage;
+  | TN3270CursorMessage
+  | ASTRunMessage
+  | ASTStatusMessage;
 
 // ============================================================================
 // Type Guards
@@ -256,6 +300,14 @@ export function isTN3270ScreenMessage(msg: MessageEnvelope): msg is TN3270Screen
 
 export function isTN3270CursorMessage(msg: MessageEnvelope): msg is TN3270CursorMessage {
   return msg.type === 'tn3270.cursor';
+}
+
+export function isASTRunMessage(msg: MessageEnvelope): msg is ASTRunMessage {
+  return msg.type === 'ast.run';
+}
+
+export function isASTStatusMessage(msg: MessageEnvelope): msg is ASTStatusMessage {
+  return msg.type === 'ast.status';
 }
 
 // ============================================================================
@@ -430,6 +482,51 @@ export function createTN3270CursorMessage(
     encoding: 'utf-8',
     seq: getNextSeq(),
     meta: { row, col },
+  };
+}
+
+export function createASTRunMessage(
+  sessionId: string,
+  astName: string,
+  params?: Record<string, unknown>
+): ASTRunMessage {
+  return {
+    type: 'ast.run',
+    sessionId,
+    payload: '',
+    timestamp: Date.now(),
+    encoding: 'utf-8',
+    seq: getNextSeq(),
+    meta: { astName, params },
+  };
+}
+
+export function createASTStatusMessage(
+  sessionId: string,
+  astName: string,
+  status: ASTStatusType,
+  options?: {
+    message?: string;
+    error?: string;
+    duration?: number;
+    data?: Record<string, unknown>;
+  }
+): ASTStatusMessage {
+  return {
+    type: 'ast.status',
+    sessionId,
+    payload: options?.message || '',
+    timestamp: Date.now(),
+    encoding: 'utf-8',
+    seq: getNextSeq(),
+    meta: {
+      astName,
+      status,
+      message: options?.message,
+      error: options?.error,
+      duration: options?.duration,
+      data: options?.data,
+    },
   };
 }
 

@@ -10,6 +10,7 @@ import {
   createPingMessage,
   createSessionCreateMessage,
   createSessionDestroyMessage,
+  createASTRunMessage,
   serializeMessage,
   deserializeMessage,
 } from '@terminal/shared';
@@ -151,6 +152,12 @@ export class TerminalWebSocket {
 
   sendData(data: string): void {
     const message = createDataMessage(this.sessionId, data);
+    message.seq = ++this.seq;
+    this.sendRaw(serializeMessage(message));
+  }
+
+  sendASTRun(astName: string, params?: Record<string, unknown>): void {
+    const message = createASTRunMessage(this.sessionId, astName, params);
     message.seq = ++this.seq;
     this.sendRaw(serializeMessage(message));
   }

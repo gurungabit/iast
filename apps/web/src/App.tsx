@@ -2,20 +2,59 @@
 // Main App Component
 // ============================================================================
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useTheme } from './hooks/useTheme';
+import { useAST } from './hooks/useAST';
 import { Terminal } from './components/Terminal';
 import { LoginForm } from './components/LoginForm';
 import { RegisterForm } from './components/RegisterForm';
 import { ThemeToggle } from './components/ThemeToggle';
+import { ASTProvider } from './providers/ASTProvider';
+import { ASTPanel } from './ast';
+import type { ASTStatusMeta } from '@terminal/shared';
 
 type AuthView = 'login' | 'register';
 
-function App(): React.ReactNode {
+interface TerminalApi {
+  runAST: (astName: string, params?: Record<string, unknown>) => void;
+}
+
+// ============================================================================
+// Main Content Component (uses AST context)
+// ============================================================================
+
+function MainContent(): React.ReactNode {
   const { state: authState, login, register, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { setRunCallback, handleASTComplete } = useAST();
   const [authView, setAuthView] = useState<AuthView>('login');
+
+  const handleTerminalReady = useCallback(
+    (api: TerminalApi) => {
+      // Connect terminal's runAST to AST context
+      setRunCallback(api.runAST);
+    },
+    [setRunCallback]
+  );
+
+  const handleASTStatus = useCallback(
+    (status: ASTStatusMeta) => {
+      // Map ASTStatusType to local ASTStatus type
+      // 'pending' from backend maps to 'running' in UI (we're waiting for completion)
+      const mappedStatus = status.status === 'pending' ? 'running' : status.status;
+      
+      // Convert ASTStatusMeta to ASTResult and forward to context
+      handleASTComplete({
+        status: mappedStatus,
+        message: status.message,
+        error: status.error,
+        duration: status.duration,
+        data: status.data,
+      });
+    },
+    [handleASTComplete]
+  );
 
   // Show loading spinner while checking auth
   if (authState.isLoading) {
@@ -83,95 +122,28 @@ function App(): React.ReactNode {
         </div>
       </header>
 
-      {/* Terminal */}
+      {/* Terminal + AST Panel */}
       <main className="flex-1 overflow-auto flex p-4 gap-4">
-        <Terminal autoConnect={true} />
-        
-        {/* Side panel for TN3270 */}
-        <div className="flex-1 min-w-[300px] p-4 rounded-lg border bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-800">
-            <h2 className="text-base font-semibold mb-4 text-gray-900 dark:text-zinc-100">
-              3270 Controls
-            </h2>
-            
-            {/* Function Keys */}
-            <div className="mb-5">
-              <h3 className="text-xs uppercase mb-2 text-gray-500 dark:text-zinc-500">
-                Function Keys
-              </h3>
-              <div className="grid grid-cols-4 gap-1">
-                {['PF1', 'PF2', 'PF3', 'PF4', 'PF5', 'PF6', 'PF7', 'PF8', 'PF9', 'PF10', 'PF11', 'PF12'].map((key) => (
-                  <button
-                    key={key}
-                    className="py-1.5 px-2 text-xs rounded border cursor-pointer transition-colors
-                      bg-gray-200 dark:bg-zinc-800 text-gray-800 dark:text-zinc-200
-                      border-gray-300 dark:border-zinc-700
-                      hover:bg-gray-300 dark:hover:bg-zinc-700"
-                  >
-                    {key}
-                  </button>
-                ))}
-              </div>
-            </div>
+        <Terminal autoConnect={true} onReady={handleTerminalReady} onASTStatus={handleASTStatus} />
 
-            {/* Action Keys */}
-            <div className="mb-5">
-              <h3 className="text-xs uppercase mb-2 text-gray-500 dark:text-zinc-500">
-                Actions
-              </h3>
-              <div className="flex flex-wrap gap-1">
-                {['Enter', 'Clear', 'PA1', 'PA2', 'Attn', 'Reset'].map((key) => (
-                  <button
-                    key={key}
-                    className="py-1.5 px-3 text-xs rounded border cursor-pointer transition-colors
-                      bg-gray-200 dark:bg-zinc-800 text-gray-800 dark:text-zinc-200
-                      border-gray-300 dark:border-zinc-700
-                      hover:bg-gray-300 dark:hover:bg-zinc-700"
-                  >
-                    {key}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Connection Info */}
-            <div className="mb-5">
-              <h3 className="text-xs uppercase mb-2 text-gray-500 dark:text-zinc-500">
-                Connection
-              </h3>
-              <div className="text-sm text-gray-600 dark:text-zinc-400 space-y-1">
-                <div>Host: localhost:3270</div>
-                <div>Terminal: IBM-3278-4-E</div>
-                <div>Size: 80×43</div>
-              </div>
-            </div>
-
-            {/* Keyboard Shortcuts */}
-            <div>
-              <h3 className="text-xs uppercase mb-2 text-gray-500 dark:text-zinc-500">
-                Keyboard Shortcuts
-              </h3>
-              <div className="text-xs text-gray-600 dark:text-zinc-400 space-y-1">
-                <div className="flex justify-between">
-                  <span>F1-F12</span>
-                  <span className="text-gray-400 dark:text-zinc-600">PF1-PF12</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Shift+F1-F12</span>
-                  <span className="text-gray-400 dark:text-zinc-600">PF13-PF24</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Insert</span>
-                  <span className="text-gray-400 dark:text-zinc-600">Clear</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Ctrl+C</span>
-                  <span className="text-gray-400 dark:text-zinc-600">Attn</span>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Side panel for AST controls */}
+        <div className="w-[300px] flex-shrink-0">
+          <ASTPanel />
+        </div>
       </main>
     </div>
+  );
+}
+
+// ============================================================================
+// App Component (wraps with providers)
+// ============================================================================
+
+function App(): React.ReactNode {
+  return (
+    <ASTProvider>
+      <MainContent />
+    </ASTProvider>
   );
 }
 

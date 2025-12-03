@@ -9,6 +9,12 @@ set -e
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
+# Check if running in app-only mode (no gateway)
+APP_ONLY=false
+if [ "$1" = "app" ]; then
+    APP_ONLY=true
+fi
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -31,7 +37,7 @@ cleanup() {
     if [ -n "$WEB_PID" ]; then
         kill $WEB_PID 2>/dev/null || true
     fi
-    if [ -n "$GATEWAY_PID" ]; then
+    if [ -n "$GATEWAY_PID" ] && [ "$APP_ONLY" = false ]; then
         kill $GATEWAY_PID 2>/dev/null || true
     fi
     
@@ -76,21 +82,27 @@ sleep 2
 success "Web frontend started (PID: $WEB_PID)"
 
 # ----------------------------------------------------------------------------
-# Start Gateway
+# Start Gateway (unless app-only mode)
 # ----------------------------------------------------------------------------
-log "Starting Python gateway..."
-cd gateway
-uv run gateway &
-GATEWAY_PID=$!
-cd "$ROOT_DIR"
-success "Gateway started (PID: $GATEWAY_PID)"
+if [ "$APP_ONLY" = false ]; then
+    log "Starting Python gateway..."
+    cd gateway
+    uv run gateway &
+    GATEWAY_PID=$!
+    cd "$ROOT_DIR"
+    success "Gateway started (PID: $GATEWAY_PID)"
+fi
 
 # ----------------------------------------------------------------------------
 # Ready
 # ----------------------------------------------------------------------------
 echo ""
 success "=========================================="
-success "  All services running!"
+if [ "$APP_ONLY" = true ]; then
+    success "  App services running (no gateway)!"
+else
+    success "  All services running!"
+fi
 success "=========================================="
 echo ""
 log "  Web:     http://localhost:5173"

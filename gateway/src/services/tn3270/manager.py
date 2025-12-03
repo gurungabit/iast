@@ -25,11 +25,13 @@ import structlog
 
 from ...core import ErrorCodes, TerminalError, TN3270Config
 from ...models import (
+    ASTRunMessage,
     DataMessage,
     ResizeMessage,
     SessionCreateMessage,
     SessionDestroyMessage,
     TN3270Field,
+    create_ast_status_message,
     create_data_message,
     create_error_message,
     create_session_created_message,
@@ -38,6 +40,8 @@ from ...models import (
     parse_message,
     serialize_message,
 )
+from ...ast import LoginAST
+from .host import Host
 from .renderer import TN3270Renderer
 
 if TYPE_CHECKING:
@@ -158,8 +162,6 @@ class TN3270Manager:
         session_id: str,
         host: str | None = None,
         port: int | None = None,
-        cols: int | None = None,
-        rows: int | None = None,
     ) -> TN3270Session:
         """Create a new TN3270 session."""
         # Check for existing session
@@ -194,8 +196,6 @@ class TN3270Manager:
                 session_id,
                 host,
                 port,
-                cols,
-                rows,
             )
 
             session = TN3270Session(
@@ -248,8 +248,6 @@ class TN3270Manager:
         session_id: str,
         host: str,
         port: int,
-        cols: int | None,
-        rows: int | None,
     ) -> "tnz_module.Tnz":
         """Create tnz connection in a thread (blocking)."""
         tnz = tnz_module.Tnz(name=session_id)
@@ -341,8 +339,82 @@ class TN3270Manager:
             msg = parse_message(raw_data)
             if isinstance(msg, DataMessage):
                 await self._process_input(session, msg.payload)
+            elif isinstance(msg, ASTRunMessage):
+                await self._run_ast(session, msg.meta.ast_name, msg.meta.params)
         except Exception:
             log.exception("Handle input error", session_id=session_id)
+
+    async def _run_ast(
+        self,
+        session: TN3270Session,
+        ast_name: str,
+        params: dict | None = None,
+    ) -> None:
+        """Run an AST (Automated Streamlined Transaction)."""
+        log.info("Running AST", ast_name=ast_name, session_id=session.session_id)
+
+        # Send running status
+        status_msg = create_ast_status_message(
+            session.session_id, ast_name, "running", message=f"Starting {ast_name}..."
+        )
+        await self._valkey.publish_tn3270_output(
+            session.session_id, serialize_message(status_msg)
+        )
+
+        try:
+            # Create Host wrapper for the session's tnz instance
+            host = Host(session.tnz)
+
+            # Get the appropriate AST
+            if ast_name == "login":
+                ast = LoginAST()
+            else:
+                raise ValueError(f"Unknown AST: {ast_name}")
+
+            # Run the AST in executor (blocking operations)
+            loop = asyncio.get_running_loop()
+            result = await loop.run_in_executor(
+                _executor, lambda: ast.run(host, **(params or {}))
+            )
+
+            # Send result status
+            status_msg = create_ast_status_message(
+                session.session_id,
+                ast_name,
+                result.status.value,
+                message=result.message,
+                error=result.error,
+                duration=result.duration,
+                data=result.data,
+            )
+            await self._valkey.publish_tn3270_output(
+                session.session_id, serialize_message(status_msg)
+            )
+
+            # Update screen after AST completes
+            await self._send_screen_update(session)
+
+            log.info(
+                "AST completed",
+                ast_name=ast_name,
+                status=result.status.value,
+                duration=result.duration,
+                session_id=session.session_id,
+            )
+
+        except Exception as e:
+            log.exception(
+                "AST execution error", ast_name=ast_name, session_id=session.session_id
+            )
+            status_msg = create_ast_status_message(
+                session.session_id,
+                ast_name,
+                "failed",
+                error=str(e),
+            )
+            await self._valkey.publish_tn3270_output(
+                session.session_id, serialize_message(status_msg)
+            )
 
     async def _process_input(self, session: TN3270Session, data: str) -> None:
         """Process keyboard input and send to 3270 host."""
@@ -463,8 +535,6 @@ class TN3270Manager:
                     msg.session_id,
                     host=host,
                     port=port,
-                    cols=meta.cols if meta else None,
-                    rows=meta.rows if meta else None,
                 )
 
         except TerminalError as e:

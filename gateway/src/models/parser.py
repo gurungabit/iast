@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from .types import MessageType
 
 if TYPE_CHECKING:
+    from .ast import ASTRunMessage, ASTStatusMessage
     from .data import DataMessage
     from .error import ErrorMessage
     from .ping import PingMessage, PongMessage
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
         SessionDestroyedMessage,
         SessionDestroyMessage,
     )
+    from .tn3270 import TN3270CursorMessage, TN3270ScreenMessage
 
     MessageEnvelope = (
         DataMessage
@@ -31,12 +33,17 @@ if TYPE_CHECKING:
         | SessionDestroyMessage
         | SessionCreatedMessage
         | SessionDestroyedMessage
+        | ASTRunMessage
+        | ASTStatusMessage
+        | TN3270ScreenMessage
+        | TN3270CursorMessage
     )
 
 
 def parse_message(raw: str | bytes) -> "MessageEnvelope":
     """Parse a raw JSON message into the appropriate message type."""
     # Import here to avoid circular imports
+    from .ast import ASTRunMessage, ASTStatusMessage
     from .data import DataMessage
     from .error import ErrorMessage
     from .ping import PingMessage, PongMessage
@@ -73,6 +80,10 @@ def parse_message(raw: str | bytes) -> "MessageEnvelope":
             return SessionCreatedMessage.model_validate(data)
         case MessageType.SESSION_DESTROYED:
             return SessionDestroyedMessage.model_validate(data)
+        case MessageType.AST_RUN:
+            return ASTRunMessage.model_validate(data)
+        case MessageType.AST_STATUS:
+            return ASTStatusMessage.model_validate(data)
         case _:
             raise ValueError(f"Unknown message type: {msg_type}")
 

@@ -7,6 +7,7 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 import redis.asyncio as redis
+from redis.asyncio.client import PubSub
 import structlog
 
 from ..core import (
@@ -26,7 +27,7 @@ class ValkeyClient:
         self._config = config
         self._publisher: redis.Redis | None = None  # type: ignore[type-arg]
         self._subscriber: redis.Redis | None = None  # type: ignore[type-arg]
-        self._pubsub: redis.client.PubSub | None = None
+        self._pubsub: PubSub | None = None
         self._handlers: dict[str, Callable[[str], Coroutine[Any, Any, None]]] = {}
         self._running = False
         self._listen_task: asyncio.Task[None] | None = None
@@ -42,7 +43,7 @@ class ValkeyClient:
         self._pubsub = self._subscriber.pubsub()
 
         # Test connection
-        await self._publisher.ping()
+        await self._publisher.ping()  # type: ignore[misc]
         log.info("Connected to Valkey", host=self._config.host, port=self._config.port)
 
     async def disconnect(self) -> None:
