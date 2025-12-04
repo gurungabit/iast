@@ -17,6 +17,7 @@ thread to avoid conflicts with the main asyncio event loop.
 import asyncio
 import concurrent.futures
 import threading
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING
@@ -32,6 +33,8 @@ from ...models import (
     SessionDestroyMessage,
     TN3270Field,
     create_ast_status_message,
+    create_ast_progress_message,
+    create_ast_item_result_message,
     create_data_message,
     create_error_message,
     create_session_created_message,
@@ -361,6 +364,65 @@ class TN3270Manager:
             session.session_id, serialize_message(status_msg)
         )
 
+        # Get the event loop for thread-safe callbacks
+        loop = asyncio.get_running_loop()
+
+        # Generate execution ID for tracking
+        execution_id = str(uuid.uuid4())
+
+        # Create thread-safe progress callback
+        def on_progress(
+            current: int,
+            total: int,
+            current_item: str | None = None,
+            item_status: str | None = None,
+            message: str | None = None,
+        ) -> None:
+            """Thread-safe progress callback."""
+            progress_msg = create_ast_progress_message(
+                session.session_id,
+                execution_id,
+                ast_name,
+                current,
+                total,
+                current_item,
+                item_status,
+                message,
+            )
+
+            async def send():
+                await self._valkey.publish_tn3270_output(
+                    session.session_id, serialize_message(progress_msg)
+                )
+
+            asyncio.run_coroutine_threadsafe(send(), loop)
+
+        # Create thread-safe item result callback
+        def on_item_result(
+            item_id: str,
+            status: str,
+            duration_ms: int | None = None,
+            error: str | None = None,
+            data: dict | None = None,
+        ) -> None:
+            """Thread-safe item result callback."""
+            result_msg = create_ast_item_result_message(
+                session.session_id,
+                execution_id,
+                item_id,
+                status,
+                duration_ms,
+                error,
+                data,
+            )
+
+            async def send():
+                await self._valkey.publish_tn3270_output(
+                    session.session_id, serialize_message(result_msg)
+                )
+
+            asyncio.run_coroutine_threadsafe(send(), loop)
+
         try:
             # Create Host wrapper for the session's tnz instance
             host = Host(session.tnz)
@@ -371,8 +433,10 @@ class TN3270Manager:
             else:
                 raise ValueError(f"Unknown AST: {ast_name}")
 
+            # Set progress callbacks
+            ast.set_callbacks(on_progress=on_progress, on_item_result=on_item_result)
+
             # Run the AST in executor (blocking operations)
-            loop = asyncio.get_running_loop()
             result = await loop.run_in_executor(
                 _executor, lambda: ast.run(host, **(params or {}))
             )

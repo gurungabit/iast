@@ -4,7 +4,7 @@
 
 import { useReducer, useCallback, type ReactNode } from 'react';
 import { ASTContext, type ASTContextValue } from '../context/ASTContext';
-import type { ASTStatus, ASTResult } from '../ast/types';
+import type { ASTStatus, ASTResult, ASTProgress, ASTItemResult } from '../ast/types';
 
 // ============================================================================
 // State Types
@@ -14,6 +14,8 @@ interface ASTState {
   runningAST: string | null;
   status: ASTStatus;
   lastResult: ASTResult | null;
+  progress: ASTProgress | null;
+  itemResults: ASTItemResult[];
   runAST: ((astName: string, params?: Record<string, unknown>) => void) | null;
 }
 
@@ -21,6 +23,8 @@ type ASTAction =
   | { type: 'SET_RUN_CALLBACK'; callback: (astName: string, params?: Record<string, unknown>) => void }
   | { type: 'START_AST'; astName: string }
   | { type: 'AST_COMPLETED'; result: ASTResult }
+  | { type: 'AST_PROGRESS'; progress: ASTProgress }
+  | { type: 'AST_ITEM_RESULT'; itemResult: ASTItemResult }
   | { type: 'RESET' };
 
 // ============================================================================
@@ -31,6 +35,8 @@ const initialState: ASTState = {
   runningAST: null,
   status: 'idle',
   lastResult: null,
+  progress: null,
+  itemResults: [],
   runAST: null,
 };
 
@@ -44,6 +50,8 @@ function astReducer(state: ASTState, action: ASTAction): ASTState {
         runningAST: action.astName,
         status: 'running',
         lastResult: null,
+        progress: null,
+        itemResults: [],
       };
     case 'AST_COMPLETED':
       return {
@@ -51,9 +59,20 @@ function astReducer(state: ASTState, action: ASTAction): ASTState {
         runningAST: null,
         status: action.result.status,
         lastResult: action.result,
+        progress: null,
+      };
+    case 'AST_PROGRESS':
+      return {
+        ...state,
+        progress: action.progress,
+      };
+    case 'AST_ITEM_RESULT':
+      return {
+        ...state,
+        itemResults: [...state.itemResults, action.itemResult],
       };
     case 'RESET':
-      return { ...state, runningAST: null, status: 'idle', lastResult: null };
+      return { ...state, runningAST: null, status: 'idle', lastResult: null, progress: null, itemResults: [] };
     default:
       return state;
   }
@@ -93,6 +112,14 @@ export function ASTProvider({ children }: ASTProviderProps): React.ReactNode {
     dispatch({ type: 'AST_COMPLETED', result });
   }, []);
 
+  const handleASTProgress = useCallback((progress: ASTProgress) => {
+    dispatch({ type: 'AST_PROGRESS', progress });
+  }, []);
+
+  const handleASTItemResult = useCallback((itemResult: ASTItemResult) => {
+    dispatch({ type: 'AST_ITEM_RESULT', itemResult });
+  }, []);
+
   const reset = useCallback(() => {
     dispatch({ type: 'RESET' });
   }, []);
@@ -102,6 +129,8 @@ export function ASTProvider({ children }: ASTProviderProps): React.ReactNode {
     executeAST,
     setRunCallback,
     handleASTComplete,
+    handleASTProgress,
+    handleASTItemResult,
     reset,
     isRunning: state.status === 'running',
   };

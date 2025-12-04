@@ -4,11 +4,31 @@
 
 export type ASTStatus = 'idle' | 'running' | 'success' | 'failed' | 'timeout';
 
+export type ASTItemStatus = 'pending' | 'running' | 'success' | 'failed' | 'skipped';
+
 export interface ASTResult {
   status: ASTStatus;
   message?: string;
   error?: string;
   duration?: number;
+  data?: Record<string, unknown>;
+}
+
+export interface ASTProgress {
+  current: number;
+  total: number;
+  currentItem?: string;
+  itemStatus?: ASTItemStatus;
+  message?: string;
+  /** Percentage complete (0-100) */
+  percentage: number;
+}
+
+export interface ASTItemResult {
+  itemId: string;
+  status: ASTItemStatus;
+  durationMs?: number;
+  error?: string;
   data?: Record<string, unknown>;
 }
 

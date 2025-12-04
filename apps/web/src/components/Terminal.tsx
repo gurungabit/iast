@@ -5,7 +5,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useTerminal } from '../hooks/useTerminal';
 import type { ConnectionStatus } from '../types';
-import type { ASTStatusMeta } from '@terminal/shared';
+import type { ASTStatusMeta, ASTProgressMeta, ASTItemResultMeta } from '@terminal/shared';
 import '@xterm/xterm/css/xterm.css';
 
 interface TerminalApi {
@@ -18,6 +18,8 @@ interface TerminalProps {
   onStatusChange?: (status: ConnectionStatus) => void;
   onReady?: (api: TerminalApi) => void;
   onASTStatus?: (status: ASTStatusMeta) => void;
+  onASTProgress?: (progress: ASTProgressMeta) => void;
+  onASTItemResult?: (itemResult: ASTItemResultMeta) => void;
 }
 
 // PF and PA key definitions
@@ -88,7 +90,7 @@ function getStatusText(status: ConnectionStatus): string {
   }
 }
 
-export function Terminal({ sessionId, autoConnect = true, onStatusChange, onReady, onASTStatus }: TerminalProps): React.ReactNode {
+export function Terminal({ sessionId, autoConnect = true, onStatusChange, onReady, onASTStatus, onASTProgress, onASTItemResult }: TerminalProps): React.ReactNode {
   const {
     terminalRef,
     status,
@@ -99,7 +101,7 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
     focus,
     sendKey,
     runAST,
-  } = useTerminal({ sessionId, autoConnect, onASTStatus });
+  } = useTerminal({ sessionId, autoConnect, onASTStatus, onASTProgress, onASTItemResult });
 
   // Expose API to parent
   useEffect(() => {

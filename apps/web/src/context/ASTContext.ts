@@ -3,7 +3,7 @@
 // ============================================================================
 
 import { createContext } from 'react';
-import type { ASTStatus, ASTResult } from '../ast/types';
+import type { ASTStatus, ASTResult, ASTProgress, ASTItemResult } from '../ast/types';
 
 // ============================================================================
 // Context Value Type
@@ -16,6 +16,10 @@ export interface ASTContextValue {
   status: ASTStatus;
   /** Result of the last AST execution */
   lastResult: ASTResult | null;
+  /** Current progress (for batch operations) */
+  progress: ASTProgress | null;
+  /** Item results (for batch operations) */
+  itemResults: ASTItemResult[];
   /** Callback to run an AST (injected from terminal) */
   runAST: ((astName: string, params?: Record<string, unknown>) => void) | null;
   /** Execute an AST with parameters */
@@ -24,6 +28,10 @@ export interface ASTContextValue {
   setRunCallback: (callback: (astName: string, params?: Record<string, unknown>) => void) => void;
   /** Handle AST completion (from status messages) */
   handleASTComplete: (result: ASTResult) => void;
+  /** Handle AST progress update */
+  handleASTProgress: (progress: ASTProgress) => void;
+  /** Handle AST item result */
+  handleASTItemResult: (itemResult: ASTItemResult) => void;
   /** Reset state */
   reset: () => void;
   /** Check if an AST is currently running */

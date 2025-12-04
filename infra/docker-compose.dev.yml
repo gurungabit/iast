@@ -14,12 +14,16 @@ services:
     volumes:
       - valkey-data:/data
     command: valkey-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # DynamoDB Local for persistent storage
+  # ---------------------------------------------------------------------------
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    container_name: terminal-dynamodb
+    ports:
+      - "8042:8000"
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
 
 volumes:
   valkey-data:

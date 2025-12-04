@@ -236,6 +236,60 @@ export interface ASTStatusMessage extends BaseMessageEnvelope {
 }
 
 // ============================================================================
+// AST Progress Messages
+// ============================================================================
+
+export interface ASTProgressMeta {
+  /** Execution ID */
+  executionId: string;
+  /** Name of the AST */
+  astName: string;
+  /** Current item being processed (1-based) */
+  current: number;
+  /** Total items to process */
+  total: number;
+  /** Progress percentage (0-100) */
+  percent: number;
+  /** Current item identifier (e.g., policy number) */
+  currentItem?: string;
+  /** Status of current item */
+  itemStatus?: 'pending' | 'running' | 'success' | 'failed' | 'skipped';
+  /** Message about current progress */
+  message?: string;
+}
+
+export interface ASTProgressMessage extends BaseMessageEnvelope {
+  type: 'ast.progress';
+  payload: string;
+  meta: ASTProgressMeta;
+}
+
+// ============================================================================
+// AST Item Result Messages (per-policy result)
+// ============================================================================
+
+export interface ASTItemResultMeta {
+  /** Execution ID */
+  executionId: string;
+  /** Item identifier (e.g., policy number) */
+  itemId: string;
+  /** Item status */
+  status: 'success' | 'failed' | 'skipped';
+  /** Duration in milliseconds */
+  durationMs?: number;
+  /** Error message if failed */
+  error?: string;
+  /** Additional data */
+  data?: Record<string, unknown>;
+}
+
+export interface ASTItemResultMessage extends BaseMessageEnvelope {
+  type: 'ast.item_result';
+  payload: string;
+  meta: ASTItemResultMeta;
+}
+
+// ============================================================================
 // Union Type
 // ============================================================================
 
@@ -252,7 +306,9 @@ export type MessageEnvelope =
   | TN3270ScreenMessage
   | TN3270CursorMessage
   | ASTRunMessage
-  | ASTStatusMessage;
+  | ASTStatusMessage
+  | ASTProgressMessage
+  | ASTItemResultMessage;
 
 // ============================================================================
 // Type Guards
@@ -308,6 +364,14 @@ export function isASTRunMessage(msg: MessageEnvelope): msg is ASTRunMessage {
 
 export function isASTStatusMessage(msg: MessageEnvelope): msg is ASTStatusMessage {
   return msg.type === 'ast.status';
+}
+
+export function isASTProgressMessage(msg: MessageEnvelope): msg is ASTProgressMessage {
+  return msg.type === 'ast.progress';
+}
+
+export function isASTItemResultMessage(msg: MessageEnvelope): msg is ASTItemResultMessage {
+  return msg.type === 'ast.item_result';
 }
 
 // ============================================================================
@@ -525,6 +589,68 @@ export function createASTStatusMessage(
       message: options?.message,
       error: options?.error,
       duration: options?.duration,
+      data: options?.data,
+    },
+  };
+}
+
+export function createASTProgressMessage(
+  sessionId: string,
+  executionId: string,
+  astName: string,
+  current: number,
+  total: number,
+  options?: {
+    currentItem?: string;
+    itemStatus?: 'pending' | 'running' | 'success' | 'failed' | 'skipped';
+    message?: string;
+  }
+): ASTProgressMessage {
+  const percent = total > 0 ? Math.round((current / total) * 100) : 0;
+  return {
+    type: 'ast.progress',
+    sessionId,
+    payload: options?.message || `Processing ${current}/${total}`,
+    timestamp: Date.now(),
+    encoding: 'utf-8',
+    seq: getNextSeq(),
+    meta: {
+      executionId,
+      astName,
+      current,
+      total,
+      percent,
+      currentItem: options?.currentItem,
+      itemStatus: options?.itemStatus,
+      message: options?.message,
+    },
+  };
+}
+
+export function createASTItemResultMessage(
+  sessionId: string,
+  executionId: string,
+  itemId: string,
+  status: 'success' | 'failed' | 'skipped',
+  options?: {
+    durationMs?: number;
+    error?: string;
+    data?: Record<string, unknown>;
+  }
+): ASTItemResultMessage {
+  return {
+    type: 'ast.item_result',
+    sessionId,
+    payload: itemId,
+    timestamp: Date.now(),
+    encoding: 'utf-8',
+    seq: getNextSeq(),
+    meta: {
+      executionId,
+      itemId,
+      status,
+      durationMs: options?.durationMs,
+      error: options?.error,
       data: options?.data,
     },
   };

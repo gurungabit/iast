@@ -32,7 +32,13 @@ from .ast import (
     ASTRunMessage,
     ASTStatusMeta,
     ASTStatusMessage,
+    ASTProgressMeta,
+    ASTProgressMessage,
+    ASTItemResultMeta,
+    ASTItemResultMessage,
     create_ast_status_message,
+    create_ast_progress_message,
+    create_ast_item_result_message,
 )
 from .types import MessageEnvelope, MessageType
 from .parser import parse_message, serialize_message
@@ -79,7 +85,13 @@ __all__ = [
     "ASTRunMessage",
     "ASTStatusMeta",
     "ASTStatusMessage",
+    "ASTProgressMeta",
+    "ASTProgressMessage",
+    "ASTItemResultMeta",
+    "ASTItemResultMessage",
     "create_ast_status_message",
+    "create_ast_progress_message",
+    "create_ast_item_result_message",
     # Parser
     "parse_message",
     "serialize_message",

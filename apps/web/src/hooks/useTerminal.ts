@@ -16,6 +16,8 @@ import {
   type MessageEnvelope,
   type TN3270Field,
   type ASTStatusMeta,
+  type ASTProgressMeta,
+  type ASTItemResultMeta,
   isDataMessage,
   isErrorMessage,
   isSessionCreatedMessage,
@@ -23,6 +25,8 @@ import {
   isPongMessage,
   isTN3270ScreenMessage,
   isASTStatusMessage,
+  isASTProgressMessage,
+  isASTItemResultMessage,
 } from '@terminal/shared';
 import { generateSessionId } from '@terminal/shared';
 import {
@@ -35,6 +39,10 @@ export interface UseTerminalOptions {
   autoConnect?: boolean;
   /** Callback when AST status is received */
   onASTStatus?: (status: ASTStatusMeta) => void;
+  /** Callback when AST progress is received */
+  onASTProgress?: (progress: ASTProgressMeta) => void;
+  /** Callback when AST item result is received */
+  onASTItemResult?: (itemResult: ASTItemResultMeta) => void;
 }
 
 export interface UseTerminalReturn {
@@ -66,7 +74,7 @@ const FIXED_COLS = 80;
 const FIXED_ROWS = 43;
 
 export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn {
-  const { autoConnect = true, onASTStatus } = options;
+  const { autoConnect = true, onASTStatus, onASTProgress, onASTItemResult } = options;
 
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const terminalInstance = useRef<Terminal | null>(null);
@@ -118,8 +126,14 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
     } else if (isASTStatusMessage(message)) {
       // Forward AST status to the callback
       onASTStatus?.(message.meta);
+    } else if (isASTProgressMessage(message)) {
+      // Forward AST progress to the callback
+      onASTProgress?.(message.meta);
+    } else if (isASTItemResultMessage(message)) {
+      // Forward AST item result to the callback
+      onASTItemResult?.(message.meta);
     }
-  }, [onASTStatus]);
+  }, [onASTStatus, onASTProgress, onASTItemResult]);
 
   // Handle status changes
   const handleStatusChange = useCallback((newStatus: ConnectionStatus): void => {
