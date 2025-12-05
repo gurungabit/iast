@@ -5,15 +5,13 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useExecutionObserver } from '../../hooks/useExecutionObserver'
-import { getApiUrl } from '../../config'
+import { useApi } from '../../hooks/useApi'
 
 import {
   type ExecutionStatus,
   type TabFilter,
   type ExecutionRecord,
   type PolicyRecord,
-  type HistoryResponse,
-  type PoliciesResponse,
   getLocalDateString,
   TabBar,
   DatePicker,
@@ -73,6 +71,8 @@ function HistoryPage() {
     enabled: isLive,
     initialPaused: selectedExecution?.status === 'paused',
   })
+
+  const api = useApi()
 
   // Update execution status when AST completes via WebSocket
   useEffect(() => {
@@ -154,64 +154,39 @@ function HistoryPage() {
     }
   }, [isPaused, isLive])
 
-  // Fetch executions
+  // Fetch executions (moved to api service)
   const fetchExecutions = useCallback(async (reset = false) => {
     if (isLoadingExecutions) return
-    
+
     setIsLoadingExecutions(true)
     setError(null)
-    
+
     try {
-      const params = new URLSearchParams({ date: selectedDate, limit: '30' })
-      if (activeTab !== 'all') params.set('status', activeTab)
-      if (!reset && cursor) params.set('cursor', cursor)
-      
-      const token = localStorage.getItem('terminal_auth_token')
-      const response = await fetch(getApiUrl(`/history?${params}`), {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      
-      if (!response.ok) throw new Error('Failed to fetch history')
-      
-      const data = await response.json() as { success: boolean; data: HistoryResponse }
-      
-      if (data.success) {
-        setExecutions((prev: ExecutionRecord[]) => reset ? data.data.executions : [...prev, ...data.data.executions])
-        setHasMore(data.data.hasMore)
-        setCursor(data.data.nextCursor)
-      }
+      const data = await api.getExecutions(selectedDate, activeTab, 30, reset ? undefined : cursor)
+      setExecutions((prev: ExecutionRecord[]) => reset ? data.executions : [...prev, ...data.executions])
+      setHasMore(data.hasMore)
+      setCursor(data.nextCursor)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load history')
     } finally {
       setIsLoadingExecutions(false)
     }
-  }, [selectedDate, activeTab, cursor, isLoadingExecutions])
+  }, [selectedDate, activeTab, cursor, isLoadingExecutions, api])
 
-  // Fetch policies for selected execution
+  // Fetch policies for selected execution (via api service)
   const fetchPolicies = useCallback(async (executionId: string) => {
     setIsLoadingPolicies(true)
     setPolicies([])
-    
+
     try {
-      const token = localStorage.getItem('terminal_auth_token')
-      const url = getApiUrl(`/history/${executionId}/policies`)
-      const response = await fetch(url, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      
-      if (!response.ok) throw new Error('Failed to fetch policies')
-      
-      const data = await response.json() as { success: boolean; data: PoliciesResponse }
-      
-      if (data.success) {
-        setPolicies(data.data.policies)
-      }
+      const data = await api.getPolicies(executionId)
+      setPolicies(data.policies)
     } catch (err) {
       console.error('Failed to fetch policies:', err)
     } finally {
       setIsLoadingPolicies(false)
     }
-  }, [])
+  }, [api])
 
   // Reset and fetch when date or tab changes
   useEffect(() => {
