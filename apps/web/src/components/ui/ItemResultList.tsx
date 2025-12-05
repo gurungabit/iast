@@ -2,7 +2,8 @@
 // ItemResultList Component - Display AST item results
 // ============================================================================
 
-import type { ASTItemResult } from '../../ast/types';
+import { Circle, Loader2, Check, X, Ban } from 'lucide-react';
+import type { ASTItemResult, ASTItemStatus } from '../../ast/types';
 
 export interface ItemResultListProps {
   /** List of item results */
@@ -21,13 +22,20 @@ const statusStyles = {
   skipped: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400',
 };
 
-const statusIcons = {
-  pending: '○',
-  running: '◐',
-  success: '✓',
-  failed: '✕',
-  skipped: '⊘',
-};
+function StatusIcon({ status, className = 'w-3.5 h-3.5' }: { status: ASTItemStatus; className?: string }) {
+  switch (status) {
+    case 'pending':
+      return <Circle className={className} />;
+    case 'running':
+      return <Loader2 className={`${className} animate-spin`} />;
+    case 'success':
+      return <Check className={className} />;
+    case 'failed':
+      return <X className={className} />;
+    case 'skipped':
+      return <Ban className={className} />;
+  }
+}
 
 export function ItemResultList({
   items,
@@ -52,7 +60,7 @@ export function ItemResultList({
           `}
         >
           <div className="flex items-center gap-2 min-w-0">
-            <span className="font-mono">{statusIcons[item.status]}</span>
+            <StatusIcon status={item.status} />
             <span className="font-mono truncate">{item.itemId}</span>
           </div>
           

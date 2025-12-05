@@ -9,10 +9,10 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as HistoryRouteImport } from './routes/history'
+import { Route as HistoryRouteRouteImport } from './routes/history/route'
 import { Route as IndexRouteImport } from './routes/index'
 
-const HistoryRoute = HistoryRouteImport.update({
+const HistoryRouteRoute = HistoryRouteRouteImport.update({
   id: '/history',
   path: '/history',
   getParentRoute: () => rootRouteImport,
@@ -25,16 +25,16 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/history': typeof HistoryRoute
+  '/history': typeof HistoryRouteRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/history': typeof HistoryRoute
+  '/history': typeof HistoryRouteRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/history': typeof HistoryRoute
+  '/history': typeof HistoryRouteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -46,7 +46,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  HistoryRoute: typeof HistoryRoute
+  HistoryRouteRoute: typeof HistoryRouteRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -55,7 +55,7 @@ declare module '@tanstack/react-router' {
       id: '/history'
       path: '/history'
       fullPath: '/history'
-      preLoaderRoute: typeof HistoryRouteImport
+      preLoaderRoute: typeof HistoryRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -70,7 +70,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  HistoryRoute: HistoryRoute,
+  HistoryRouteRoute: HistoryRouteRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

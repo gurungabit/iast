@@ -5,6 +5,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useTerminal } from '../hooks/useTerminal';
 import { useAST } from '../hooks/useAST';
+import { Pause, Play } from 'lucide-react';
 import type { ConnectionStatus } from '../types';
 import type { ASTStatusMeta, ASTProgressMeta, ASTItemResultMeta } from '@terminal/shared';
 import '@xterm/xterm/css/xterm.css';
@@ -266,8 +267,8 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
           {/* AST Controls - show when AST is running */}
           {isASTRunning && (
             <div className="flex items-center gap-2 ml-2 pl-2 border-l border-zinc-700">
-              <span className={`text-xs mr-1 ${isPaused ? 'text-yellow-400' : 'text-yellow-400 animate-pulse'}`}>
-                {isPaused ? '⏸' : '▶'} {runningAST}
+              <span className={`text-xs mr-1 flex items-center gap-1 ${isPaused ? 'text-yellow-400' : 'text-yellow-400 animate-pulse'}`}>
+                {isPaused ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />} {runningAST}
               </span>
               <button
                 onClick={() => {

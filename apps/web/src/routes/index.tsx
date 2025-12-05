@@ -4,13 +4,9 @@
 
 import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useEffect } from 'react'
-import { useAuth } from '../hooks/useAuth'
-import { useTheme } from '../hooks/useTheme'
 import { useAST } from '../hooks/useAST'
 import { Terminal } from '../components/Terminal'
-import { ThemeToggle } from '../components/ThemeToggle'
 import { ASTPanel } from '../ast'
-import { Link } from '@tanstack/react-router'
 import type { ASTStatusMeta, ASTProgressMeta, ASTItemResultMeta } from '@terminal/shared'
 import type { ASTItemStatus } from '../ast/types'
 
@@ -23,8 +19,6 @@ interface TerminalApi {
 }
 
 function TerminalPage() {
-  const { state: authState, logout } = useAuth()
-  const { theme, toggleTheme } = useTheme()
   const { setRunCallback, handleASTComplete, handleASTProgress, handleASTItemResult, handleASTPaused, reset: resetAST } = useAST()
 
   // Reset AST state when Terminal page mounts (in case user navigated back from History
@@ -82,67 +76,20 @@ function TerminalPage() {
   )
 
   return (
-    <div className="flex flex-col h-screen bg-white dark:bg-zinc-950 text-gray-900 dark:text-zinc-100">
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 py-2 bg-gray-50 dark:bg-zinc-900 border-b border-gray-200 dark:border-zinc-800">
-        <div className="flex items-center gap-6">
-          <span className="text-lg font-semibold text-gray-900 dark:text-zinc-100">
-            TN3270 Terminal
-          </span>
-          <nav className="flex items-center gap-1">
-            <Link
-              to="/"
-              className="px-3 py-1.5 text-sm rounded-md transition-colors
-                [&.active]:bg-blue-100 [&.active]:text-blue-700 
-                dark:[&.active]:bg-blue-900/30 dark:[&.active]:text-blue-400
-                hover:bg-gray-100 dark:hover:bg-zinc-800"
-            >
-              Terminal
-            </Link>
-            <Link
-              to="/history"
-              className="px-3 py-1.5 text-sm rounded-md transition-colors
-                [&.active]:bg-blue-100 [&.active]:text-blue-700 
-                dark:[&.active]:bg-blue-900/30 dark:[&.active]:text-blue-400
-                hover:bg-gray-100 dark:hover:bg-zinc-800"
-            >
-              History
-            </Link>
-          </nav>
-        </div>
+    <main className="flex-1 overflow-auto flex p-4 gap-4 bg-white dark:bg-zinc-950">
+      <Terminal
+        autoConnect={true}
+        onReady={handleTerminalReady}
+        onASTStatus={handleASTStatus}
+        onASTProgress={handleASTProgressUpdate}
+        onASTItemResult={handleASTItemResultUpdate}
+        onASTPaused={handleASTPaused}
+      />
 
-        <div className="flex items-center gap-3">
-          <ThemeToggle theme={theme} onToggle={toggleTheme} />
-          <span className="text-sm text-gray-500 dark:text-zinc-500">
-            {authState.user?.email}
-          </span>
-          <button
-            onClick={() => void logout()}
-            className="px-3 py-1.5 text-sm rounded transition-colors cursor-pointer
-              bg-gray-200 dark:bg-zinc-800 text-gray-800 dark:text-zinc-200
-              hover:bg-gray-300 dark:hover:bg-zinc-700"
-          >
-            Sign Out
-          </button>
-        </div>
-      </header>
-
-      {/* Terminal + AST Panel */}
-      <main className="flex-1 overflow-auto flex p-4 gap-4">
-        <Terminal
-          autoConnect={true}
-          onReady={handleTerminalReady}
-          onASTStatus={handleASTStatus}
-          onASTProgress={handleASTProgressUpdate}
-          onASTItemResult={handleASTItemResultUpdate}
-          onASTPaused={handleASTPaused}
-        />
-
-        {/* Side panel for AST controls */}
-        <div className="w-[400px] flex-shrink-0">
-          <ASTPanel />
-        </div>
-      </main>
-    </div>
+      {/* Side panel for AST controls */}
+      <div className="w-[400px] flex-shrink-0">
+        <ASTPanel />
+      </div>
+    </main>
   )
 }
