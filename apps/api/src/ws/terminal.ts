@@ -14,6 +14,7 @@ import {
   isSessionCreateMessage,
   isSessionDestroyMessage,
   isASTRunMessage,
+  isASTControlMessage,
   TerminalError,
   ERROR_CODES,
 } from '@terminal/shared';
@@ -117,6 +118,12 @@ export function terminalWebSocket(fastify: FastifyInstance): void {
           valkey.publishInput(sessionId, message).catch((err: unknown) => {
             fastify.log.error({ err }, 'Failed to publish AST run request');
           });
+        } else if (isASTControlMessage(message)) {
+          // Forward AST control (pause/resume/cancel) to TN3270 gateway
+          fastify.log.info({ sessionId, action: message.meta.action }, 'Forwarding AST control request');
+          valkey.publishInput(sessionId, message).catch((err: unknown) => {
+            fastify.log.error({ err }, 'Failed to publish AST control request');
+          });
         } else if (isPingMessage(message)) {
           // Respond with pong
           const pong = createPongMessage(sessionId);
@@ -146,7 +153,7 @@ export function terminalWebSocket(fastify: FastifyInstance): void {
 
     // Handle close
     socket.on('close', () => {
-      valkey.unsubscribeFromOutput(sessionId).catch((err: unknown) => {
+      valkey.unsubscribeFromOutput(sessionId, handleOutput).catch((err: unknown) => {
         fastify.log.error({ err }, 'Failed to unsubscribe from TN3270');
       });
       endTerminalSession(sessionId, userId);

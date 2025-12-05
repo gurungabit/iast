@@ -32,6 +32,8 @@ export interface ASTContextValue {
   handleASTProgress: (progress: ASTProgress) => void;
   /** Handle AST item result */
   handleASTItemResult: (itemResult: ASTItemResult) => void;
+  /** Handle AST paused state change */
+  handleASTPaused: (isPaused: boolean) => void;
   /** Reset state */
   reset: () => void;
   /** Check if an AST is currently running */

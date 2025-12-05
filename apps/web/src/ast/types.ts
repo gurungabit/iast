@@ -2,7 +2,7 @@
 // AST Types - Shared types for all AST modules
 // ============================================================================
 
-export type ASTStatus = 'idle' | 'running' | 'success' | 'failed' | 'timeout';
+export type ASTStatus = 'idle' | 'running' | 'paused' | 'success' | 'failed' | 'timeout' | 'cancelled';
 
 export type ASTItemStatus = 'pending' | 'running' | 'success' | 'failed' | 'skipped';
 

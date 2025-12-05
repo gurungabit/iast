@@ -6,7 +6,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import { config } from '../config';
-import { authRoutes } from '../routes';
+import { authRoutes, historyRoutes } from '../routes';
 import { terminalWebSocket } from '../ws';
 import { closeValkeyClient } from '../valkey';
 
@@ -47,6 +47,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
 
   // Register routes
   authRoutes(app);
+  historyRoutes(app);
   terminalWebSocket(app);
 
   // Graceful shutdown

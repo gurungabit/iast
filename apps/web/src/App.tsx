@@ -29,7 +29,7 @@ interface TerminalApi {
 function MainContent(): React.ReactNode {
   const { state: authState, login, register, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { setRunCallback, handleASTComplete, handleASTProgress, handleASTItemResult } = useAST();
+  const { setRunCallback, handleASTComplete, handleASTProgress, handleASTItemResult, handleASTPaused } = useAST();
   const [authView, setAuthView] = useState<AuthView>('login');
 
   const handleTerminalReady = useCallback(
@@ -159,6 +159,7 @@ function MainContent(): React.ReactNode {
           onASTStatus={handleASTStatus}
           onASTProgress={handleASTProgressUpdate}
           onASTItemResult={handleASTItemResultUpdate}
+          onASTPaused={handleASTPaused}
         />
 
         {/* Side panel for AST controls */}

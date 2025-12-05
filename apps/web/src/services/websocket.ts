@@ -6,11 +6,14 @@ import { config } from '../config';
 import type { ConnectionStatus } from '../types';
 import {
   type MessageEnvelope,
+  type ASTControlAction,
   createDataMessage,
   createPingMessage,
   createSessionCreateMessage,
   createSessionDestroyMessage,
   createASTRunMessage,
+  createASTControlMessage,
+  createResizeMessage,
   serializeMessage,
   deserializeMessage,
 } from '@terminal/shared';
@@ -157,7 +160,36 @@ export class TerminalWebSocket {
   }
 
   sendASTRun(astName: string, params?: Record<string, unknown>): void {
-    const message = createASTRunMessage(this.sessionId, astName, params);
+    // Automatically include sessionId in params for DynamoDB storage
+    const enrichedParams = {
+      ...params,
+      sessionId: this.sessionId,
+    };
+    const message = createASTRunMessage(this.sessionId, astName, enrichedParams);
+    message.seq = ++this.seq;
+    this.sendRaw(serializeMessage(message));
+  }
+
+  sendASTControl(action: ASTControlAction): void {
+    const message = createASTControlMessage(this.sessionId, action);
+    message.seq = ++this.seq;
+    this.sendRaw(serializeMessage(message));
+  }
+
+  sendASTPause(): void {
+    this.sendASTControl('pause');
+  }
+
+  sendASTResume(): void {
+    this.sendASTControl('resume');
+  }
+
+  sendASTCancel(): void {
+    this.sendASTControl('cancel');
+  }
+
+  sendResize(cols: number, rows: number): void {
+    const message = createResizeMessage(this.sessionId, cols, rows);
     message.seq = ++this.seq;
     this.sendRaw(serializeMessage(message));
   }

@@ -10,6 +10,7 @@ export const ERROR_CODES = {
   AUTH_INVALID_CREDENTIALS: 'E1004',
   AUTH_USER_NOT_FOUND: 'E1005',
   AUTH_SESSION_EXPIRED: 'E1006',
+  FORBIDDEN: 'E1007',
 
   // Session Errors (2xxx)
   SESSION_NOT_FOUND: 'E2001',
@@ -41,6 +42,11 @@ export const ERROR_CODES = {
   VALIDATION_MISSING_FIELD: 'E6002',
   VALIDATION_INVALID_TYPE: 'E6003',
   VALIDATION_INVALID_FORMAT: 'E6004',
+
+  // Resource Errors (7xxx)
+  RESOURCE_NOT_FOUND: 'E7001',
+  RESOURCE_ALREADY_EXISTS: 'E7002',
+  RESOURCE_CONFLICT: 'E7003',
 
   // Internal Errors (9xxx)
   INTERNAL_ERROR: 'E9001',
@@ -111,6 +117,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ERROR_CODES.AUTH_INVALID_CREDENTIALS]: 'Invalid email or password',
   [ERROR_CODES.AUTH_USER_NOT_FOUND]: 'User not found',
   [ERROR_CODES.AUTH_SESSION_EXPIRED]: 'Session has expired',
+  [ERROR_CODES.FORBIDDEN]: 'Access denied',
 
   [ERROR_CODES.SESSION_NOT_FOUND]: 'Terminal session not found',
   [ERROR_CODES.SESSION_ALREADY_EXISTS]: 'Terminal session already exists',
@@ -137,6 +144,10 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ERROR_CODES.VALIDATION_MISSING_FIELD]: 'Required field is missing',
   [ERROR_CODES.VALIDATION_INVALID_TYPE]: 'Invalid field type',
   [ERROR_CODES.VALIDATION_INVALID_FORMAT]: 'Invalid field format',
+
+  [ERROR_CODES.RESOURCE_NOT_FOUND]: 'Resource not found',
+  [ERROR_CODES.RESOURCE_ALREADY_EXISTS]: 'Resource already exists',
+  [ERROR_CODES.RESOURCE_CONFLICT]: 'Resource conflict',
 
   [ERROR_CODES.INTERNAL_ERROR]: 'Internal server error',
   [ERROR_CODES.NOT_IMPLEMENTED]: 'Feature not implemented',

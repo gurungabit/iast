@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from .types import MessageType
 
 if TYPE_CHECKING:
-    from .ast import ASTRunMessage, ASTStatusMessage
+    from .ast import ASTRunMessage, ASTControlMessage, ASTStatusMessage
     from .data import DataMessage
     from .error import ErrorMessage
     from .ping import PingMessage, PongMessage
@@ -34,6 +34,7 @@ if TYPE_CHECKING:
         | SessionCreatedMessage
         | SessionDestroyedMessage
         | ASTRunMessage
+        | ASTControlMessage
         | ASTStatusMessage
         | TN3270ScreenMessage
         | TN3270CursorMessage
@@ -43,7 +44,7 @@ if TYPE_CHECKING:
 def parse_message(raw: str | bytes) -> "MessageEnvelope":
     """Parse a raw JSON message into the appropriate message type."""
     # Import here to avoid circular imports
-    from .ast import ASTRunMessage, ASTStatusMessage
+    from .ast import ASTRunMessage, ASTControlMessage, ASTStatusMessage
     from .data import DataMessage
     from .error import ErrorMessage
     from .ping import PingMessage, PongMessage
@@ -82,6 +83,8 @@ def parse_message(raw: str | bytes) -> "MessageEnvelope":
             return SessionDestroyedMessage.model_validate(data)
         case MessageType.AST_RUN:
             return ASTRunMessage.model_validate(data)
+        case MessageType.AST_CONTROL:
+            return ASTControlMessage.model_validate(data)
         case MessageType.AST_STATUS:
             return ASTStatusMessage.model_validate(data)
         case _:

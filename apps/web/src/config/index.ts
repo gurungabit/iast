@@ -44,9 +44,15 @@ function getEnvNumber(key: string, defaultValue: number): number {
   return defaultValue;
 }
 
+// In development, we use Vite's proxy (/api -> backend)
+// In production, set VITE_API_BASE_URL to your API endpoint
+const isDev = import.meta.env.DEV;
+
 export const config: FrontendConfig = {
-  apiBaseUrl: getEnvString('VITE_API_BASE_URL', 'http://localhost:3001'),
-  wsBaseUrl: getEnvString('VITE_WS_BASE_URL', 'ws://localhost:3001'),
+  // In dev: '/api' (proxied by Vite), in prod: full URL or '/api' if same origin
+  apiBaseUrl: getEnvString('VITE_API_BASE_URL', isDev ? '/api' : '/api'),
+  // WebSocket connects directly to API server (not proxied by Vite)
+  wsBaseUrl: getEnvString('VITE_WS_BASE_URL', isDev ? 'ws://127.0.0.1:3001' : `wss://${window.location.host}`),
   auth: {
     tokenStorageKey: 'terminal_auth_token',
     userStorageKey: 'terminal_auth_user',
@@ -71,5 +77,16 @@ export const config: FrontendConfig = {
     timeoutMs: 5000,
   },
 };
+
+/**
+ * Build a full API URL from a path
+ * @param path - API path (e.g., '/history', '/auth/login')
+ * @returns Full URL for the API endpoint
+ */
+export function getApiUrl(path: string): string {
+  const base = config.apiBaseUrl.replace(/\/$/, '');
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${base}${cleanPath}`;
+}
 
 export default config;

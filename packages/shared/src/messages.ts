@@ -15,7 +15,9 @@ export type MessageType =
   | 'tn3270.screen'
   | 'tn3270.cursor'
   | 'ast.run'
-  | 'ast.status';
+  | 'ast.control'
+  | 'ast.status'
+  | 'ast.paused';
 
 export type Encoding = 'utf-8' | 'base64';
 
@@ -199,7 +201,7 @@ export interface TN3270CursorMessage extends BaseMessageEnvelope {
 // AST Messages - Automated Streamlined Transactions
 // ============================================================================
 
-export type ASTStatusType = 'pending' | 'running' | 'success' | 'failed' | 'timeout';
+export type ASTStatusType = 'pending' | 'running' | 'success' | 'failed' | 'cancelled' | 'timeout';
 
 export interface ASTRunMeta {
   /** Name of the AST to run */
@@ -212,6 +214,40 @@ export interface ASTRunMessage extends BaseMessageEnvelope {
   type: 'ast.run';
   payload: string;
   meta: ASTRunMeta;
+}
+
+// ============================================================================
+// AST Control Messages - Pause/Resume/Cancel
+// ============================================================================
+
+export type ASTControlAction = 'pause' | 'resume' | 'cancel';
+
+export interface ASTControlMeta {
+  /** Control action to perform */
+  action: ASTControlAction;
+}
+
+export interface ASTControlMessage extends BaseMessageEnvelope {
+  type: 'ast.control';
+  payload: string;
+  meta: ASTControlMeta;
+}
+
+// ============================================================================
+// AST Paused Status
+// ============================================================================
+
+export interface ASTPausedMeta {
+  /** Whether the AST is currently paused */
+  paused: boolean;
+  /** Optional message */
+  message?: string;
+}
+
+export interface ASTPausedMessage extends BaseMessageEnvelope {
+  type: 'ast.paused';
+  payload: string;
+  meta: ASTPausedMeta;
 }
 
 export interface ASTStatusMeta {
@@ -306,7 +342,9 @@ export type MessageEnvelope =
   | TN3270ScreenMessage
   | TN3270CursorMessage
   | ASTRunMessage
+  | ASTControlMessage
   | ASTStatusMessage
+  | ASTPausedMessage
   | ASTProgressMessage
   | ASTItemResultMessage;
 
@@ -362,8 +400,16 @@ export function isASTRunMessage(msg: MessageEnvelope): msg is ASTRunMessage {
   return msg.type === 'ast.run';
 }
 
+export function isASTControlMessage(msg: MessageEnvelope): msg is ASTControlMessage {
+  return msg.type === 'ast.control';
+}
+
 export function isASTStatusMessage(msg: MessageEnvelope): msg is ASTStatusMessage {
   return msg.type === 'ast.status';
+}
+
+export function isASTPausedMessage(msg: MessageEnvelope): msg is ASTPausedMessage {
+  return msg.type === 'ast.paused';
 }
 
 export function isASTProgressMessage(msg: MessageEnvelope): msg is ASTProgressMessage {
@@ -562,6 +608,21 @@ export function createASTRunMessage(
     encoding: 'utf-8',
     seq: getNextSeq(),
     meta: { astName, params },
+  };
+}
+
+export function createASTControlMessage(
+  sessionId: string,
+  action: ASTControlAction
+): ASTControlMessage {
+  return {
+    type: 'ast.control',
+    sessionId,
+    payload: action,
+    timestamp: Date.now(),
+    encoding: 'utf-8',
+    seq: getNextSeq(),
+    meta: { action },
   };
 }
 

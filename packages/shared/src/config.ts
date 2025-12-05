@@ -32,6 +32,14 @@ export interface TN3270Config {
   maxSessions: number;
 }
 
+export interface DynamoDBConfig {
+  endpoint: string;
+  region: string;
+  tableName: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+}
+
 export interface AppConfig {
   env: 'development' | 'production' | 'test';
   logLevel: 'debug' | 'info' | 'warn' | 'error';
@@ -39,6 +47,7 @@ export interface AppConfig {
   valkey: ValkeyConfig;
   auth: AuthConfig;
   tn3270: TN3270Config;
+  dynamodb: DynamoDBConfig;
 }
 
 // ============================================================================
@@ -72,6 +81,14 @@ export const DEFAULT_TN3270_CONFIG: TN3270Config = {
   maxSessions: 10,
 };
 
+export const DEFAULT_DYNAMODB_CONFIG: DynamoDBConfig = {
+  endpoint: 'http://127.0.0.1:8042',
+  region: 'us-east-1',
+  tableName: 'terminal',
+  accessKeyId: 'dummy',
+  secretAccessKey: 'dummy',
+};
+
 export function getDefaultConfig(): AppConfig {
   return {
     env: 'development',
@@ -80,5 +97,6 @@ export function getDefaultConfig(): AppConfig {
     valkey: { ...DEFAULT_VALKEY_CONFIG },
     auth: { ...DEFAULT_AUTH_CONFIG },
     tn3270: { ...DEFAULT_TN3270_CONFIG },
+    dynamodb: { ...DEFAULT_DYNAMODB_CONFIG },
   };
 }

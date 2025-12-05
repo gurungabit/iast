@@ -25,6 +25,7 @@ type ASTAction =
   | { type: 'AST_COMPLETED'; result: ASTResult }
   | { type: 'AST_PROGRESS'; progress: ASTProgress }
   | { type: 'AST_ITEM_RESULT'; itemResult: ASTItemResult }
+  | { type: 'AST_PAUSED'; isPaused: boolean }
   | { type: 'RESET' };
 
 // ============================================================================
@@ -70,6 +71,11 @@ function astReducer(state: ASTState, action: ASTAction): ASTState {
       return {
         ...state,
         itemResults: [...state.itemResults, action.itemResult],
+      };
+    case 'AST_PAUSED':
+      return {
+        ...state,
+        status: action.isPaused ? 'paused' : 'running',
       };
     case 'RESET':
       return { ...state, runningAST: null, status: 'idle', lastResult: null, progress: null, itemResults: [] };
@@ -120,6 +126,10 @@ export function ASTProvider({ children }: ASTProviderProps): React.ReactNode {
     dispatch({ type: 'AST_ITEM_RESULT', itemResult });
   }, []);
 
+  const handleASTPaused = useCallback((isPaused: boolean) => {
+    dispatch({ type: 'AST_PAUSED', isPaused });
+  }, []);
+
   const reset = useCallback(() => {
     dispatch({ type: 'RESET' });
   }, []);
@@ -131,8 +141,9 @@ export function ASTProvider({ children }: ASTProviderProps): React.ReactNode {
     handleASTComplete,
     handleASTProgress,
     handleASTItemResult,
+    handleASTPaused,
     reset,
-    isRunning: state.status === 'running',
+    isRunning: state.status === 'running' || state.status === 'paused',
   };
 
   return <ASTContext.Provider value={value}>{children}</ASTContext.Provider>;

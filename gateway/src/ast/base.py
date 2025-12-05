@@ -5,6 +5,7 @@
 Base class for all AST (Automated Streamlined Transaction) scripts.
 """
 
+import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -27,6 +28,7 @@ class ASTStatus(Enum):
     RUNNING = "running"
     SUCCESS = "success"
     FAILED = "failed"
+    CANCELLED = "cancelled"
     TIMEOUT = "timeout"
 
 
@@ -94,6 +96,9 @@ ItemResultCallback = Callable[
     None,
 ]
 
+# Type for pause state callback
+PauseStateCallback = Callable[[bool, str | None], None]
+
 
 class AST(ABC):
     """
@@ -120,15 +125,78 @@ class AST(ABC):
         self._execution_id: str = ""
         self._on_progress: ProgressCallback | None = None
         self._on_item_result: ItemResultCallback | None = None
+        self._on_pause_state: PauseStateCallback | None = None
+
+        # Pause/resume synchronization
+        self._pause_event = threading.Event()
+        self._pause_event.set()  # Not paused by default
+        self._is_paused = False
+        self._cancelled = False
 
     def set_callbacks(
         self,
         on_progress: ProgressCallback | None = None,
         on_item_result: ItemResultCallback | None = None,
+        on_pause_state: PauseStateCallback | None = None,
     ) -> None:
-        """Set callbacks for progress and item results."""
+        """Set callbacks for progress, item results, and pause state."""
         self._on_progress = on_progress
         self._on_item_result = on_item_result
+        self._on_pause_state = on_pause_state
+
+    def pause(self) -> None:
+        """Pause the AST execution. Will pause before the next policy."""
+        if not self._is_paused:
+            self._is_paused = True
+            self._pause_event.clear()
+            log.info("AST paused", ast=self.name, execution_id=self._execution_id)
+            if self._on_pause_state:
+                self._on_pause_state(
+                    True, "AST paused - you can make manual adjustments"
+                )
+
+    def resume(self) -> None:
+        """Resume the AST execution."""
+        if self._is_paused:
+            self._is_paused = False
+            self._pause_event.set()
+            log.info("AST resumed", ast=self.name, execution_id=self._execution_id)
+            if self._on_pause_state:
+                self._on_pause_state(False, "AST resumed")
+
+    def cancel(self) -> None:
+        """Cancel the AST execution."""
+        self._cancelled = True
+        self._pause_event.set()  # Unblock if paused
+        log.info("AST cancelled", ast=self.name, execution_id=self._execution_id)
+
+    def wait_if_paused(self, timeout: float | None = None) -> bool:
+        """
+        Block if paused, waiting for resume or cancel.
+
+        Args:
+            timeout: Optional timeout in seconds
+
+        Returns:
+            True if should continue, False if cancelled
+        """
+        if self._cancelled:
+            return False
+
+        # Wait for the pause event to be set (i.e., not paused)
+        self._pause_event.wait(timeout=timeout)
+
+        return not self._cancelled
+
+    @property
+    def is_paused(self) -> bool:
+        """Check if the AST is currently paused."""
+        return self._is_paused
+
+    @property
+    def is_cancelled(self) -> bool:
+        """Check if the AST has been cancelled."""
+        return self._cancelled
 
     def report_progress(
         self,

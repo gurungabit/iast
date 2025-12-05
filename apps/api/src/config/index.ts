@@ -57,6 +57,13 @@ export function loadConfig(): AppConfig {
       port: getEnvNumber('TN3270_PORT', defaults.tn3270.port),
       maxSessions: getEnvNumber('TN3270_MAX_SESSIONS', defaults.tn3270.maxSessions),
     },
+    dynamodb: {
+      endpoint: getEnvString('DYNAMODB_ENDPOINT', defaults.dynamodb.endpoint),
+      region: getEnvString('DYNAMODB_REGION', defaults.dynamodb.region),
+      tableName: getEnvString('DYNAMODB_TABLE_NAME', defaults.dynamodb.tableName),
+      accessKeyId: getEnvString('DYNAMODB_ACCESS_KEY_ID', defaults.dynamodb.accessKeyId),
+      secretAccessKey: getEnvString('DYNAMODB_SECRET_ACCESS_KEY', defaults.dynamodb.secretAccessKey),
+    },
   };
 }
 

@@ -34,7 +34,9 @@ class MessageType(StrEnum):
     TN3270_SCREEN = "tn3270.screen"
     TN3270_CURSOR = "tn3270.cursor"
     AST_RUN = "ast.run"
+    AST_CONTROL = "ast.control"
     AST_STATUS = "ast.status"
+    AST_PAUSED = "ast.paused"
 
 
 # Type alias for all message types

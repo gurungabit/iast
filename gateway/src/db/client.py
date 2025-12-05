@@ -14,9 +14,11 @@ SESSION#<sessionId>   EXECUTION#<execId>        Session's AST execution
 EXECUTION#<execId>    POLICY#<policyNum>        Execution's policy result
 
 GSI1: GSI1PK (email) for user lookup by email
+GSI2: GSI2PK (USER#<userId>#DATE#<date>), GSI2SK (started_at) for user's executions by date
 """
 
 import os
+from datetime import datetime
 from typing import Any
 
 import boto3
@@ -161,6 +163,36 @@ class DynamoDBClient:
         response = self._table.query(**kwargs)
         return response.get("Items", [])
 
+    def query_gsi2(
+        self,
+        gsi2pk: str,
+        scan_forward: bool = False,
+        limit: int | None = None,
+        exclusive_start_key: dict[str, Any] | None = None,
+        filter_expression: Any | None = None,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+        """
+        Query GSI2 by GSI2PK (e.g., user's executions by date).
+
+        Returns a tuple of (items, last_evaluated_key for pagination).
+        """
+        key_condition = Key("GSI2PK").eq(gsi2pk)
+
+        kwargs: dict[str, Any] = {
+            "IndexName": "GSI2",
+            "KeyConditionExpression": key_condition,
+            "ScanIndexForward": scan_forward,  # False = newest first
+        }
+        if limit:
+            kwargs["Limit"] = limit
+        if exclusive_start_key:
+            kwargs["ExclusiveStartKey"] = exclusive_start_key
+        if filter_expression:
+            kwargs["FilterExpression"] = filter_expression
+
+        response = self._table.query(**kwargs)
+        return response.get("Items", []), response.get("LastEvaluatedKey")
+
     # -------------------------------------------------------------------------
     # User Operations
     # -------------------------------------------------------------------------
@@ -219,9 +251,21 @@ class DynamoDBClient:
         self, session_id: str, execution_id: str, data: dict[str, Any]
     ) -> None:
         """Create an AST execution record."""
+        # Extract user_id and started_at for GSI2
+        user_id = data.get("user_id", "anonymous")
+        started_at = data.get("started_at", datetime.now().isoformat())
+
+        # Parse date from started_at for GSI2PK
+        if isinstance(started_at, str):
+            date_str = started_at[:10]  # YYYY-MM-DD
+        else:
+            date_str = started_at.strftime("%Y-%m-%d")
+
         item = {
             "PK": f"{KeyPrefix.SESSION}{session_id}",
             "SK": f"{KeyPrefix.EXECUTION}{execution_id}",
+            "GSI2PK": f"{KeyPrefix.USER}{user_id}#DATE#{date_str}",
+            "GSI2SK": started_at,
             "session_id": session_id,
             "execution_id": execution_id,
             **data,
@@ -243,6 +287,60 @@ class DynamoDBClient:
         return self.query_pk(
             f"{KeyPrefix.EXECUTION}{execution_id}", sk_prefix=KeyPrefix.POLICY
         )
+
+    def get_user_executions_by_date(
+        self,
+        user_id: str,
+        date: str,
+        status: str | None = None,
+        limit: int = 20,
+        cursor: dict[str, Any] | None = None,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+        """
+        Get user's executions for a specific date.
+
+        Args:
+            user_id: User ID
+            date: Date in YYYY-MM-DD format
+            status: Optional status filter (running, success, failed, paused, cancelled)
+            limit: Maximum number of items to return
+            cursor: Pagination cursor (LastEvaluatedKey from previous query)
+
+        Returns:
+            Tuple of (executions, next_cursor)
+        """
+        from boto3.dynamodb.conditions import Attr
+
+        gsi2pk = f"{KeyPrefix.USER}{user_id}#DATE#{date}"
+
+        filter_expr = None
+        if status:
+            filter_expr = Attr("status").eq(status)
+
+        return self.query_gsi2(
+            gsi2pk=gsi2pk,
+            scan_forward=False,  # Newest first
+            limit=limit,
+            exclusive_start_key=cursor,
+            filter_expression=filter_expr,
+        )
+
+    def get_execution_by_id(self, execution_id: str) -> dict[str, Any] | None:
+        """
+        Get an execution by its ID.
+
+        Since we don't know the session_id, we need to do a GSI lookup or scan.
+        For now, we'll query by execution_id prefix in PK.
+        """
+        # Query using execution_id as PK prefix (for policy lookups)
+        # We need to find the execution record which has PK=SESSION#... and SK=EXECUTION#<id>
+        # This requires a scan with filter, which is not ideal but works for now
+        response = self._table.scan(
+            FilterExpression=Key("SK").eq(f"{KeyPrefix.EXECUTION}{execution_id}"),
+            Limit=1,
+        )
+        items = response.get("Items", [])
+        return items[0] if items else None
 
     # -------------------------------------------------------------------------
     # Policy Result Operations

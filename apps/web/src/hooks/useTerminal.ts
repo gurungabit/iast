@@ -27,6 +27,7 @@ import {
   isASTStatusMessage,
   isASTProgressMessage,
   isASTItemResultMessage,
+  isASTPausedMessage,
 } from '@terminal/shared';
 import { generateSessionId } from '@terminal/shared';
 import {
@@ -43,6 +44,8 @@ export interface UseTerminalOptions {
   onASTProgress?: (progress: ASTProgressMeta) => void;
   /** Callback when AST item result is received */
   onASTItemResult?: (itemResult: ASTItemResultMeta) => void;
+  /** Callback when AST paused state changes */
+  onASTPaused?: (isPaused: boolean) => void;
 }
 
 export interface UseTerminalReturn {
@@ -67,6 +70,12 @@ export interface UseTerminalReturn {
   isInputPosition: (row: number, col: number) => boolean;
   /** Run an AST (Automated Streamlined Transaction) */
   runAST: (astName: string, params?: Record<string, unknown>) => void;
+  /** Pause the currently running AST */
+  pauseAST: () => void;
+  /** Resume the paused AST */
+  resumeAST: () => void;
+  /** Cancel the currently running AST */
+  cancelAST: () => void;
 }
 
 // TN3270 uses fixed 80x43 (IBM-3278-4-E)
@@ -74,7 +83,7 @@ const FIXED_COLS = 80;
 const FIXED_ROWS = 43;
 
 export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn {
-  const { autoConnect = true, onASTStatus, onASTProgress, onASTItemResult } = options;
+  const { autoConnect = true, onASTStatus, onASTProgress, onASTItemResult, onASTPaused } = options;
 
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const terminalInstance = useRef<Terminal | null>(null);
@@ -104,6 +113,22 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
 
   // Handle incoming messages
   const handleMessage = useCallback((message: MessageEnvelope): void => {
+    // Always process AST-related messages, even if terminal is not visible
+    if (isASTStatusMessage(message)) {
+      onASTStatus?.(message.meta);
+      return;
+    } else if (isASTProgressMessage(message)) {
+      onASTProgress?.(message.meta);
+      return;
+    } else if (isASTItemResultMessage(message)) {
+      onASTItemResult?.(message.meta);
+      return;
+    } else if (isASTPausedMessage(message)) {
+      onASTPaused?.(message.meta.paused);
+      return;
+    }
+
+    // For terminal display messages, need the terminal instance
     if (!terminalInstance.current) return;
 
     if (isDataMessage(message)) {
@@ -123,17 +148,8 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
       terminalInstance.current.write(`\r\n\x1b[33mSession ended\x1b[0m\r\n`);
     } else if (isPongMessage(message)) {
       // Heartbeat response, ignore
-    } else if (isASTStatusMessage(message)) {
-      // Forward AST status to the callback
-      onASTStatus?.(message.meta);
-    } else if (isASTProgressMessage(message)) {
-      // Forward AST progress to the callback
-      onASTProgress?.(message.meta);
-    } else if (isASTItemResultMessage(message)) {
-      // Forward AST item result to the callback
-      onASTItemResult?.(message.meta);
     }
-  }, [onASTStatus, onASTProgress, onASTItemResult]);
+  }, [onASTStatus, onASTProgress, onASTItemResult, onASTPaused]);
 
   // Handle status changes
   const handleStatusChange = useCallback((newStatus: ConnectionStatus): void => {
@@ -346,6 +362,21 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
     wsRef.current?.sendASTRun(astName, params);
   }, []);
 
+  // Pause the currently running AST
+  const pauseAST = useCallback((): void => {
+    wsRef.current?.sendASTPause();
+  }, []);
+
+  // Resume the paused AST
+  const resumeAST = useCallback((): void => {
+    wsRef.current?.sendASTResume();
+  }, []);
+
+  // Cancel the currently running AST
+  const cancelAST = useCallback((): void => {
+    wsRef.current?.sendASTCancel();
+  }, []);
+
   return {
     terminalRef,
     status,
@@ -363,5 +394,8 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
     moveCursor,
     isInputPosition,
     runAST,
+    pauseAST,
+    resumeAST,
+    cancelAST,
   };
 }

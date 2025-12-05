@@ -17,7 +17,8 @@ import {
 export class ValkeyClient {
   private publisher: Redis;
   private subscriber: Redis;
-  private sessionSubscribers: Map<string, (message: string) => void> = new Map();
+  // Support multiple handlers per session (for Terminal + History observer)
+  private sessionSubscribers: Map<string, Set<(message: string) => void>> = new Map();
 
   constructor() {
     const redisConfig = {
@@ -47,9 +48,12 @@ export class ValkeyClient {
       const parts = channel.split('.');
       if (parts.length >= 3) {
         const sessionId = parts.slice(2).join('.');
-        const handler = this.sessionSubscribers.get(sessionId);
-        if (handler) {
-          handler(message);
+        const handlers = this.sessionSubscribers.get(sessionId);
+        if (handlers) {
+          // Call ALL handlers for this session
+          for (const handler of handlers) {
+            handler(message);
+          }
         }
       }
     });
@@ -89,14 +93,34 @@ export class ValkeyClient {
 
   async subscribeToOutput(sessionId: string, handler: (message: string) => void): Promise<void> {
     const channel = getTn3270OutputChannel(sessionId);
-    this.sessionSubscribers.set(sessionId, handler);
-    await this.subscriber.subscribe(channel);
+    
+    // Get or create the set of handlers for this session
+    let handlers = this.sessionSubscribers.get(sessionId);
+    if (!handlers) {
+      handlers = new Set();
+      this.sessionSubscribers.set(sessionId, handlers);
+      // Only subscribe to the channel if this is the first handler
+      await this.subscriber.subscribe(channel);
+    }
+    handlers.add(handler);
   }
 
-  async unsubscribeFromOutput(sessionId: string): Promise<void> {
+  async unsubscribeFromOutput(sessionId: string, handler?: (message: string) => void): Promise<void> {
     const channel = getTn3270OutputChannel(sessionId);
-    this.sessionSubscribers.delete(sessionId);
-    await this.subscriber.unsubscribe(channel);
+    const handlers = this.sessionSubscribers.get(sessionId);
+    
+    if (handlers) {
+      if (handler) {
+        // Remove specific handler
+        handlers.delete(handler);
+      }
+      
+      // Only unsubscribe from channel if no handlers left
+      if (handlers.size === 0 || !handler) {
+        this.sessionSubscribers.delete(sessionId);
+        await this.subscriber.unsubscribe(channel);
+      }
+    }
   }
 
   async close(): Promise<void> {

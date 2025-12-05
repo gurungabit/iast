@@ -27,6 +27,7 @@ import structlog
 from ...core import ErrorCodes, TerminalError, TN3270Config
 from ...models import (
     ASTRunMessage,
+    ASTControlMessage,
     DataMessage,
     ResizeMessage,
     SessionCreateMessage,
@@ -35,6 +36,7 @@ from ...models import (
     create_ast_status_message,
     create_ast_progress_message,
     create_ast_item_result_message,
+    create_ast_paused_message,
     create_data_message,
     create_error_message,
     create_session_created_message,
@@ -44,6 +46,7 @@ from ...models import (
     serialize_message,
 )
 from ...ast import LoginAST
+from ...ast.base import AST
 from .host import Host
 from .renderer import TN3270Renderer
 
@@ -129,6 +132,7 @@ class TN3270Session:
     created_at: datetime = field(default_factory=datetime.now)
     last_activity: datetime = field(default_factory=datetime.now)
     connected: bool = False
+    running_ast: AST | None = field(default=None, repr=False)
     _update_task: asyncio.Task | None = field(default=None, repr=False)
     _stop_event: threading.Event = field(default_factory=threading.Event, repr=False)
 
@@ -343,9 +347,37 @@ class TN3270Manager:
             if isinstance(msg, DataMessage):
                 await self._process_input(session, msg.payload)
             elif isinstance(msg, ASTRunMessage):
-                await self._run_ast(session, msg.meta.ast_name, msg.meta.params)
+                # Run AST as background task so we can still receive control messages
+                asyncio.create_task(
+                    self._run_ast(session, msg.meta.ast_name, msg.meta.params)
+                )
+            elif isinstance(msg, ASTControlMessage):
+                await self._handle_ast_control(session, msg.meta.action)
         except Exception:
             log.exception("Handle input error", session_id=session_id)
+
+    async def _handle_ast_control(self, session: TN3270Session, action: str) -> None:
+        """Handle AST control commands (pause/resume/cancel)."""
+        ast = session.running_ast
+        log.info(
+            "Handling AST control",
+            action=action,
+            session_id=session.session_id,
+            has_ast=ast is not None,
+        )
+        if not ast:
+            log.warning("No running AST to control", session_id=session.session_id)
+            return
+
+        if action == "pause":
+            log.info("Pausing AST", session_id=session.session_id)
+            ast.pause()
+        elif action == "resume":
+            log.info("Resuming AST", session_id=session.session_id)
+            ast.resume()
+        elif action == "cancel":
+            log.info("Cancelling AST", session_id=session.session_id)
+            ast.cancel()
 
     async def _run_ast(
         self,
@@ -354,7 +386,33 @@ class TN3270Manager:
         params: dict | None = None,
     ) -> None:
         """Run an AST (Automated Streamlined Transaction)."""
+        # Check if there's already an AST running (including paused)
+        if session.running_ast is not None:
+            log.warning(
+                "Cannot start AST - another AST is already running",
+                ast_name=ast_name,
+                session_id=session.session_id,
+                running_ast=type(session.running_ast).__name__,
+            )
+            # Send error status to frontend
+            status_msg = create_ast_status_message(
+                session.session_id,
+                ast_name,
+                "failed",
+                error="Another AST is already running. Please wait for it to complete, cancel it, or go to the History page to view its status.",
+            )
+            await self._valkey.publish_tn3270_output(
+                session.session_id, serialize_message(status_msg)
+            )
+            return
+
         log.info("Running AST", ast_name=ast_name, session_id=session.session_id)
+
+        # Generate unique execution_id for this AST run
+        # session_id is used for WebSocket channel, execution_id is unique per run
+        from uuid import uuid4
+
+        execution_id = str(uuid4())
 
         # Send running status
         status_msg = create_ast_status_message(
@@ -366,9 +424,6 @@ class TN3270Manager:
 
         # Get the event loop for thread-safe callbacks
         loop = asyncio.get_running_loop()
-
-        # Generate execution ID for tracking
-        execution_id = str(uuid.uuid4())
 
         # Create thread-safe progress callback
         def on_progress(
@@ -423,6 +478,50 @@ class TN3270Manager:
 
             asyncio.run_coroutine_threadsafe(send(), loop)
 
+        # Create thread-safe pause state callback
+        def on_pause_state(paused: bool, message: str | None = None) -> None:
+            """Thread-safe pause state callback."""
+            log.info(
+                "Pause state changed",
+                paused=paused,
+                message=message,
+                session_id=session.session_id,
+            )
+            paused_msg = create_ast_paused_message(
+                session.session_id,
+                paused,
+                message,
+            )
+
+            async def send():
+                await self._valkey.publish_tn3270_output(
+                    session.session_id, serialize_message(paused_msg)
+                )
+                # Also send a screen update so user sees current state while paused
+                if paused:
+                    await self._send_screen_update(session)
+
+                # Update execution status in DynamoDB
+                try:
+                    from ...db import get_dynamodb_client
+
+                    db = get_dynamodb_client()
+                    new_status = "paused" if paused else "running"
+                    db.update_execution(
+                        session_id=session.session_id,
+                        execution_id=execution_id,
+                        updates={"status": new_status},
+                    )
+                    log.info(
+                        "Updated execution status",
+                        execution_id=execution_id,
+                        status=new_status,
+                    )
+                except Exception as e:
+                    log.warning("Failed to update execution status", error=str(e))
+
+            asyncio.run_coroutine_threadsafe(send(), loop)
+
         try:
             # Create Host wrapper for the session's tnz instance
             host = Host(session.tnz)
@@ -433,13 +532,25 @@ class TN3270Manager:
             else:
                 raise ValueError(f"Unknown AST: {ast_name}")
 
+            # Store the running AST in the session for control commands
+            session.running_ast = ast
+
             # Set progress callbacks
-            ast.set_callbacks(on_progress=on_progress, on_item_result=on_item_result)
+            ast.set_callbacks(
+                on_progress=on_progress,
+                on_item_result=on_item_result,
+                on_pause_state=on_pause_state,
+            )
 
             # Run the AST in executor (blocking operations)
+            # Pass execution_id so it matches what we store in DynamoDB
             result = await loop.run_in_executor(
-                _executor, lambda: ast.run(host, **(params or {}))
+                _executor,
+                lambda: ast.run(host, execution_id=execution_id, **(params or {})),
             )
+
+            # Clear the running AST
+            session.running_ast = None
 
             # Send result status
             status_msg = create_ast_status_message(
@@ -467,6 +578,9 @@ class TN3270Manager:
             )
 
         except Exception as e:
+            # Clear the running AST on error
+            session.running_ast = None
+
             log.exception(
                 "AST execution error", ast_name=ast_name, session_id=session.session_id
             )

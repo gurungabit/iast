@@ -4,6 +4,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useTerminal } from '../hooks/useTerminal';
+import { useAST } from '../hooks/useAST';
 import type { ConnectionStatus } from '../types';
 import type { ASTStatusMeta, ASTProgressMeta, ASTItemResultMeta } from '@terminal/shared';
 import '@xterm/xterm/css/xterm.css';
@@ -20,6 +21,7 @@ interface TerminalProps {
   onASTStatus?: (status: ASTStatusMeta) => void;
   onASTProgress?: (progress: ASTProgressMeta) => void;
   onASTItemResult?: (itemResult: ASTItemResultMeta) => void;
+  onASTPaused?: (isPaused: boolean) => void;
 }
 
 // PF and PA key definitions
@@ -59,6 +61,24 @@ const PA_KEYS = [
   { label: 'Enter', key: '\r' },
 ];
 
+// Keyboard shortcuts for 3270 emulation
+const KEYBOARD_SHORTCUTS = [
+  { keys: 'F1-F12', action: 'PF1-PF12' },
+  { keys: 'Shift+F1-F12', action: 'PF13-PF24' },
+  { keys: 'Ctrl+F1', action: 'PA1' },
+  { keys: 'Ctrl+F2', action: 'PA2' },
+  { keys: 'Ctrl+F3', action: 'PA3' },
+  { keys: 'Enter', action: 'Enter/Submit' },
+  { keys: 'Tab', action: 'Next Field' },
+  { keys: 'Shift+Tab', action: 'Previous Field' },
+  { keys: 'Insert', action: 'Clear Screen' },
+  { keys: 'Ctrl+C', action: 'Attention' },
+  { keys: 'Home', action: 'Field Start' },
+  { keys: 'End', action: 'Field End' },
+  { keys: 'Delete', action: 'Delete Char' },
+  { keys: 'Backspace', action: 'Backspace' },
+];
+
 function getStatusColor(status: ConnectionStatus): string {
   switch (status) {
     case 'connected':
@@ -90,7 +110,7 @@ function getStatusText(status: ConnectionStatus): string {
   }
 }
 
-export function Terminal({ sessionId, autoConnect = true, onStatusChange, onReady, onASTStatus, onASTProgress, onASTItemResult }: TerminalProps): React.ReactNode {
+export function Terminal({ sessionId, autoConnect = true, onStatusChange, onReady, onASTStatus, onASTProgress, onASTItemResult, onASTPaused }: TerminalProps): React.ReactNode {
   const {
     terminalRef,
     status,
@@ -101,7 +121,14 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
     focus,
     sendKey,
     runAST,
-  } = useTerminal({ sessionId, autoConnect, onASTStatus, onASTProgress, onASTItemResult });
+    pauseAST,
+    resumeAST,
+    cancelAST,
+  } = useTerminal({ sessionId, autoConnect, onASTStatus, onASTProgress, onASTItemResult, onASTPaused });
+
+  // Get AST running state from context
+  const { isRunning: isASTRunning, runningAST, status: astStatus } = useAST();
+  const isPaused = astStatus === 'paused';
 
   // Expose API to parent
   useEffect(() => {
@@ -157,7 +184,7 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
             <div ref={menuRef} className="relative">
               <button
                 onClick={() => setKeyMenuOpen(!keyMenuOpen)}
-                className={`px-2 py-1 text-xs flex items-center gap-1 rounded border cursor-pointer transition-colors
+                className={`px-3 py-1.5 text-xs flex items-center gap-1 rounded border cursor-pointer transition-colors
                   ${keyMenuOpen 
                     ? 'bg-blue-600 text-white border-blue-600' 
                     : 'bg-gray-100 dark:bg-zinc-800 text-gray-800 dark:text-zinc-200 border-gray-300 dark:border-zinc-700 hover:bg-gray-200 dark:hover:bg-zinc-700'}`}
@@ -166,18 +193,18 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
               </button>
               
               {keyMenuOpen && (
-                <div className="absolute top-full left-0 mt-1 min-w-[280px] p-2 rounded-md border shadow-lg z-50 bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-700">
+                <div className="absolute top-full left-0 mt-1 min-w-[340px] p-3 rounded-md border shadow-lg z-50 bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-700">
                   {/* PF Keys */}
-                  <div className="mb-2">
-                    <div className="text-[10px] uppercase mb-1 text-gray-500 dark:text-zinc-500">
+                  <div className="mb-3">
+                    <div className="text-[11px] uppercase mb-1.5 text-gray-500 dark:text-zinc-500 font-medium">
                       Function Keys
                     </div>
-                    <div className="grid grid-cols-6 gap-0.5">
+                    <div className="grid grid-cols-6 gap-1">
                       {PF_KEYS.map(({ label, key }) => (
                         <button
                           key={label}
                           onClick={() => handleKeyClick(key)}
-                          className="px-1 py-1 text-[10px] rounded border cursor-pointer transition-colors
+                          className="px-1.5 py-1.5 text-[11px] rounded border cursor-pointer transition-colors
                             bg-gray-100 dark:bg-zinc-800 text-gray-800 dark:text-zinc-200 
                             border-gray-300 dark:border-zinc-700
                             hover:bg-gray-200 dark:hover:bg-zinc-700 hover:border-gray-400 dark:hover:border-zinc-600
@@ -190,16 +217,16 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
                   </div>
                   
                   {/* PA Keys & Actions */}
-                  <div>
-                    <div className="text-[10px] uppercase mb-1 text-gray-500 dark:text-zinc-500">
+                  <div className="mb-3">
+                    <div className="text-[11px] uppercase mb-1.5 text-gray-500 dark:text-zinc-500 font-medium">
                       Program Attention & Actions
                     </div>
-                    <div className="flex flex-wrap gap-0.5">
+                    <div className="flex flex-wrap gap-1">
                       {PA_KEYS.map(({ label, key }) => (
                         <button
                           key={label}
                           onClick={() => handleKeyClick(key)}
-                          className={`px-2 py-1 text-[10px] rounded border cursor-pointer transition-colors
+                          className={`px-2.5 py-1.5 text-[11px] rounded border cursor-pointer transition-colors
                             ${label === 'Enter' 
                               ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 active:bg-blue-800' 
                               : 'bg-gray-100 dark:bg-zinc-800 text-gray-800 dark:text-zinc-200 border-gray-300 dark:border-zinc-700 hover:bg-gray-200 dark:hover:bg-zinc-700 hover:border-gray-400 dark:hover:border-zinc-600 active:bg-gray-300 dark:active:bg-zinc-600'}`}
@@ -209,30 +236,78 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
                       ))}
                     </div>
                   </div>
+
+                  {/* Keyboard Shortcuts */}
+                  <div className="pt-2 border-t border-gray-200 dark:border-zinc-700">
+                    <div className="text-[11px] uppercase mb-1.5 text-gray-500 dark:text-zinc-500 font-medium">
+                      Keyboard Shortcuts
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px]">
+                      {KEYBOARD_SHORTCUTS.map(({ keys, action }) => (
+                        <div key={keys} className="flex justify-between">
+                          <span className="text-gray-600 dark:text-zinc-400 font-mono">{keys}</span>
+                          <span className="text-gray-500 dark:text-zinc-500">{action}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Session ID */}
+                  <div className="pt-2 mt-2 border-t border-gray-200 dark:border-zinc-700">
+                    <div className="text-[10px] text-gray-400 dark:text-zinc-500 font-mono truncate">
+                      Session: {activeSessionId}
+                    </div>
+                  </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* AST Controls - show when AST is running */}
+          {isASTRunning && (
+            <div className="flex items-center gap-2 ml-2 pl-2 border-l border-zinc-700">
+              <span className={`text-xs mr-1 ${isPaused ? 'text-yellow-400' : 'text-yellow-400 animate-pulse'}`}>
+                {isPaused ? '⏸' : '▶'} {runningAST}
+              </span>
+              <button
+                onClick={() => {
+                  if (isPaused) {
+                    resumeAST();
+                  } else {
+                    pauseAST();
+                  }
+                }}
+                className="px-3 py-1.5 text-xs rounded border cursor-pointer transition-colors
+                  bg-yellow-600 text-white border-yellow-600 hover:bg-yellow-700"
+              >
+                {isPaused ? 'Resume' : 'Pause'}
+              </button>
+              <button
+                onClick={() => cancelAST()}
+                className="px-3 py-1.5 text-xs rounded border cursor-pointer transition-colors
+                  bg-red-600 text-white border-red-600 hover:bg-red-700"
+              >
+                Stop
+              </button>
             </div>
           )}
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="text-zinc-300 text-[11px]">
+          <span className="text-zinc-300 text-xs">
             Cursor: ({cursorPosition.row},{cursorPosition.col})
-          </span>
-          <span className="text-zinc-400 text-[11px]">
-            Session: {activeSessionId}
           </span>
           {status === 'disconnected' || status === 'error' ? (
             <button
               onClick={connect}
-              className="px-2 py-1 text-[11px] bg-blue-600 text-white rounded-sm cursor-pointer hover:bg-blue-700 transition-colors"
+              className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded cursor-pointer hover:bg-blue-700 transition-colors"
             >
               Connect
             </button>
           ) : status === 'connected' ? (
             <button
               onClick={disconnect}
-              className="px-2 py-1 text-[11px] rounded-sm cursor-pointer transition-colors
+              className="px-3 py-1.5 text-xs rounded cursor-pointer transition-colors
                 bg-gray-200 dark:bg-zinc-700 text-gray-700 dark:text-zinc-200 
                 hover:bg-gray-300 dark:hover:bg-zinc-600"
             >

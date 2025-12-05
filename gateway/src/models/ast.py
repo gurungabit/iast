@@ -36,6 +36,53 @@ class ASTRunMessage(BaseMessage):
 
 
 # ============================================================================
+# AST Control (Pause/Resume/Cancel)
+# ============================================================================
+
+
+class ASTControlMeta(BaseModel):
+    """AST control command metadata."""
+
+    action: Literal["pause", "resume", "cancel"]
+    """Control action to perform."""
+
+    class Config:
+        populate_by_name = True
+
+
+class ASTControlMessage(BaseMessage):
+    """Request to control a running AST (pause/resume/cancel)."""
+
+    type: Literal["ast.control"] = "ast.control"
+    meta: ASTControlMeta
+
+
+# ============================================================================
+# AST Paused Status
+# ============================================================================
+
+
+class ASTPausedMeta(BaseModel):
+    """AST paused status metadata."""
+
+    paused: bool
+    """Whether the AST is currently paused."""
+
+    message: str | None = None
+    """Optional message."""
+
+    class Config:
+        populate_by_name = True
+
+
+class ASTPausedMessage(BaseMessage):
+    """AST paused status update."""
+
+    type: Literal["ast.paused"] = "ast.paused"
+    meta: ASTPausedMeta
+
+
+# ============================================================================
 # AST Status
 # ============================================================================
 
@@ -233,5 +280,21 @@ def create_ast_item_result_message(
             duration_ms=duration_ms,
             error=error,
             data=data,
+        ),
+    )
+
+
+def create_ast_paused_message(
+    session_id: str,
+    paused: bool,
+    message: str | None = None,
+) -> ASTPausedMessage:
+    """Create an AST paused status message."""
+    return ASTPausedMessage(
+        session_id=session_id,
+        payload=message or ("Paused" if paused else "Resumed"),
+        meta=ASTPausedMeta(
+            paused=paused,
+            message=message,
         ),
     )
