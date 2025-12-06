@@ -6,11 +6,13 @@
 flowchart TB
     subgraph Browser["` **Browser** _(Client)_ `"]
         direction LR
-        React["`**React 19** + Vite 7`"]
+        React["`**React 19** + Vite 7
+        + TanStack Router`"]
         XTerm["`**xterm.js** Terminal`"]
+        Zustand["`**Zustand** Store
+        _(AST State)_`"]
         Auth["`Auth UI
         _(Login/Register)_`"]
-        Theme["`🌙 Theme Toggle`"]
     end
 
     subgraph API["` **API Server** _(Node.js)_ `"]
@@ -19,7 +21,8 @@ flowchart TB
         WS["`WebSocket Handler`"]
         AuthService["`Auth Service
         _(JWT + bcrypt)_`"]
-        Session["`Session Manager`"]
+        HistoryAPI["`History API`"]
+        SessionAPI["`Session API`"]
         ValkeyClient1["`Valkey Client`"]
         DynamoDBClient1["`DynamoDB Client`"]
     end
@@ -33,7 +36,7 @@ flowchart TB
         Tn3270Control["`tn3270.control.*`"]
     end
 
-    subgraph DynamoDB["` **DynamoDB** _(AWS/NoSQL)_ `"]
+    subgraph DynamoDB["` **DynamoDB** _(AWS/Local)_ `"]
         direction TB
         UsersTable["`Users Table`"]
         SessionsTable["`Sessions Table`"]
@@ -46,29 +49,89 @@ flowchart TB
         AsyncIO["`**asyncio** Runtime`"]
         ValkeyClient2["`Valkey Client`"]
         DynamoDBClient2["`DynamoDB Client`"]
+        ASTEngine["`AST Engine`"]
         Tn3270Manager["`TN3270 Manager`"]
         Tn3270Session1["`TN3270 Session 1`"]
         Tn3270Session2["`TN3270 Session 2`"]
         Tn3270SessionN["`TN3270 Session N`"]
     end
 
-    React --> Auth & XTerm & Theme
+    subgraph Mainframe["` **Mainframe** _(TN3270 Host)_ `"]
+        direction TB
+        TSO["`IBM z/OS
+        TSO/ISPF`"]
+    end
+
+    React --> Auth & XTerm & Zustand
 
     Auth -->|"`**HTTP REST**`"| AuthService
     XTerm -->|"`**WebSocket**`"| WS
+    Zustand -.->|"`State sync`"| XTerm
 
-    WS --> Session & ValkeyClient1
-    AuthService --> Session
-    Session --> DynamoDBClient1
+    WS --> SessionAPI & ValkeyClient1
+    AuthService --> DynamoDBClient1
+    HistoryAPI --> DynamoDBClient1
+    SessionAPI --> DynamoDBClient1
     DynamoDBClient1 -->|"`_Read/Write_`"| UsersTable & SessionsTable
 
     ValkeyClient1 -->|"`_Publish_`"| PubSub
     PubSub -->|"`_Subscribe_`"| ValkeyClient2
 
-    ValkeyClient2 --> Tn3270Manager
-    Tn3270Manager --> DynamoDBClient2
+    ValkeyClient2 --> Tn3270Manager & ASTEngine
+    ASTEngine --> DynamoDBClient2
     DynamoDBClient2 -->|"`_Read/Write_`"| ExecutionsTable & PoliciesTable
     Tn3270Manager --> Tn3270Session1 & Tn3270Session2 & Tn3270SessionN
+    Tn3270Session1 & Tn3270Session2 & Tn3270SessionN -->|"`**TN3270 TCP**`"| TSO
+```
+
+## Frontend State Architecture
+
+```mermaid
+flowchart TB
+    subgraph Browser["` **Browser** `"]
+        direction TB
+        
+        subgraph Router["` **TanStack Router** `"]
+            RootLayout["`Root Layout
+            _(AuthGuard, Navbar)_`"]
+            TerminalPage["`Terminal Page
+            _/_ `"]
+            HistoryPage["`History Page
+            _/history_ `"]
+        end
+
+        subgraph ZustandStore["` **Zustand Store** _(astStore)_ `"]
+            TabsState["`tabs: Record<tabId, TabState>`"]
+            ActiveTabId["`activeTabId: string`"]
+            TabState1["`Tab State 1
+            - selectedASTId
+            - status
+            - progress
+            - itemResults
+            - lastResult`"]
+            TabState2["`Tab State 2
+            - ...`"]
+        end
+
+        subgraph Components["` **Components** `"]
+            Terminal["`Terminal Component
+            _(useTerminal hook)_`"]
+            ASTPanel["`AST Panel
+            _(useAST hook)_`"]
+            HistoryList["`History List
+            _(useExecutionObserver)_`"]
+        end
+    end
+
+    RootLayout --> TerminalPage & HistoryPage
+    TerminalPage --> Terminal & ASTPanel
+    HistoryPage --> HistoryList
+
+    Terminal -->|"`setRunCallback`"| ZustandStore
+    ASTPanel -->|"`executeAST, setSelectedASTId`"| ZustandStore
+    ZustandStore -->|"`state per tab`"| TabState1 & TabState2
+    
+    TabsState --> TabState1 & TabState2
 ```
 
 ## Authentication Flow
@@ -79,14 +142,14 @@ sequenceDiagram
     
     participant B as 🌐 Browser
     participant A as ⚡ API Server
-    participant DB as 💾 User Store
+    participant DB as 💾 DynamoDB
 
     rect rgb(50, 40, 50)
         Note over B,DB: Registration
         B->>+A: POST /auth/register<br/>{email, password}
         A->>A: Validate input
         A->>A: Hash password (bcrypt)
-        A->>DB: Store user
+        A->>DB: PutItem (Users)
         A->>A: Generate JWT
         A-->>-B: {token, user}
         B->>B: Store in localStorage
@@ -95,7 +158,7 @@ sequenceDiagram
     rect rgb(40, 50, 50)
         Note over B,DB: Login
         B->>+A: POST /auth/login<br/>{email, password}
-        A->>DB: Find user by email
+        A->>DB: GetItem (Users)
         A->>A: Verify password (bcrypt)
         A->>A: Generate JWT
         A-->>-B: {token, user}
@@ -150,18 +213,26 @@ sequenceDiagram
         A->>B: data message (output)
     end
 
+    rect rgb(50, 50, 40)
+        Note over B,T: Navigation Away (Session Persists)
+        B->>A: WebSocket Close
+        Note over A,G: Session remains active<br/>No destroy message sent
+        B->>B: Navigate to /history
+    end
+
     rect rgb(40, 50, 60)
-        Note over B,T: Terminal Resize
-        B->>A: resize message {cols, rows}
-        A->>V: PUBLISH tn3270.control/:id
-        V->>G: MESSAGE
-        G->>T: send resize command
+        Note over B,T: Navigate Back (Reconnect)
+        B->>+A: WebSocket Connect<br/>/terminal/:sessionId?token=xxx
+        A->>A: Validate JWT
+        A->>V: SUBSCRIBE tn3270.output/:id
+        Note over A,G: Reconnect to existing session
+        A-->>-B: Receive buffered output
     end
 
     rect rgb(60, 40, 40)
-        Note over B,T: Session Cleanup
-        B->>A: WebSocket Close
-        A->>V: PUBLISH tn3270.control/:id<br/>(session.destroy)
+        Note over B,T: Explicit Session Close (Tab Close)
+        B->>A: session.destroy message
+        A->>V: PUBLISH gateway.control
         V->>G: MESSAGE
         G->>T: disconnect
         deactivate T
@@ -171,12 +242,61 @@ sequenceDiagram
     end
 ```
 
+## AST Execution Flow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    
+    participant B as 🌐 Browser
+    participant A as ⚡ API Server
+    participant V as 📡 Valkey
+    participant G as 🐍 Gateway
+    participant T as 🖥️ TN3270 Host
+    participant DB as 💾 DynamoDB
+
+    rect rgb(40, 50, 60)
+        Note over B,DB: AST Execution Start
+        B->>A: ast.run {name: "login", params: {...}}
+        A->>V: PUBLISH tn3270.input/:id
+        V->>G: MESSAGE
+        G->>DB: PutItem (Executions) - status: running
+        G->>V: PUBLISH tn3270.output/:id (ast.status: running)
+        V->>A: MESSAGE
+        A->>B: ast.status {status: running}
+    end
+
+    rect rgb(40, 60, 50)
+        Note over B,DB: Policy Processing Loop
+        loop For each policy
+            G->>T: Execute TN3270 commands
+            T->>G: Response
+            G->>DB: PutItem (Policies)
+            G->>V: PUBLISH tn3270.output/:id (ast.item_result)
+            V->>A: MESSAGE
+            A->>B: ast.item_result {itemId, status}
+            G->>V: PUBLISH tn3270.output/:id (ast.progress)
+            V->>A: MESSAGE
+            A->>B: ast.progress {current, total}
+        end
+    end
+
+    rect rgb(40, 50, 60)
+        Note over B,DB: AST Completion
+        G->>DB: UpdateItem (Executions) - status: success
+        G->>V: PUBLISH tn3270.output/:id (ast.status: success)
+        V->>A: MESSAGE
+        A->>B: ast.status {status: success, duration}
+    end
+```
+
 ## Message Flow
 
 ```mermaid
 flowchart LR
     subgraph Browser["` **Browser** `"]
         XT["`📺 **xterm.js**`"]
+        AST["`🔧 **AST Panel**`"]
     end
 
     subgraph API["` **API Server** `"]
@@ -197,26 +317,33 @@ flowchart LR
         direction TB
         VC2["`Valkey Client`"]
         PM["`🔧 TN3270 Manager`"]
+        AE["`🤖 AST Engine`"]
         PTY["`🖥️ TN3270 Host`"]
     end
 
     XT -->|"`_session.create_
     _data_
     _resize_`"| WSH
+    AST -->|"`_ast.run_
+    _ast.control_`"| WSH
     WSH -->|"`Publish`"| VC1
     VC1 --> GC & PI & PC
     
     GC & PI & PC -->|"`Subscribe`"| VC2
     
-    VC2 <--> PM <--> PTY
+    VC2 <--> PM & AE
+    PM <--> PTY
+    AE <--> PM
     PM -->|"`Publish`"| VC2
+    AE -->|"`Publish`"| VC2
     VC2 --> PO
     
     PO -->|"`Subscribe`"| VC1
     VC1 --> WSH
     WSH -->|"`_session.created_
     _data_
-    _error_`"| XT
+    _ast.status_
+    _ast.progress_`"| XT & AST
 ```
 
 ## Component Dependencies
@@ -230,7 +357,7 @@ flowchart BT
 
     subgraph Apps["` **🚀 Apps** `"]
         Web["`**@terminal/web**
-        _React Frontend_`"]
+        _React + Zustand_`"]
         API["`**@terminal/api**
         _Fastify Backend_`"]
     end
@@ -241,7 +368,9 @@ flowchart BT
         Valkey["`**Valkey**
         _Docker_`"]
         DynamoDB["`**DynamoDB**
-        _AWS/NoSQL_`"]
+        _AWS/Local_`"]
+        Mainframe["`**Mainframe**
+        _TN3270 Host_`"]
     end
 
     Web --> Shared
@@ -249,6 +378,7 @@ flowchart BT
     API <--> Valkey <--> Gateway
     API --> DynamoDB
     Gateway --> DynamoDB
+    Gateway --> Mainframe
     Web --> API
 ```
 
@@ -277,6 +407,7 @@ stateDiagram-v2
     note right of Connected
         Active terminal session
         Sending/receiving data
+        Session persists on navigation
     end note
 
     note left of Reconnecting
@@ -298,23 +429,28 @@ stateDiagram-v2
 
     state Active {
         direction LR
-        [*] --> Running
+        [*] --> Idle
+        Idle --> Running: ast.run
         Running --> Running: I/O operations
-        Running --> Resizing: resize message
-        Resizing --> Running: resize sent
+        Running --> Paused: ast.control(pause)
+        Paused --> Running: ast.control(resume)
+        Running --> Idle: ast complete
+        Idle --> Idle: data I/O
     }
 
-    Active --> Destroying: session.destroy / disconnect
-    Active --> Disconnected: Connection lost
+    Active --> WebSocketDisconnected: WS close (navigation)
+    WebSocketDisconnected --> Active: WS reconnect
+    
+    Active --> Destroying: session.destroy (tab close)
+    WebSocketDisconnected --> Destroying: session.destroy
 
     Destroying --> Cleanup: disconnect sent
     Cleanup --> [*]: Resources freed
 
-    Disconnected --> Cleanup: Detected by read()
     Failed --> [*]: Error sent to client
 ```
 
-## Deployment Architecture
+## AWS Deployment Architecture (Production)
 
 ```mermaid
 flowchart TB
@@ -324,39 +460,87 @@ flowchart TB
         UN["`👤 User N`"]
     end
 
-    subgraph LoadBalancer["` **⚖️ Load Balancer** `"]
-        LB["`**nginx / ALB**
-        _Sticky sessions for WS_`"]
+    subgraph AWS["` **☁️ AWS Cloud** `"]
+        subgraph VPC["` **VPC** `"]
+            subgraph PublicSubnet["` **Public Subnets** `"]
+                ALB["`**Application Load Balancer**
+                _HTTPS + WebSocket_
+                _Sticky Sessions_`"]
+            end
+
+            subgraph PrivateSubnet["` **Private Subnets** `"]
+                subgraph ECSAPI["` **ECS Cluster (API)** `"]
+                    API1["`API Task 1`"]
+                    API2["`API Task 2`"]
+                end
+
+                subgraph EC2Gateway["` **EC2 Auto Scaling** `"]
+                    GW1["`Gateway Instance 1
+                    _(10 sessions)_`"]
+                    GW2["`Gateway Instance 2
+                    _(10 sessions)_`"]
+                end
+
+                ElastiCache["`**ElastiCache**
+                _(Valkey/Redis)_`"]
+            end
+        end
+
+        DynamoDB2["`**DynamoDB**
+        _(On-Demand)_`"]
+        
+        S3["`**S3 + CloudFront**
+        _(Static Assets)_`"]
     end
 
-    subgraph WebServers["` **🌐 Web Servers (Static)** `"]
-        W1["`**CDN / Static Host**
-        _Vite build output_`"]
+    subgraph OnPrem["` **On-Premises / Direct Connect** `"]
+        Mainframe2["`🖥️ **Mainframe**
+        _(TN3270)_`"]
     end
 
-    subgraph APIServers["` **⚡ API Servers (Scalable)** `"]
-        direction LR
-        A1["`API Instance 1`"]
-        A2["`API Instance 2`"]
-    end
+    U1 & U2 & UN --> S3
+    U1 & U2 & UN --> ALB
 
-    subgraph MessageBroker["` **📡 Message Broker** `"]
-        V["`**Valkey Cluster**
-        _Pub/Sub + Persistence_`"]
-    end
-
-    subgraph Tn3270Gateways["` **🐍 TN3270 Gateways (Scalable)** `"]
-        direction LR
-        G1["`Gateway 1
-        _10 sessions max_`"]
-        G2["`Gateway 2
-        _10 sessions max_`"]
-    end
-
-    U1 & U2 & UN --> LB
+    ALB --> API1 & API2
+    API1 & API2 <--> ElastiCache
+    API1 & API2 --> DynamoDB2
     
-    LB -->|"`Static Assets`"| W1
-    LB -->|"`API / WebSocket`"| A1 & A2
-    
-    A1 & A2 <--> V <--> G1 & G2
+    ElastiCache <--> GW1 & GW2
+    GW1 & GW2 --> DynamoDB2
+    GW1 & GW2 -->|"`Direct Connect / VPN`"| Mainframe2
+```
+
+## Development Architecture
+
+```mermaid
+flowchart TB
+    subgraph Dev["` **Development Environment** `"]
+        subgraph Local["` **localhost** `"]
+            WebDev["`**Vite Dev Server**
+            _:5173_`"]
+            APIDev["`**Fastify**
+            _:3001_`"]
+            GatewayDev["`**Python Gateway**
+            _asyncio_`"]
+        end
+
+        subgraph Docker["` **Docker Compose** `"]
+            ValkeyDev["`**Valkey**
+            _:6379_`"]
+            DynamoDBLocal["`**DynamoDB Local**
+            _:8042_`"]
+        end
+
+        subgraph External2["` **External** `"]
+            TK4["`**TK4- Mainframe**
+            _(Hercules)_
+            _:3270_`"]
+        end
+    end
+
+    WebDev -->|"`HTTP/WS`"| APIDev
+    APIDev <--> ValkeyDev <--> GatewayDev
+    APIDev --> DynamoDBLocal
+    GatewayDev --> DynamoDBLocal
+    GatewayDev -->|"`TN3270`"| TK4
 ```

@@ -8,10 +8,10 @@ This is a full-stack web-based terminal application that provides secure, real-t
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              Browser (Client)                                │
 │  ┌─────────────────────────────────────────────────────────────────────────┐ │
-│  │                     React + Vite + xterm.js                             │ │
+│  │                React 19 + Vite 7 + TanStack Router + Zustand            │ │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────────┐   │ │
-│  │  │   Auth UI    │  │ Theme Toggle │  │     Terminal Component       │   │ │
-│  │  │ (Login/Reg)  │  │ (Light/Dark) │  │    (xterm.js + WebSocket)    │   │ │
+│  │  │   Auth UI    │  │  AST Panel   │  │     Terminal Component       │   │ │
+│  │  │ (Login/Reg)  │  │  (Zustand)   │  │    (xterm.js + WebSocket)    │   │ │
 │  │  └──────────────┘  └──────────────┘  └──────────────────────────────┘   │ │
 │  └─────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -23,9 +23,14 @@ This is a full-stack web-based terminal application that provides secure, real-t
 │  ┌─────────────────────────────────────────────────────────────────────────┐ │
 │  │                      Fastify + @fastify/websocket                       │ │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────────┐   │ │
-│  │  │  Auth Routes │  │   Session    │  │    WebSocket Terminal        │   │ │
-│  │  │ (JWT/bcrypt) │  │  Management  │  │       Handler                │   │ │
+│  │  │  Auth Routes │  │  History API │  │    WebSocket Terminal        │   │ │
+│  │  │ (JWT/bcrypt) │  │ (Executions) │  │       Handler                │   │ │
 │  │  └──────────────┘  └──────────────┘  └──────────────────────────────┘   │ │
+│  │                          │                        │                     │ │
+│  │                   ┌──────┴───────┐                │                     │ │
+│  │                   │  DynamoDB    │                │                     │ │
+│  │                   │   Client     │                │                     │ │
+│  │                   └──────────────┘                │                     │ │
 │  └─────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
@@ -45,13 +50,27 @@ This is a full-stack web-based terminal application that provides secure, real-t
                                       │ Pub/Sub (Redis Protocol)
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                          TN3270 Gateway (Python)                                │
+│                          TN3270 Gateway (Python)                             │
 │  ┌─────────────────────────────────────────────────────────────────────────┐ │
-│  │                    asyncio + redis-py + tn3270                          │ │
+│  │                    asyncio + redis-py + tn3270 + DynamoDB               │ │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────────┐   │ │
-│  │  │ Valkey Client│  │ TN3270 Manager│  │      TN3270 Sessions         │   │ │
-│  │  │  (Pub/Sub)   │  │ (connect)    │  │   (TN3270 connections)       │   │ │
+│  │  │ Valkey Client│  │ AST Engine   │  │      TN3270 Sessions         │   │ │
+│  │  │  (Pub/Sub)   │  │ (Automation) │  │   (TN3270 connections)       │   │ │
 │  │  └──────────────┘  └──────────────┘  └──────────────────────────────┘   │ │
+│  │                          │                                              │ │
+│  │                   ┌──────┴───────┐                                      │ │
+│  │                   │  DynamoDB    │  (Execution history, policies)       │ │
+│  │                   │   Client     │                                      │ │
+│  │                   └──────────────┘                                      │ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │ TN3270 Protocol (TCP)
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Mainframe (TN3270 Host)                            │
+│  ┌─────────────────────────────────────────────────────────────────────────┐ │
+│  │                          IBM z/OS, TSO, etc.                            │ │
 │  └─────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -63,17 +82,20 @@ terminal/
 ├── apps/
 │   ├── api/                    # Fastify backend server
 │   │   └── src/
-│   │       ├── routes/         # HTTP endpoints (auth)
+│   │       ├── routes/         # HTTP endpoints (auth, history, sessions)
 │   │       ├── ws/             # WebSocket handlers
-│   │       ├── services/       # Business logic (auth, session)
-│   │       ├── models/         # Data models (user)
+│   │       ├── services/       # Business logic (auth, session, dynamodb)
+│   │       ├── models/         # Data models (user, session)
 │   │       └── valkey/         # Valkey pub/sub client
 │   │
 │   └── web/                    # React frontend
 │       └── src/
-│           ├── components/     # UI components (Terminal, LoginForm, etc.)
-│           ├── hooks/          # React hooks (useAuth, useTerminal, useTheme)
+│           ├── components/     # UI components (Terminal, History, etc.)
+│           ├── hooks/          # React hooks (useAuth, useTerminal, useAST)
+│           ├── stores/         # Zustand stores (astStore)
 │           ├── services/       # API client, WebSocket service
+│           ├── ast/            # AST panel components and forms
+│           ├── routes/         # TanStack Router pages
 │           └── config/         # Frontend configuration
 │
 ├── packages/
@@ -88,61 +110,80 @@ terminal/
 ├── gateway/                    # Python TN3270 gateway
 │   └── src/
 │       ├── app.py              # Main entry point
-│       ├── tn3270_manager.py   # TN3270 session management
-│       ├── valkey_client.py    # Async Valkey client
-│       ├── models.py           # Pydantic message models
-│       ├── config.py           # Gateway configuration
-│       └── tn3270_client.py    # TN3270 protocol client
+│       ├── services/           # TN3270 service, Valkey client
+│       ├── ast/                # AST automation scripts
+│       ├── models/             # Pydantic message models
+│       ├── db/                 # DynamoDB client
+│       └── core/               # Config, channels, errors
 │
 ├── infra/
-│   └── docker-compose.dev.yml  # Valkey container for development
+│   └── docker-compose.dev.yml  # Valkey + DynamoDB containers
 │
 ├── scripts/
 │   └── dev.sh                  # Development startup script
 │
 └── docs/
-    └── ARCHITECTURE.md         # This document
+    ├── ARCHITECTURE.md         # This document
+    ├── diagrams.md             # Mermaid architecture diagrams
+    └── AWS_DEPLOYMENT.md       # AWS deployment guide
 ```
 
 ## Components
 
 ### 1. Web Frontend (`apps/web`)
 
-**Technology**: React 19, Vite 7, TypeScript 5.9, Tailwind CSS v4, xterm.js
+**Technology**: React 19, Vite 7, TypeScript 5.9, TanStack Router, Zustand, Tailwind CSS v4, xterm.js
 
 **Responsibilities**:
 
 - User authentication (login/register forms)
+- Multi-tab terminal sessions with tab management
 - Terminal UI rendering with xterm.js
+- AST (Automated Streamlined Transaction) panel with form inputs
+- Execution history viewing with live updates
 - WebSocket connection management with auto-reconnect
 - Theme switching (light/dark mode)
 - Session persistence via localStorage
 
+**State Management**:
+
+- **Zustand** for global state (AST panel state per session)
+- **TanStack Router** for route-based navigation
+- **React Context** for auth state
+- **localStorage** for theme and session persistence
+
 **Key Files**:
 
 - `hooks/useTerminal.ts` - xterm.js integration and WebSocket handling
+- `hooks/useAST.ts` - AST state access via Zustand store
 - `hooks/useAuth.ts` - Authentication state management
-- `hooks/useTheme.ts` - Theme state with localStorage persistence
+- `stores/astStore.ts` - Zustand store for per-tab AST state
 - `services/websocket.ts` - WebSocket client with reconnection logic
 - `components/Terminal.tsx` - Terminal UI component
+- `routes/index.tsx` - Terminal page with tab management
+- `routes/history/route.tsx` - Execution history page
 
 ### 2. API Server (`apps/api`)
 
-**Technology**: Fastify 5, TypeScript, ioredis, JWT, bcrypt
+**Technology**: Fastify 5, TypeScript, ioredis, AWS SDK (DynamoDB), JWT, bcrypt
 
 **Responsibilities**:
 
 - REST API for authentication (login, register, token refresh)
+- REST API for session management (CRUD)
+- REST API for execution history
 - WebSocket endpoint for terminal connections
 - JWT token validation
-- Session management
 - Message routing between browser and TN3270 gateway via Valkey
 
 **Key Files**:
 
 - `routes/auth.ts` - Authentication endpoints
+- `routes/sessions.ts` - Session management endpoints
+- `routes/history.ts` - Execution history endpoints
 - `ws/terminal.ts` - WebSocket terminal handler
 - `services/auth.ts` - JWT generation and password hashing
+- `services/dynamodb.ts` - DynamoDB client
 - `valkey/client.ts` - Valkey pub/sub client
 
 **Endpoints**:
@@ -153,6 +194,12 @@ terminal/
 | POST | `/auth/login` | Authenticate and get JWT |
 | GET | `/auth/me` | Get current user info |
 | POST | `/auth/refresh` | Refresh JWT token |
+| GET | `/sessions` | List user sessions |
+| POST | `/sessions` | Create new session |
+| PUT | `/sessions/:id` | Update session |
+| DELETE | `/sessions/:id` | Delete session |
+| GET | `/history` | List execution history |
+| GET | `/history/:id/policies` | Get policies for execution |
 | WS | `/terminal/:sessionId` | WebSocket terminal connection |
 
 ### 3. Shared Package (`packages/shared`)
@@ -173,7 +220,9 @@ terminal/
 // Message types
 type MessageType = 'data' | 'resize' | 'ping' | 'pong' | 'error' 
                  | 'session.create' | 'session.destroy' 
-                 | 'session.created' | 'session.destroyed';
+                 | 'session.created' | 'session.destroyed'
+                 | 'ast.run' | 'ast.status' | 'ast.progress' 
+                 | 'ast.item_result' | 'ast.control' | 'ast.paused';
 
 // Message envelope structure
 interface MessageEnvelope {
@@ -189,22 +238,26 @@ interface MessageEnvelope {
 
 ### 4. TN3270 Gateway (`gateway`)
 
-**Technology**: Python 3.12+, asyncio, Pydantic v2, redis-py, structlog
+**Technology**: Python 3.12+, asyncio, Pydantic v2, redis-py, boto3, structlog
 
 **Responsibilities**:
 
 - Establish and manage TN3270 connections to mainframe systems
 - Handle TN3270 protocol communication
+- Execute AST automation scripts
+- Record execution history to DynamoDB
 - Handle terminal resize events
 - Stream I/O between TN3270 and Valkey pub/sub
 
 **Key Files**:
 
 - `app.py` - Main entry point with signal handling
-- `tn3270_manager.py` - TN3270 session lifecycle management
-- `tn3270_client.py` - TN3270 protocol client
-- `valkey_client.py` - Async Valkey client for pub/sub
-- `models.py` - Pydantic models matching TypeScript types
+- `services/tn3270/manager.py` - TN3270 session lifecycle management
+- `services/tn3270/client.py` - TN3270 protocol client
+- `services/valkey.py` - Async Valkey client for pub/sub
+- `ast/` - AST automation scripts (login, etc.)
+- `db/client.py` - DynamoDB client for execution history
+- `models/` - Pydantic models matching TypeScript types
 
 ### 5. Valkey (`infra`)
 
@@ -223,25 +276,41 @@ interface MessageEnvelope {
 | `gateway.control` | API → Gateway | Session create/destroy commands |
 | `tn3270.input.<sessionId>` | API → Gateway | User keystrokes |
 | `tn3270.output.<sessionId>` | Gateway → API | TN3270 output |
-| `tn3270.control.<sessionId>` | API → Gateway | Resize events |
+| `tn3270.control.<sessionId>` | API → Gateway | Resize, AST control events |
+
+### 6. DynamoDB
+
+**Technology**: AWS DynamoDB (or DynamoDB Local for development)
+
+**Tables**:
+
+| Table | Purpose |
+|-------|---------|
+| `Users` | User accounts and credentials |
+| `Sessions` | Terminal session metadata |
+| `Executions` | AST execution history |
+| `Policies` | Policy results from AST executions |
 
 ## Data Flow
 
 ### 1. Authentication Flow
 
 ```
-Browser                    API Server                  
-   │                           │                       
-   │  POST /auth/login         │                       
-   │  {email, password}        │                       
-   │──────────────────────────>│                       
-   │                           │ Verify password       
-   │                           │ Generate JWT          
-   │  {token, user}            │                       
-   │<──────────────────────────│                       
-   │                           │                       
-   │  Store token in           │                       
-   │  localStorage             │                       
+Browser                    API Server                  DynamoDB
+   │                           │                          │
+   │  POST /auth/login         │                          │
+   │  {email, password}        │                          │
+   │──────────────────────────>│                          │
+   │                           │ Query user               │
+   │                           │─────────────────────────>│
+   │                           │<─────────────────────────│
+   │                           │ Verify password          │
+   │                           │ Generate JWT             │
+   │  {token, user}            │                          │
+   │<──────────────────────────│                          │
+   │                           │                          │
+   │  Store token in           │                          │
+   │  localStorage             │                          │
 ```
 
 ### 2. Terminal Session Flow
@@ -259,8 +328,7 @@ Browser              API Server              Valkey              Gateway
    │                     │────────────────────>│                    │
    │                     │                     │ MESSAGE            │
    │                     │                     │───────────────────>│
-   │                     │                     │ connect TN3270
-   │                     │                     │ establish session
+   │                     │                     │ connect TN3270     │
    │                     │                     │ PUBLISH            │
    │                     │                     │ tn3270.output.<id> │
    │                     │<────────────────────│<───────────────────│
@@ -277,6 +345,32 @@ Browser              API Server              Valkey              Gateway
    │                     │                     │ tn3270.output.<id> │
    │ data (output)       │<────────────────────│<───────────────────│
    │<────────────────────│                     │                    │
+```
+
+### 3. AST Execution Flow
+
+```
+Browser              API Server              Valkey              Gateway            DynamoDB
+   │                     │                     │                    │                   │
+   │ ast.run             │                     │                    │                   │
+   │ {name, params}      │                     │                    │                   │
+   │────────────────────>│ PUBLISH             │                    │                   │
+   │                     │ tn3270.input.<id>   │                    │                   │
+   │                     │────────────────────>│ MESSAGE            │                   │
+   │                     │                     │───────────────────>│                   │
+   │                     │                     │                    │ Create execution  │
+   │                     │                     │                    │──────────────────>│
+   │                     │                     │                    │                   │
+   │                     │                     │ PUBLISH            │ Execute AST       │
+   │ ast.progress        │                     │ tn3270.output.<id> │ (loop)            │
+   │<────────────────────│<────────────────────│<───────────────────│                   │
+   │                     │                     │                    │ Record policy     │
+   │ ast.item_result     │                     │ PUBLISH            │──────────────────>│
+   │<────────────────────│<────────────────────│<───────────────────│                   │
+   │                     │                     │                    │                   │
+   │ ast.status          │                     │ PUBLISH            │ Update execution  │
+   │ {complete}          │                     │ tn3270.output.<id> │──────────────────>│
+   │<────────────────────│<────────────────────│<───────────────────│                   │
 ```
 
 ## Security
@@ -298,6 +392,8 @@ Browser              API Server              Valkey              Gateway
 - Each session establishes secure TN3270 connections
 - Sessions tied to authenticated users
 - Graceful cleanup on disconnect
+- WebSocket disconnect does NOT destroy TN3270 session (allows navigation)
+- Explicit session destruction only on tab close
 
 ## Development
 
@@ -319,13 +415,16 @@ cd gateway && uv sync && cd ..
 # Start infrastructure (Valkey + DynamoDB)
 docker compose -f infra/docker-compose.dev.yml up -d
 
+# Setup DynamoDB tables
+./scripts/setup-dynamodb.sh
+
 # Start all services
 pnpm dev
 
 # Services will be available at:
-# - Web:    http://localhost:5173
-# - API:    http://localhost:3000
-# - Valkey: localhost:6379
+# - Web:      http://localhost:5173
+# - API:      http://localhost:3001
+# - Valkey:   localhost:6379
 # - DynamoDB: localhost:8042
 ```
 
@@ -343,11 +442,20 @@ A demo user is automatically created on API startup:
 - **API Servers**: Stateless, can run multiple instances behind load balancer
 - **Gateways**: Each gateway handles multiple TN3270 sessions; add more for capacity
 - **Valkey**: Single instance sufficient for moderate load; cluster for high availability
+- **DynamoDB**: Managed service with auto-scaling
 
 ### Session Affinity
 
 - WebSocket connections are long-lived
 - Use sticky sessions or connection draining for graceful updates
+- TN3270 sessions persist across WebSocket reconnections
+
+### Gateway Considerations
+
+- TN3270 Gateway requires direct TCP access to mainframe
+- Cannot run in serverless environments (Fargate, Lambda)
+- Use EC2 or ECS on EC2 for gateway deployment
+- See `docs/AWS_DEPLOYMENT.md` for detailed deployment guide
 
 ### Future Improvements
 
@@ -356,3 +464,4 @@ A demo user is automatically created on API startup:
 - [ ] Rate limiting on API endpoints
 - [ ] Audit logging for terminal commands
 - [ ] Multi-tenant support with user isolation
+- [ ] Gateway health checks and auto-recovery
