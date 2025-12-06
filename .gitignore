@@ -22,7 +22,7 @@ gateway/python/*.egg-info/
 
 # IDE
 .idea/
-.vscode/
+# .vscode/
 *.swp
 *.swo
 *~

@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Gateway App",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.app",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "subProcess": true,
+      "env": {}
+    },
+    {
+      "name": "Python: Gateway App (All Code)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.app",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "subProcess": true,
+      "env": {}
+    }
+  ]
+}
