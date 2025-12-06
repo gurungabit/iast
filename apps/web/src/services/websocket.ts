@@ -194,7 +194,12 @@ export class TerminalWebSocket {
     this.sendRaw(serializeMessage(message));
   }
 
-  disconnect(): void {
+  /**
+   * Disconnect from the WebSocket.
+   * @param destroySession - If true, sends a session destroy message to the backend.
+   *                         Default is false to allow sessions with running ASTs to persist.
+   */
+  disconnect(destroySession = false): void {
     this.isClosing = true;
 
     if (this.reconnectTimeout) {
@@ -204,7 +209,7 @@ export class TerminalWebSocket {
 
     this.stopHeartbeat();
 
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    if (destroySession && this.ws?.readyState === WebSocket.OPEN) {
       const destroyMsg = createSessionDestroyMessage(this.sessionId);
       this.sendRaw(serializeMessage(destroyMsg));
     }

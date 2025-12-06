@@ -2,20 +2,21 @@
 // ASTPanel Component - Main panel with AST selector and dynamic form
 // ============================================================================
 
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { ASTSelector } from './ASTSelector';
 import { useASTRegistry } from '../registry';
+import { useAST } from '../../hooks/useAST';
 import { Card } from '../../components/ui';
 
 export function ASTPanel(): React.ReactNode {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { selectedASTId, setSelectedASTId } = useAST();
   const { getAST } = useASTRegistry();
 
-  const selectedAST = selectedId ? getAST(selectedId) : null;
+  const selectedAST = selectedASTId ? getAST(selectedASTId) : null;
 
   const handleSelect = useCallback((id: string | null) => {
-    setSelectedId(id);
-  }, []);
+    setSelectedASTId(id);
+  }, [setSelectedASTId]);
 
   return (
     <div className="space-y-4">
@@ -25,7 +26,7 @@ export function ASTPanel(): React.ReactNode {
           Select Automation
         </label>
         <ASTSelector
-          value={selectedId}
+          value={selectedASTId}
           onChange={handleSelect}
           placeholder="Search for an AST..."
         />

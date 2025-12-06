@@ -59,6 +59,8 @@ export interface UseTerminalReturn {
   cursorPosition: { row: number; col: number };
   connect: () => void;
   disconnect: () => void;
+  /** Disconnect and destroy the TN3270 session on the backend */
+  destroySession: () => void;
   write: (data: string) => void;
   sendKey: (key: string) => void;
   resize: (cols: number, rows: number) => void;
@@ -264,15 +266,16 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
 
     // Add click handler to move cursor using mousedown on the xterm viewport
     let clickHandler: ((e: Event) => void) | null = null;
+    let viewportElement: Element | null = null;
     // Wait a tick for xterm to render, then attach to the viewport
     setTimeout(() => {
-      const viewport = terminalRef.current?.querySelector('.xterm-screen');
-      if (viewport) {
+      viewportElement = terminalRef.current?.querySelector('.xterm-screen') ?? null;
+      if (viewportElement) {
         clickHandler = (e: Event): void => {
-          if (!terminalInstance.current) return;
+          if (!terminalInstance.current || !viewportElement) return;
           const mouseEvent = e as MouseEvent;
           
-          const rect = viewport.getBoundingClientRect();
+          const rect = viewportElement.getBoundingClientRect();
           const cellWidth = rect.width / FIXED_COLS;
           const cellHeight = rect.height / FIXED_ROWS;
           
@@ -289,7 +292,7 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
           setCursorPosition({ row: clampedRow, col: clampedCol });
         };
         
-        viewport.addEventListener('mousedown', clickHandler);
+        viewportElement.addEventListener('mousedown', clickHandler);
       }
     }, 100);
 
@@ -306,9 +309,8 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
 
     return (): void => {
       cursorDisposable.dispose();
-      if (clickHandler) {
-        const viewport = terminalRef.current?.querySelector('.xterm-screen');
-        viewport?.removeEventListener('mousedown', clickHandler);
+      if (clickHandler && viewportElement) {
+        viewportElement.removeEventListener('mousedown', clickHandler);
       }
       wsRef.current?.disconnect();
       terminal.dispose();
@@ -323,6 +325,10 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
 
   const disconnect = useCallback((): void => {
     wsRef.current?.disconnect();
+  }, []);
+
+  const destroySession = useCallback((): void => {
+    wsRef.current?.disconnect(true);
   }, []);
 
   const write = useCallback((data: string): void => {
@@ -386,6 +392,7 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
     cursorPosition,
     connect,
     disconnect,
+    destroySession,
     write,
     sendKey,
     resize,

@@ -7,9 +7,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { getStoredSessionId, setStoredSessionId, removeStoredSessionId } from '../utils/storage';
 import { createSession, deleteSession, getSessions, updateSession } from '../services/session';
 import { useAST } from '../hooks/useAST';
+import { useASTStore } from '../stores/astStore';
 import { Terminal } from '../components/Terminal';
 import { ASTPanel } from '../ast';
-import { ASTProvider } from '../providers/ASTProvider';
 import type { ASTStatusMeta, ASTProgressMeta, ASTItemResultMeta } from '@terminal/shared';
 import type { ASTItemStatus } from '../ast/types';
 
@@ -22,19 +22,26 @@ interface TerminalApi {
 }
 
 function TerminalPage() {
-  const createTabId = useCallback(() => {
-    const uuid = globalThis.crypto?.randomUUID?.();
-    return uuid ? `tab-${uuid}` : `tab-${Date.now()}-${Math.random()}`;
-  }, []);
-
   const [availableSessions, setAvailableSessions] = useState<{ id: string; name?: string }[]>([]);
   const [tabs, setTabs] = useState<{ id: string; sessionId: string; name?: string }[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string>('');
+  const [activeTabId, setActiveTabIdLocal] = useState<string>('');
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+
+  // Get Zustand store actions
+  const initTab = useASTStore((state) => state.initTab);
+  const removeTab = useASTStore((state) => state.removeTab);
+  const setActiveTabId = useASTStore((state) => state.setActiveTabId);
+
+  // Sync active tab ID to Zustand store
+  useEffect(() => {
+    if (activeTabId) {
+      setActiveTabId(activeTabId);
+    }
+  }, [activeTabId, setActiveTabId]);
 
   useEffect(() => {
     const initializeSession = async () => {
@@ -54,24 +61,26 @@ function TerminalPage() {
         }
 
         if (sessions.length > 0) {
-          const initialTabs = sessions.map((s) => ({
-            id: createTabId(),
-            sessionId: s.id,
-            name: s.name,
-          }));
+          const initialTabs = sessions.map((s) => {
+            // Use sessionId as tabId for stable identity across navigation
+            initTab(s.id);
+            return {
+              id: s.id,
+              sessionId: s.id,
+              name: s.name,
+            };
+          });
           setTabs(initialTabs);
           if (validSession) {
             setStoredSessionId(currentSessionId ?? '');
-            setActiveTabId(
-              initialTabs.find((t) => t.sessionId === validSession?.id)?.id ?? initialTabs[0].id
-            );
+            setActiveTabIdLocal(validSession.id);
           } else {
-            setActiveTabId(initialTabs[0].id);
+            setActiveTabIdLocal(initialTabs[0].id);
             setStoredSessionId(initialTabs[0].sessionId);
           }
         } else {
           setTabs([]);
-          setActiveTabId('');
+          setActiveTabIdLocal('');
           removeStoredSessionId();
         }
       } catch (error) {
@@ -79,14 +88,14 @@ function TerminalPage() {
         removeStoredSessionId();
         setLoadError('Unable to load sessions. Use + to start a new one.');
         setTabs([]);
-        setActiveTabId('');
+        setActiveTabIdLocal('');
       } finally {
         setSessionsLoaded(true);
       }
     };
 
     initializeSession();
-  }, [createTabId]);
+  }, [initTab]);
 
   const handleAddTab = useCallback(() => {
     if (isCreatingSession) return;
@@ -95,17 +104,18 @@ function TerminalPage() {
     createSession(newName)
       .then((session) => {
         setAvailableSessions((prev) => [...prev, { id: session.id, name: session.name }]);
-        const newTabId = createTabId();
-        const newTab = { id: newTabId, sessionId: session.id, name: session.name };
+        // Use sessionId as tabId for stable identity
+        initTab(session.id);
+        const newTab = { id: session.id, sessionId: session.id, name: session.name };
         setTabs((prev) => [...prev, newTab]);
-        setActiveTabId(newTabId);
+        setActiveTabIdLocal(session.id);
         setStoredSessionId(session.id);
       })
       .catch((error) => {
         console.error('Failed to create session:', error);
       })
       .finally(() => setIsCreatingSession(false));
-  }, [createTabId, isCreatingSession, tabs.length]);
+  }, [initTab, isCreatingSession, tabs.length]);
 
   const handleCloseTab = useCallback(
     (tabId: string) => {
@@ -118,13 +128,15 @@ function TerminalPage() {
       const isClosingActive = tabId === activeTabId;
       const nextActiveTab = nextTabs.length === 0 ? null : isClosingActive ? nextTabs[Math.max(0, idx - 1)] : nextTabs.find((t) => t.id === activeTabId) ?? nextTabs[0];
 
+      // Remove tab from Zustand store
+      removeTab(tabId);
       setTabs(nextTabs);
 
       if (!nextActiveTab) {
-        setActiveTabId('');
+        setActiveTabIdLocal('');
         removeStoredSessionId();
       } else {
-        setActiveTabId(nextActiveTab.id);
+        setActiveTabIdLocal(nextActiveTab.id);
         setStoredSessionId(nextActiveTab.sessionId);
       }
 
@@ -138,14 +150,14 @@ function TerminalPage() {
         });
       }
     },
-    [activeTabId, tabs]
+    [activeTabId, removeTab, tabs]
   );
 
   const handleSwitchTab = useCallback(
     (tabId: string) => {
       const target = tabs.find((t) => t.id === tabId);
       if (!target) return;
-      setActiveTabId(tabId);
+      setActiveTabIdLocal(tabId);
       setStoredSessionId(target.sessionId);
     },
     [tabs]
@@ -303,27 +315,14 @@ function TabContent({
   tab: { id: string; sessionId: string };
   active: boolean;
 }) {
-  return (
-    <ASTProvider key={`ast-${tab.id}`}>
-      <TabContentBody tab={tab} active={active} />
-    </ASTProvider>
-  );
-}
-
-function TabContentBody({
-  tab,
-  active,
-}: {
-  tab: { id: string; sessionId: string };
-  active: boolean;
-}) {
+  // Pass the tab ID to useAST to get per-tab state
   const {
     setRunCallback,
     handleASTComplete,
     handleASTProgress,
     handleASTItemResult,
     handleASTPaused,
-  } = useAST();
+  } = useAST(tab.id);
 
   const handleTerminalReady = useCallback(
     (api: TerminalApi) => {
@@ -402,4 +401,3 @@ function TabContentBody({
     </div>
   );
 }
-
