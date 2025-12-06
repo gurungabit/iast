@@ -6,10 +6,9 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import { config } from '../config';
-import { authRoutes, historyRoutes } from '../routes';
+import { authRoutes, historyRoutes, sessionRoutes } from '../routes';
 import { terminalWebSocket } from '../ws';
 import { closeValkeyClient } from '../valkey';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 
 export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   const app = Fastify({
@@ -65,7 +64,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
 
       return { status: 'ok', timestamp: Date.now(), dynamodb: 'connected' };
     } catch (error) {
-      app.log.error('Health check failed - DynamoDB unavailable', error);
+      app.log.error(error);
       throw new Error('DynamoDB connection failed');
     }
   });
@@ -73,6 +72,7 @@ export async function buildApp(): Promise<ReturnType<typeof Fastify>> {
   // Register routes
   authRoutes(app);
   historyRoutes(app);
+  sessionRoutes(app);
   terminalWebSocket(app);
 
   // Graceful shutdown

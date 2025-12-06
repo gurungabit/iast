@@ -1,13 +1,16 @@
 // ============================================================================
-// User Model - In-memory store (replace with DB in production)
+// User Model - DynamoDB store
 // ============================================================================
 
-import bcrypt from 'bcrypt';
 import type { User } from '@terminal/shared';
-
-// In-memory user store - replace with database in production
-const users = new Map<string, User & { passwordHash: string }>();
-const usersByEmail = new Map<string, string>(); // email -> userId
+import {
+  createUserRecord,
+  getUserById,
+  getUserByEmail,
+  userExistsByEmail,
+  type UserRecord,
+  KeyPrefix,
+} from '../services/dynamodb';
 
 export interface CreateUserData {
   id: string;
@@ -15,9 +18,12 @@ export interface CreateUserData {
   passwordHash: string;
 }
 
-export function createUser(data: CreateUserData): User {
+export async function createUser(data: CreateUserData): Promise<User> {
   const now = Date.now();
-  const user = {
+  const userRecord: UserRecord = {
+    PK: `${KeyPrefix.USER}${data.id}`,
+    SK: KeyPrefix.PROFILE,
+    GSI1PK: data.email.toLowerCase(),
     id: data.id,
     email: data.email,
     passwordHash: data.passwordHash,
@@ -25,29 +31,28 @@ export function createUser(data: CreateUserData): User {
     updatedAt: now,
   };
 
-  users.set(data.id, user);
-  usersByEmail.set(data.email.toLowerCase(), data.id);
+  await createUserRecord(userRecord);
 
   return {
-    id: user.id,
-    email: user.email,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
+    id: userRecord.id,
+    email: userRecord.email,
+    createdAt: userRecord.createdAt,
+    updatedAt: userRecord.updatedAt,
   };
 }
 
-export function findUserById(id: string): (User & { passwordHash: string }) | null {
-  return users.get(id) ?? null;
+export async function findUserById(id: string): Promise<(User & { passwordHash: string }) | null> {
+  return await getUserById(id);
 }
 
-export function findUserByEmail(email: string): (User & { passwordHash: string }) | null {
-  const userId = usersByEmail.get(email.toLowerCase());
-  if (!userId) return null;
-  return users.get(userId) ?? null;
+export async function findUserByEmail(
+  email: string
+): Promise<(User & { passwordHash: string }) | null> {
+  return await getUserByEmail(email);
 }
 
-export function userExists(email: string): boolean {
-  return usersByEmail.has(email.toLowerCase());
+export async function userExists(email: string): Promise<boolean> {
+  return await userExistsByEmail(email);
 }
 
 export function toPublicUser(user: User & { passwordHash: string }): User {
@@ -67,14 +72,15 @@ async function createDemoUser(): Promise<void> {
   const demoEmail = 'demo@example.com';
   const demoPassword = 'demo1234';
 
-  if (userExists(demoEmail)) {
+  if (await userExists(demoEmail)) {
     return;
   }
 
   // Hash password with bcrypt (10 rounds)
-  const passwordHash = await bcrypt.hash(demoPassword, 10);
+  const bcrypt = await import('bcrypt');
+  const passwordHash = await bcrypt.default.hash(demoPassword, 10);
 
-  createUser({
+  await createUser({
     id: 'demo-user-001',
     email: demoEmail,
     passwordHash,

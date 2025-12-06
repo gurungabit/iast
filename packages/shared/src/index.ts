@@ -110,6 +110,7 @@ export {
 // Auth
 export {
   type User,
+  type UserSession,
   type AuthSession,
   type AuthTokenPayload,
   type LoginRequest,

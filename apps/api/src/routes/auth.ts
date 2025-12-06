@@ -13,12 +13,7 @@ import {
   ERROR_CODES,
   TerminalError,
 } from '@terminal/shared';
-import {
-  registerUser,
-  loginUser,
-  refreshUserToken,
-  verifyToken,
-} from '../services/auth';
+import { registerUser, loginUser, refreshUserToken, verifyToken } from '../services/auth';
 import { findUserByEmail, toPublicUser } from '../models/user';
 
 export function authRoutes(fastify: FastifyInstance): void {
@@ -30,16 +25,18 @@ export function authRoutes(fastify: FastifyInstance): void {
       // Validate request
       const validation = validateRegisterRequest(body);
       if (!validation.valid) {
-        return await reply.status(400).send(
-          createErrorResponse(ERROR_CODES.VALIDATION_FAILED, validation.errors.join(', '))
-        );
+        return await reply
+          .status(400)
+          .send(createErrorResponse(ERROR_CODES.VALIDATION_FAILED, validation.errors.join(', ')));
       }
 
       const result = await registerUser(body.email, body.password);
       return await reply.status(201).send(createSuccessResponse(result));
     } catch (error) {
       if (error instanceof TerminalError) {
-        return await reply.status(400).send(createErrorResponse(error.code, error.message, error.details));
+        return await reply
+          .status(400)
+          .send(createErrorResponse(error.code, error.message, error.details));
       }
       fastify.log.error(error);
       return await reply.status(500).send(createErrorResponse(ERROR_CODES.INTERNAL_ERROR));
@@ -54,9 +51,9 @@ export function authRoutes(fastify: FastifyInstance): void {
       // Validate request
       const validation = validateLoginRequest(body);
       if (!validation.valid) {
-        return await reply.status(400).send(
-          createErrorResponse(ERROR_CODES.VALIDATION_FAILED, validation.errors.join(', '))
-        );
+        return await reply
+          .status(400)
+          .send(createErrorResponse(ERROR_CODES.VALIDATION_FAILED, validation.errors.join(', ')));
       }
 
       const result = await loginUser(body.email, body.password);
@@ -77,12 +74,12 @@ export function authRoutes(fastify: FastifyInstance): void {
       const body = request.body as { token: string };
 
       if (!body.token) {
-        return await reply.status(400).send(
-          createErrorResponse(ERROR_CODES.VALIDATION_MISSING_FIELD, 'Token is required')
-        );
+        return await reply
+          .status(400)
+          .send(createErrorResponse(ERROR_CODES.VALIDATION_MISSING_FIELD, 'Token is required'));
       }
 
-      const result = refreshUserToken(body.token);
+      const result = await refreshUserToken(body.token);
       return await reply.send(createSuccessResponse(result));
     } catch (error) {
       if (error instanceof TerminalError) {
@@ -104,7 +101,7 @@ export function authRoutes(fastify: FastifyInstance): void {
       const token = authHeader.slice(7);
       const payload = verifyToken(token);
 
-      const user = findUserByEmail(payload.email);
+      const user = await findUserByEmail(payload.email);
       if (!user) {
         return await reply.status(404).send(createErrorResponse(ERROR_CODES.AUTH_USER_NOT_FOUND));
       }

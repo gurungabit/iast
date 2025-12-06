@@ -9,6 +9,14 @@ export interface User {
   updatedAt: number;
 }
 
+export interface UserSession {
+  id: string;
+  userId: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface AuthSession {
   id: string;
   userId: string;

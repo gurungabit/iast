@@ -6,17 +6,8 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import type { AuthTokenPayload, User, AuthResponse } from '@terminal/shared';
-import {
-  generateUserId,
-  TerminalError,
-  ERROR_CODES,
-} from '@terminal/shared';
-import {
-  createUser,
-  findUserByEmail,
-  userExists,
-  toPublicUser,
-} from '../models/user';
+import { generateUserId, TerminalError, ERROR_CODES } from '@terminal/shared';
+import { createUser, findUserByEmail, userExists, toPublicUser } from '../models/user';
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, config.auth.bcryptRounds);
@@ -55,7 +46,7 @@ export function verifyToken(token: string): AuthTokenPayload {
 
 export async function registerUser(email: string, password: string): Promise<AuthResponse> {
   // Check if user already exists
-  if (userExists(email)) {
+  if (await userExists(email)) {
     throw new TerminalError({
       code: ERROR_CODES.VALIDATION_FAILED,
       message: 'Email already registered',
@@ -64,7 +55,7 @@ export async function registerUser(email: string, password: string): Promise<Aut
 
   // Hash password and create user
   const passwordHash = await hashPassword(password);
-  const user = createUser({
+  const user = await createUser({
     id: generateUserId(),
     email,
     passwordHash,
@@ -82,7 +73,7 @@ export async function registerUser(email: string, password: string): Promise<Aut
 
 export async function loginUser(email: string, password: string): Promise<AuthResponse> {
   // Find user
-  const user = findUserByEmail(email);
+  const user = await findUserByEmail(email);
   if (!user) {
     throw TerminalError.fromCode(ERROR_CODES.AUTH_INVALID_CREDENTIALS);
   }
@@ -103,11 +94,13 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
   };
 }
 
-export function refreshUserToken(currentToken: string): { token: string; expiresAt: number } {
+export async function refreshUserToken(
+  currentToken: string
+): Promise<{ token: string; expiresAt: number }> {
   const payload = verifyToken(currentToken);
 
   // Find user to ensure they still exist
-  const user = findUserByEmail(payload.email);
+  const user = await findUserByEmail(payload.email);
   if (!user) {
     throw TerminalError.fromCode(ERROR_CODES.AUTH_USER_NOT_FOUND);
   }
