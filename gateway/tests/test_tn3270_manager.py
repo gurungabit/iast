@@ -7,6 +7,7 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
 from src.core import TN3270Config, TerminalError
+from src.models import SessionCreateMessage, SessionDestroyMessage, serialize_message
 from src.services.tn3270.manager import TN3270Manager
 
 
@@ -97,6 +98,27 @@ class TN3270ManagerTests(IsolatedAsyncioTestCase):
 
         with self.assertRaises(TerminalError):
             await self.manager.create_session("third")
+
+    async def test_handle_gateway_control_parses_shell_host_port(self) -> None:
+        payload = SessionCreateMessage(sessionId="abc", meta={"shell": "host.example.com:4000"})
+        with patch.object(self.manager, "create_session", new=AsyncMock()) as mock_create:
+            await self.manager._handle_gateway_control(serialize_message(payload))
+
+        mock_create.assert_awaited_once_with("abc", host="host.example.com", port=4000)
+
+    async def test_handle_gateway_control_handles_plain_host(self) -> None:
+        payload = SessionCreateMessage(sessionId="abc2", meta={"shell": "mainframe"})
+        with patch.object(self.manager, "create_session", new=AsyncMock()) as mock_create:
+            await self.manager._handle_gateway_control(serialize_message(payload))
+
+        mock_create.assert_awaited_once_with("abc2", host="mainframe", port=None)
+
+    async def test_handle_input_destroys_session_on_destroy_message(self) -> None:
+        with patch.object(self.manager, "destroy_session", new=AsyncMock()) as mock_destroy:
+            payload = SessionDestroyMessage(sessionId="session-x")
+            await self.manager._handle_input("session-x", serialize_message(payload))
+
+        mock_destroy.assert_awaited_once_with("session-x", "user_requested")
 
 
 if __name__ == "__main__":

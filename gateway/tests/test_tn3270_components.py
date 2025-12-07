@@ -136,6 +136,26 @@ class HostTests(unittest.TestCase):
         self.assertIn(("eraseeof", None), session.commands)
         self.assertIn(("data", "NEW"), session.commands)
 
+    def test_get_formatted_screen_includes_row_numbers(self) -> None:
+        session = _build_test_session()
+        host = Host(session)
+
+        formatted = host.get_formatted_screen()
+
+        self.assertIn("01", formatted.splitlines()[0])
+        self.assertIn("ID:", formatted)
+
+    def test_snapshot_returns_structure(self) -> None:
+        session = _build_test_session()
+        host = Host(session)
+        session.pwait = 1
+
+        snap = host.snapshot()
+
+        self.assertEqual(snap["rows"], 1)
+        self.assertTrue(snap["keyboard_locked"])
+        self.assertEqual(len(snap["fields"]), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
