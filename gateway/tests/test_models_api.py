@@ -7,6 +7,10 @@ import unittest
 
 from src.models import (
     DataMessage,
+    PingMessage,
+    PongMessage,
+    ResizeMessage,
+    SessionDestroyMessage,
     create_ast_progress_message,
     create_session_created_message,
     parse_message,
@@ -59,6 +63,43 @@ class MessageParserTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             parse_message(raw)
+
+    def test_parse_message_handles_other_core_types(self) -> None:
+        fixtures: list[tuple[dict[str, object], type]] = [
+            (
+                {
+                    "sessionId": "session-900",
+                    "type": "ping",
+                },
+                PingMessage,
+            ),
+            (
+                {
+                    "sessionId": "session-901",
+                    "type": "pong",
+                },
+                PongMessage,
+            ),
+            (
+                {
+                    "sessionId": "session-902",
+                    "type": "resize",
+                    "meta": {"cols": 120, "rows": 50},
+                },
+                ResizeMessage,
+            ),
+            (
+                {
+                    "sessionId": "session-903",
+                    "type": "session.destroy",
+                },
+                SessionDestroyMessage,
+            ),
+        ]
+
+        for payload, expected_type in fixtures:
+            msg = parse_message(json.dumps(payload))
+            self.assertIsInstance(msg, expected_type)
 
 
 class MessageFactoryTests(unittest.TestCase):

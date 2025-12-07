@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import unittest
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -19,6 +20,22 @@ from src.services.valkey import (
     get_valkey_client,
     init_valkey_client,
 )
+
+
+class _FakePubSub:
+    """Minimal pub/sub stub for exercising the listen loop."""
+
+    def __init__(self, messages: list[dict[str, object]]) -> None:
+        self._messages = messages
+        self.subscribe = AsyncMock()
+        self.unsubscribe = AsyncMock()
+        self.close = AsyncMock()
+
+    async def get_message(self, ignore_subscribe_messages: bool = True, timeout: float = 0.1):
+        if self._messages:
+            return self._messages.pop(0)
+        await asyncio.sleep(0)
+        return None
 
 
 class ValkeyClientTests(IsolatedAsyncioTestCase):
@@ -127,6 +144,45 @@ class ValkeyClientTests(IsolatedAsyncioTestCase):
 
             with self.assertRaises(RuntimeError):
                 get_valkey_client()
+
+    async def test_listen_loop_dispatches_messages_to_handlers(self) -> None:
+        client = ValkeyClient(self.config)
+        channel = "tn3270.input.test"
+        received: list[str] = []
+
+        async def handler(payload: str) -> None:
+            received.append(payload)
+            client._running = False
+
+        client._handlers[channel] = handler
+        client._pubsub = _FakePubSub(
+            [
+                {"type": "message", "channel": channel, "data": "hello"},
+            ]
+        )
+        client._running = True
+
+        await client._listen_loop()
+
+        self.assertEqual(received, ["hello"])
+
+    async def test_start_listening_creates_background_task(self) -> None:
+        client = ValkeyClient(self.config)
+
+        async def fake_loop() -> None:
+            await asyncio.sleep(0)
+            client._running = False
+
+        client._listen_loop = AsyncMock(side_effect=fake_loop)
+
+        await client.start_listening()
+
+        self.assertTrue(client._running)
+        self.assertIsNotNone(client._listen_task)
+
+        await client._listen_task
+
+        client._listen_loop.assert_awaited_once()
 
 
 if __name__ == "__main__":

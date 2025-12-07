@@ -91,3 +91,61 @@ class DynamoDBClientTests(unittest.TestCase):
 
         self.assertIs(first, second)
 
+    def test_put_and_get_item_roundtrip(self) -> None:
+        client = DynamoDBClient(self.config)
+        item = {"PK": "USER#1", "SK": "PROFILE", "email": "test@example.com"}
+
+        client.put_item(item)
+        self.mock_table.put_item.assert_called_once_with(Item=item)
+
+        self.mock_table.get_item.return_value = {"Item": item}
+        result = client.get_item("USER#1", "PROFILE")
+        self.assertEqual(result, item)
+        self.mock_table.get_item.assert_called_once_with(
+            Key={"PK": "USER#1", "SK": "PROFILE"}
+        )
+
+    def test_query_helpers_return_items(self) -> None:
+        client = DynamoDBClient(self.config)
+        self.mock_table.query.return_value = {"Items": [{"PK": "USER#1"}]}
+
+        items = client.query_pk("USER#1")
+        self.assertEqual(items, [{"PK": "USER#1"}])
+
+        items = client.query_gsi1("email@example.com")
+        self.assertEqual(items, [{"PK": "USER#1"}])
+        kwargs = self.mock_table.query.call_args.kwargs
+        self.assertEqual(kwargs["IndexName"], "GSI1")
+
+        self.mock_table.query.return_value = (
+            {"Items": [{"PK": "USER#1"}], "LastEvaluatedKey": {"PK": "USER#1"}}
+        )
+        items, last_key = client.query_gsi2(
+            "USER#1",
+            scan_forward=True,
+            limit=1,
+            exclusive_start_key={"PK": "USER#0"},
+        )
+        self.assertEqual(len(items), 1)
+        self.assertIsNotNone(last_key)
+
+    def test_delete_item_calls_table(self) -> None:
+        client = DynamoDBClient(self.config)
+        client.delete_item("USER#1", "PROFILE")
+
+        self.mock_table.delete_item.assert_called_once_with(
+            Key={"PK": "USER#1", "SK": "PROFILE"}
+        )
+
+    def test_domain_helpers_build_keys(self) -> None:
+        client = DynamoDBClient(self.config)
+        client.get_item = MagicMock(return_value={"user_id": "user-1"})
+        client.query_pk = MagicMock(return_value=[{"session": "s1"}])
+
+        result = client.get_user("user-1")
+        self.assertEqual(result, {"user_id": "user-1"})
+        client.get_item.assert_called_once_with("USER#user-1", "PROFILE")
+
+        client.get_user_sessions("user-1")
+        client.query_pk.assert_called_with("USER#user-1", sk_prefix="SESSION#")
+
