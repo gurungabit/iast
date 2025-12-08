@@ -252,9 +252,36 @@ class TN3270Manager:
         """Create tnz connection in a thread (blocking)."""
         tnz = tnz_module.Tnz(name=session_id)
 
-        # Always use IBM-3278-4-E (80x43) regardless of client screen size
-        tnz.amaxcol = 80
+        # Set encoding: cp037 for default character set, cp310 for APL graphics (0xf1)
+        tnz.encoding = "cp037", 0  # Default character set
+        tnz.encoding = "cp310", 0xf1  # Alternate character set (APL graphics with box drawing)
+
+        # Enable TN3270E protocol
+        tnz.use_tn3270e = True
+
+        # Set device type to IBM-3279-4-E (color terminal, 80x43)
+        tnz.terminal_type = "IBM-3279-4-E"
+        
+        # Enable color support
+        tnz.capable_color = True
+
+        # Set screen dimensions (43x80)
         tnz.amaxrow = 43
+        tnz.amaxcol = 80
+        tnz.dmaxrow = 43
+        tnz.dmaxcol = 80
+        tnz.maxrow = 43
+        tnz.maxcol = 80
+        
+        # Reinitialize buffers with correct size
+        buffer_size = 43 * 80
+        tnz.buffer_size = buffer_size
+        tnz.plane_dc = bytearray(buffer_size)
+        tnz.plane_fa = bytearray(buffer_size)
+        tnz.plane_eh = bytearray(buffer_size)
+        tnz.plane_cs = bytearray(buffer_size)
+        tnz.plane_fg = bytearray(buffer_size)
+        tnz.plane_bg = bytearray(buffer_size)
 
         # Connect without TLS for Hercules
         tnz.connect(host=host, port=port, secure=False, verifycert=False)

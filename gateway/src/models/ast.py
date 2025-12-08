@@ -4,7 +4,7 @@
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from .base import BaseMessage
 from .types import MessageType
@@ -25,6 +25,7 @@ class ASTRunMeta(BaseModel):
 
     params: dict[str, Any] | None = None
     """Optional parameters for the AST."""
+
 
 class ASTRunMessage(BaseMessage):
     """Request to run an AST."""
@@ -70,6 +71,7 @@ class ASTPausedMeta(BaseModel):
     message: str | None = None
     """Optional message."""
 
+
 class ASTPausedMessage(BaseMessage):
     """AST paused status update."""
 
@@ -104,6 +106,7 @@ class ASTStatusMeta(BaseModel):
 
     data: dict[str, Any] | None = None
     """Additional data from the AST."""
+
 
 class ASTStatusMessage(BaseMessage):
     """AST execution status update."""
@@ -148,6 +151,7 @@ class ASTProgressMeta(BaseModel):
     message: str | None = None
     """Message about current progress."""
 
+
 class ASTProgressMessage(BaseMessage):
     """AST execution progress update."""
 
@@ -182,6 +186,7 @@ class ASTItemResultMeta(BaseModel):
 
     data: dict[str, Any] | None = None
     """Additional data."""
+
 
 class ASTItemResultMessage(BaseMessage):
     """AST item processing result."""

@@ -39,6 +39,7 @@ class _FakeTnz:
         self.plane_fg = [0] * self._size
         self.plane_bg = [0] * self._size
         self.plane_eh = [0] * self._size
+        self.plane_cs = [0] * self._size
         self.codec_info = {0: _DummyCodec()}
         self.curadd = 1
         self.pwait = 0
@@ -124,19 +125,19 @@ class TN3270RendererTests(unittest.TestCase):
         class _DecodeStub:
             codec_info = {0: _Codec()}
 
-        decoded = self.renderer._decode_char(0x41, _DecodeStub())  # type: ignore[arg-type]
+        decoded = self.renderer._decode_char(0x41, 0, _DecodeStub())  # type: ignore[arg-type]
         self.assertEqual(decoded, "@")
 
         class _FallbackStub:
             codec_info: dict[int, object] = {}
 
-        fallback_char = self.renderer._decode_char(0xC1, _FallbackStub())  # type: ignore[arg-type]
+        fallback_char = self.renderer._decode_char(0xC1, 0, _FallbackStub())  # type: ignore[arg-type]
         self.assertEqual(fallback_char, "A")
 
         class _ErrorStub:
             codec_info = {0: object()}
 
-        error_char = self.renderer._decode_char(0x00, _ErrorStub())  # type: ignore[arg-type]
+        error_char = self.renderer._decode_char(0x00, 0, _ErrorStub())  # type: ignore[arg-type]
         self.assertEqual(error_char, " ")
 
         seq_default = self.renderer._build_attr_sequence(2, 0, 0)

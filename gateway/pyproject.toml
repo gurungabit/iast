@@ -45,3 +45,7 @@ pythonVersion = "3.12"
 typeCheckingMode = "Standard"
 reportMissingTypeStubs = false
 
+# [tool.pytest.ini_options]
+# filterwarnings = [
+#     "ignore::RuntimeWarning:unittest.mock",
+# ]

@@ -118,16 +118,17 @@ class TN3270Renderer:
         plane_fg = tnz.plane_fg
         plane_bg = tnz.plane_bg
         plane_eh = tnz.plane_eh
+        plane_cs = tnz.plane_cs
 
         # Track current attributes to minimize escape sequences
         current_fg = 7  # Default white
         current_bg = 0  # Default black
         current_highlight = 0
 
-        # Field attribute state
-        field_protected = False
+        # Field attribute state - start with default protected field (blue)
+        field_protected = True
         field_intensified = False
-        field_fg = 0xF4  # Default green for unprotected
+        field_fg = 0xF1  # Default blue for protected fields (standard 3270 default)
 
         # Field tracking
         fields: list[Field] = []
@@ -178,6 +179,13 @@ class TN3270Renderer:
                 )
             )
 
+        # Track if previous position was an unprotected field attribute
+        prev_was_unprotected_field = False
+        # Track if we're in a hidden/password field
+        in_hidden_field = False
+        # Track positions where we should show underscores (for multi-char indicator)
+        underscore_positions = 0
+        
         # Render screen
         for row in range(maxrow):
             if row > 0:
@@ -191,15 +199,28 @@ class TN3270Renderer:
                 fg = plane_fg[addr]
                 bg = plane_bg[addr]
                 eh = plane_eh[addr]
+                cs = plane_cs[addr]
 
                 # Check if this is a field attribute position
                 if fa != 0:
                     # Field attribute - decode it
                     field_protected = bool(fa & 0x20)
                     field_intensified = bool(fa & 0x08)
+                    field_hidden = (fa & 0x0c) == 0x0c  # Nondisplay field (password)
 
-                    # Field attributes are displayed as spaces
+                    # Field attribute positions are NEVER displayed - always render as space
+                    # The dc buffer may contain underscore or other chars, but we ignore it
                     char = " "
+                    
+                    # Track if this is an unprotected (input) field
+                    prev_was_unprotected_field = not field_protected
+                    # Track if this field is hidden (password field)
+                    in_hidden_field = field_hidden
+                    # Reset underscore counter at field boundaries
+                    underscore_positions = 0
+                    
+                    # Clear highlighting for field attribute positions - don't show underline/blink/reverse
+                    eh = 0
 
                     # Determine field color based on attributes
                     if field_protected:
@@ -215,7 +236,35 @@ class TN3270Renderer:
                 else:
                     # Regular character
                     # Decode EBCDIC to displayable character
-                    char = self._decode_char(dc, tnz)
+                    char = self._decode_char(dc, cs, tnz)
+                    
+                    # Check if we should show underscore indicator (but not for hidden/password fields)
+                    if prev_was_unprotected_field and not in_hidden_field and dc in (0x00, 0x40):  # NULL or SPACE
+                        # Check next positions to see if they're also empty (up to 6 max)
+                        next_empty_count = 1  # Current position is empty
+                        for i in range(1, 6):
+                            next_addr = addr + i
+                            if next_addr < maxrow * maxcol:
+                                # Make sure next position isn't a field attribute
+                                if plane_fa[next_addr] == 0 and plane_dc[next_addr] in (0x00, 0x40):
+                                    next_empty_count += 1
+                                else:
+                                    break
+                            else:
+                                break
+                        
+                        # Show underscores for the next positions that are empty (max 6)
+                        underscore_positions = min(next_empty_count, 6)
+                    
+                    # If we're in underscore display mode, enable underscore highlighting
+                    if underscore_positions > 0:
+                        eh = HIGHLIGHT_UNDERSCORE  # Set underscore highlighting
+                        underscore_positions -= 1
+                    # Mask password fields - if we're in a hidden field and there's actual data
+                    elif in_hidden_field and char not in (" ", ""):
+                        char = "*"
+                    
+                    prev_was_unprotected_field = False
 
                 # Determine colors
                 # If explicit color set, use it; otherwise use field default
@@ -269,8 +318,14 @@ class TN3270Renderer:
         """
         return self.render_screen(tnz)
 
-    def _decode_char(self, dc: int, tnz: "Tnz") -> str:
-        """Decode an EBCDIC character to displayable ASCII/Unicode."""
+    def _decode_char(self, dc: int, cs: int, tnz: "Tnz") -> str:
+        """Decode an EBCDIC character to displayable ASCII/Unicode.
+        
+        Args:
+            dc: Data character byte
+            cs: Character set ID from plane_cs (0 for default, 0xf1 for alternate)
+            tnz: TN3270 instance
+        """
         if dc == 0 or dc == 0x00:
             return " "  # Null displays as space
 
@@ -278,19 +333,23 @@ class TN3270Renderer:
             return " "  # EBCDIC space
 
         try:
-            # Use tnz's codec to decode
-            codec_info = tnz.codec_info.get(0)
+            # Use tnz's codec system which respects character set plane
+            # cs=0 uses codec_info[0] (default, usually cp037)
+            # cs=0xf1 uses codec_info[0xf1] (alternate, cp310 if set)
+            codec_info = tnz.codec_info.get(cs, tnz.codec_info.get(0))
             if codec_info:
                 decoded, _ = codec_info.decode(bytes([dc]))
-                if decoded and decoded.isprintable():
+                # Allow printable characters and box drawing range (U+2500-U+257F)
+                if decoded and (decoded.isprintable() or (0x2500 <= ord(decoded) <= 0x257F)):
                     return decoded
                 return " "
-
-            # Fallback: try cp037 (common EBCDIC)
+            
+            # Fallback to cp037 if codec not available
             decoded = bytes([dc]).decode("cp037", errors="replace")
             if decoded.isprintable():
                 return decoded
             return " "
+            
         except Exception:
             return " "
 
