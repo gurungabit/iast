@@ -19,6 +19,7 @@
     "@fastify/websocket": "^11.2.0",
     "@terminal/shared": "workspace:*",
     "bcrypt": "^6.0.0",
+    "dotenv": "^16.4.5",
     "fastify": "^5.6.2",
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.2",

@@ -2,8 +2,12 @@
 // API Configuration
 // ============================================================================
 
+import dotenv from 'dotenv';
 import type { AppConfig } from '@terminal/shared';
 import { getDefaultConfig } from '@terminal/shared';
+
+// Load environment variables (expects .env in project root when run via pnpm)
+dotenv.config();
 
 function getEnvString(key: string, defaultValue: string): string {
   return process.env[key] ?? defaultValue;
