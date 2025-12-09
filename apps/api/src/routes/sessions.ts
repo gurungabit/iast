@@ -31,7 +31,7 @@ export function sessionRoutes(fastify: FastifyInstance): void {
       }
 
       const token = authHeader.slice(7);
-      const payload = await verifyEntraToken(token);
+      const payload = await verifyEntraToken(token, request.log);
       const userId = extractEntraUserId(payload);
       if (!userId) {
         return await reply.status(401).send(createErrorResponse(ERROR_CODES.AUTH_REQUIRED));
@@ -70,7 +70,7 @@ export function sessionRoutes(fastify: FastifyInstance): void {
       }
 
       const token = authHeader.slice(7);
-      const payload = await verifyEntraToken(token);
+      const payload = await verifyEntraToken(token, request.log);
       const userId = extractEntraUserId(payload);
       if (!userId) {
         return await reply.status(401).send(createErrorResponse(ERROR_CODES.AUTH_REQUIRED));
@@ -96,7 +96,7 @@ export function sessionRoutes(fastify: FastifyInstance): void {
       }
 
       const token = authHeader.slice(7);
-      const payload = await verifyEntraToken(token);
+      const payload = await verifyEntraToken(token, request.log);
       const userId = extractEntraUserId(payload);
       if (!userId) {
         return await reply.status(401).send(createErrorResponse(ERROR_CODES.AUTH_REQUIRED));
@@ -130,7 +130,7 @@ export function sessionRoutes(fastify: FastifyInstance): void {
       }
 
       const token = authHeader.slice(7);
-      const payload = await verifyEntraToken(token);
+      const payload = await verifyEntraToken(token, request.log);
       const userId = extractEntraUserId(payload);
       if (!userId) {
         return await reply.status(401).send(createErrorResponse(ERROR_CODES.AUTH_REQUIRED));

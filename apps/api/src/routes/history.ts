@@ -54,7 +54,7 @@ async function getUserIdFromAuth(request: FastifyRequest): Promise<string | null
   
   try {
     const token = authHeader.slice(7);
-    const payload = await verifyEntraToken(token);
+    const payload = await verifyEntraToken(token, request.log);
     return extractEntraUserId(payload);
   } catch (err) {
     request.log.warn({ err: err instanceof Error ? err.message : String(err) }, 'Token verification failed');

@@ -47,7 +47,7 @@ export function terminalWebSocket(fastify: FastifyInstance): void {
     // Verify token if provided
     if (token) {
       try {
-        const payload = await verifyEntraToken(token);
+        const payload = await verifyEntraToken(token, fastify.log);
         userId = extractEntraUserId(payload);
         isAuthenticated = true;
       } catch {

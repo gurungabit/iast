@@ -20,7 +20,7 @@ export async function requireUserId(request: FastifyRequest): Promise<string> {
   }
 
   const token = authHeader.slice(7);
-  const payload = await verifyEntraToken(token);
+  const payload = await verifyEntraToken(token, request.log);
   const userId = extractEntraUserId(payload);
 
   if (!userId) {
@@ -37,7 +37,7 @@ export async function requireUser(request: FastifyRequest): Promise<EntraUser> {
   }
 
   const token = authHeader.slice(7);
-  const payload = await verifyEntraToken(token);
+  const payload = await verifyEntraToken(token, request.log);
   const userId = extractEntraUserId(payload);
 
   if (!userId) {

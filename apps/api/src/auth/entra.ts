@@ -30,7 +30,12 @@ export interface EntraTokenPayload extends JWTPayload {
   scp?: string;
 }
 
-export async function verifyEntraToken(token: string): Promise<EntraTokenPayload> {
+type LoggerLike = { info: (...args: unknown[]) => void; warn: (...args: unknown[]) => void };
+
+export async function verifyEntraToken(
+  token: string,
+  logger?: LoggerLike
+): Promise<EntraTokenPayload> {
   if (!config.entra.authority || !config.entra.apiAudience) {
     throw new TerminalError({
       code: ERROR_CODES.AUTH_REQUIRED,
@@ -64,7 +69,7 @@ export async function verifyEntraToken(token: string): Promise<EntraTokenPayload
     });
 
     // Debug logging to help diagnose 401s (safe fields only)
-    console.info('[entra] token accepted', {
+    (logger ?? console).info('[entra] token accepted', {
       aud: payload.aud,
       iss: payload.iss,
       tid: payload.tid,
@@ -75,7 +80,7 @@ export async function verifyEntraToken(token: string): Promise<EntraTokenPayload
 
     return payload as EntraTokenPayload;
   } catch (err) {
-    console.warn('[entra] token rejected', {
+    (logger ?? console).warn('[entra] token rejected', {
       error: err instanceof Error ? err.message : String(err),
     });
     throw new TerminalError({
