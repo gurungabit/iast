@@ -24,6 +24,12 @@ class SampleAST(AST):
         self.should_fail = False
         self.executed_with: dict | None = None
 
+    def logoff(self, host: DummyHost):
+        return True, "", []
+
+    def process_single_item(self, host: DummyHost, item_id: str, index: int, total: int):
+        return True, "", {}
+
     def execute(self, host: DummyHost, **kwargs):
         self.executed_with = kwargs
         if kwargs.get("raise_timeout"):
