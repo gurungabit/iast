@@ -26,6 +26,7 @@ export interface EntraTokenPayload extends JWTPayload {
   tid?: string;
   name?: string;
   preferred_username?: string;
+  email?: string;
   scp?: string;
 }
 
@@ -37,14 +38,33 @@ export async function verifyEntraToken(token: string): Promise<EntraTokenPayload
     });
   }
 
+  const allowedAudiences = Array.from(
+    new Set(
+      [
+        config.entra.apiAudience,
+        // Accept both api://<id> and bare <id>
+        config.entra.apiAudience.startsWith('api://')
+          ? config.entra.apiAudience.replace('api://', '')
+          : `api://${config.entra.apiAudience}`,
+        config.entra.clientId,
+      ].filter(Boolean)
+    )
+  );
+
+  const issuerBase = config.entra.authority.replace(/\/v2\.0$/, '');
+  const allowedIssuers = [
+    config.entra.authority,
+    issuerBase.replace('login.microsoftonline.com', 'sts.windows.net'),
+  ];
+
   try {
     const { payload } = await jwtVerify(token, getJwks(), {
-      issuer: config.entra.authority,
-      audience: config.entra.apiAudience,
+      issuer: allowedIssuers,
+      audience: allowedAudiences,
     });
 
     return payload as EntraTokenPayload;
-  } catch (err) {
+  } catch {
     throw new TerminalError({
       code: ERROR_CODES.AUTH_INVALID_TOKEN,
       message: 'Invalid Entra access token',

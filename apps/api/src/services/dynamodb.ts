@@ -68,7 +68,8 @@ export interface UserRecord {
   GSI1PK: string;
   id: string;
   email: string;
-  passwordHash: string;
+  passwordHash?: string;
+  name?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -246,24 +247,6 @@ export async function getActiveExecutionBySession(sessionId: string): Promise<Ex
   console.log(`[getActiveExecutionBySession] Querying for PK=${pk}, SK prefix=${KeyPrefix.EXECUTION}`);
   
   // First, get all executions without filter to debug
-  const allResult = await docClient.send(
-    new QueryCommand({
-      TableName: TABLE_NAME,
-      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :skPrefix)',
-      ExpressionAttributeValues: {
-        ':pk': pk,
-        ':skPrefix': KeyPrefix.EXECUTION,
-      },
-      ScanIndexForward: false, // Most recent first
-    })
-  );
-  
-  const allItems = allResult.Items ?? [];
-  console.log(`[getActiveExecutionBySession] Total executions found: ${allItems.length}`);
-  allItems.forEach((item, idx) => {
-    console.log(`[getActiveExecutionBySession]   [${idx}] status=${item.status}, ast=${item.ast_name}, exec_id=${item.execution_id}`);
-  });
-  
   // Now filter for running/paused
   const result = await docClient.send(
     new QueryCommand({
@@ -284,7 +267,6 @@ export async function getActiveExecutionBySession(sessionId: string): Promise<Ex
   );
 
   const items = result.Items ?? [];
-  console.log(`[getActiveExecutionBySession] Active (running/paused) executions: ${items.length}`);
   return items.length > 0 ? (items[0] as ExecutionRecord) : null;
 }
 
@@ -319,7 +301,8 @@ export async function getUserById(userId: string): Promise<UserRecord | null> {
     })
   );
 
-  return (result.Item as UserRecord) ?? null;
+  const item = result.Item as UserRecord | undefined;
+  return item ?? null;
 }
 
 /**
@@ -383,7 +366,8 @@ export async function getSessionById(
     })
   );
 
-  return (result.Item as SessionRecord) ?? null;
+  const item = result.Item as SessionRecord | undefined;
+  return item ?? null;
 }
 
 /**

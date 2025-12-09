@@ -15,7 +15,8 @@ import {
 export interface CreateUserData {
   id: string;
   email: string;
-  passwordHash: string;
+  passwordHash?: string;
+  name?: string;
 }
 
 export async function createUser(data: CreateUserData): Promise<User> {
@@ -27,6 +28,7 @@ export async function createUser(data: CreateUserData): Promise<User> {
     id: data.id,
     email: data.email,
     passwordHash: data.passwordHash,
+    name: data.name,
     createdAt: now,
     updatedAt: now,
   };
@@ -41,13 +43,13 @@ export async function createUser(data: CreateUserData): Promise<User> {
   };
 }
 
-export async function findUserById(id: string): Promise<(User & { passwordHash: string }) | null> {
+export async function findUserById(id: string): Promise<(User & { passwordHash?: string }) | null> {
   return await getUserById(id);
 }
 
 export async function findUserByEmail(
   email: string
-): Promise<(User & { passwordHash: string }) | null> {
+): Promise<(User & { passwordHash?: string }) | null> {
   return await getUserByEmail(email);
 }
 
@@ -55,7 +57,7 @@ export async function userExists(email: string): Promise<boolean> {
   return await userExistsByEmail(email);
 }
 
-export function toPublicUser(user: User & { passwordHash: string }): User {
+export function toPublicUser(user: User & { passwordHash?: string }): User {
   return {
     id: user.id,
     email: user.email,
@@ -65,29 +67,30 @@ export function toPublicUser(user: User & { passwordHash: string }): User {
 }
 
 // ============================================================================
-// Demo User - Create on startup
+// Entra User helpers (password-less)
 // ============================================================================
 
-async function createDemoUser(): Promise<void> {
-  const demoEmail = 'demo@example.com';
-  const demoPassword = 'demo1234';
-
-  if (await userExists(demoEmail)) {
-    return;
+export async function upsertEntraUser(params: {
+  id: string;
+  email: string;
+  name?: string;
+}): Promise<User> {
+  const existing = await findUserById(params.id);
+  if (existing) {
+    return {
+      id: existing.id,
+      email: existing.email,
+      createdAt: existing.createdAt,
+      updatedAt: existing.updatedAt,
+    };
   }
 
-  // Hash password with bcrypt (10 rounds)
-  const bcrypt = await import('bcrypt');
-  const passwordHash = await bcrypt.hash(demoPassword, 10);
-
-  await createUser({
-    id: 'demo-user-001',
-    email: demoEmail,
-    passwordHash,
+  return await createUser({
+    id: params.id,
+    email: params.email,
+    name: params.name,
+    // No password for Entra users
   });
-
-  console.log('✓ Demo user created: demo@example.com / demo1234');
 }
 
-// Create demo user on module load
-void createDemoUser();
+// Demo user creation removed (no passwords for Entra users)
