@@ -63,6 +63,15 @@ export async function verifyEntraToken(token: string): Promise<EntraTokenPayload
       audience: allowedAudiences,
     });
 
+    // Debug logging to help diagnose 401s (safe fields only)
+    console.info('[entra] token accepted', {
+      aud: payload.aud,
+      iss: payload.iss,
+      tid: payload.tid,
+      oid: payload.oid,
+      scp: payload.scp,
+    });
+
     return payload as EntraTokenPayload;
   } catch {
     throw new TerminalError({
