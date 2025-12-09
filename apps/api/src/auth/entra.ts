@@ -70,10 +70,14 @@ export async function verifyEntraToken(token: string): Promise<EntraTokenPayload
       tid: payload.tid,
       oid: payload.oid,
       scp: payload.scp,
+      roles: (payload as EntraTokenPayload).roles,
     });
 
     return payload as EntraTokenPayload;
-  } catch {
+  } catch (err) {
+    console.warn('[entra] token rejected', {
+      error: err instanceof Error ? err.message : String(err),
+    });
     throw new TerminalError({
       code: ERROR_CODES.AUTH_INVALID_TOKEN,
       message: 'Invalid Entra access token',
