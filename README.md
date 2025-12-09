@@ -9,10 +9,10 @@ A full-stack web-based terminal application that provides secure, real-time TN32
 │                              Browser (Client)                                │
 │  ┌─────────────────────────────────────────────────────────────────────────┐ │
 │  │                     React + Vite + xterm.js                             │ │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────────┐   │ │
-│  │  │   Auth UI    │  │ Theme Toggle │  │     Terminal Component       │   │ │
-│  │  │ (Login/Reg)  │  │ (Light/Dark) │  │    (xterm.js + WebSocket)    │   │ │
-│  │  └──────────────┘  └──────────────┘  └──────────────────────────────┘   │ │
+│  │  ┌────────────────┐  ┌──────────────┐  ┌────────────────────────────┐   │ │
+│  │  │  Entra SSO     │  │ Theme Toggle │  │     Terminal Component     │   │ │
+│  │  │  (MSAL)        │  │ (Light/Dark) │  │    (xterm.js + WebSocket)  │   │ │
+│  │  └────────────────┘  └──────────────┘  └────────────────────────────┘   │ │
 │  └─────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
@@ -24,7 +24,7 @@ A full-stack web-based terminal application that provides secure, real-time TN32
 │  │                      Fastify + @fastify/websocket                       │ │
 │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────────┐   │ │
 │  │  │  Auth Routes │  │   Session    │  │    WebSocket Terminal        │   │ │
-│  │  │ (JWT/bcrypt) │  │  Management  │  │       Handler                │   │ │
+│  │  │ (Entra JWT)  │  │  Management  │  │       Handler                │   │ │
 │  │  └──────────────┘  └──────────────┘  └──────────────────────────────┘   │ │
 │  └─────────────────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -140,13 +140,6 @@ pnpm dev
 # - DynamoDB: localhost:8042
 ```
 
-### Demo User
-
-A demo user is automatically created on API startup:
-
-- Email: `demo@example.com`
-- Password: `demo1234`
-
 ## Development
 
 ### Build All
@@ -188,7 +181,11 @@ PORT=3000
 HOST=0.0.0.0
 VALKEY_HOST=localhost
 VALKEY_PORT=6379
-JWT_SECRET=your-secret-key
+ENTRA_CLIENT_ID=ec73238a-bce6-4243-ae66-b84deafcac1f
+ENTRA_TENANT_ID=fa23982e-6646-4a33-a5c4-1a848d02fcc4
+ENTRA_API_AUDIENCE=api://ec73238a-bce6-4243-ae66-b84deafcac1f
+ENTRA_API_SCOPE=api://ec73238a-bce6-4243-ae66-b84deafcac1f/delegate
+ENTRA_AUTHORITY_HOST=https://login.microsoftonline.com
 DYNAMODB_ENDPOINT=http://localhost:8042
 DYNAMODB_REGION=us-east-1
 DYNAMODB_TABLE_NAME=terminal
@@ -199,8 +196,12 @@ DYNAMODB_SECRET_ACCESS_KEY=dummy
 ### Web (`apps/web/.env`)
 
 ```env
-VITE_API_URL=http://localhost:3000
-VITE_WS_URL=ws://localhost:3000
+VITE_API_BASE_URL=/api
+VITE_WS_BASE_URL=ws://127.0.0.1:3001
+VITE_ENTRA_CLIENT_ID=ec73238a-bce6-4243-ae66-b84deafcac1f
+VITE_ENTRA_TENANT_ID=fa23982e-6646-4a33-a5c4-1a848d02fcc4
+VITE_ENTRA_REDIRECT_URI=http://localhost:5173
+VITE_ENTRA_API_SCOPE=api://ec73238a-bce6-4243-ae66-b84deafcac1f/delegate
 ```
 
 ### Gateway (`gateway/.env`)
@@ -215,19 +216,19 @@ TN3270_MAX_SESSIONS=10
 
 ## Message Flow
 
-1. User authenticates via REST API (login/register)
-2. Browser establishes WebSocket connection with JWT token
-3. API validates token and creates session
-4. API publishes `session.create` to `gateway.control` Valkey channel
-5. Gateway establishes TN3270 connection and subscribes to `tn3270.input.<sessionId>`
-6. User types in browser terminal (xterm.js)
-7. Web sends `data` message via WebSocket to API
-8. API publishes to `tn3270.input.<sessionId>` Valkey channel
-9. Gateway sends to TN3270 host
-10. TN3270 output is received by Gateway
-11. Gateway publishes to `tn3270.output.<sessionId>` Valkey channel
-12. API subscribes and forwards via WebSocket
-13. Web receives and renders in xterm.js
+1. User signs in with Entra via MSAL in the browser (PKCE)
+2. Browser acquires an access token for the API scope
+3. API validates the Entra access token and auto-provisions the user in DynamoDB
+4. Browser opens a WebSocket to the API with the same access token
+5. API publishes `session.create` to `gateway.control` Valkey channel
+6. Gateway establishes TN3270 connection and subscribes to `tn3270.input.<sessionId>`
+7. User types in browser terminal (xterm.js)
+8. Web sends `data` message via WebSocket to API
+9. API publishes to `tn3270.input.<sessionId>` Valkey channel
+10. Gateway sends to TN3270 host
+11. TN3270 output is received by Gateway
+12. Gateway publishes to `tn3270.output.<sessionId>` Valkey channel
+13. API forwards WebSocket messages to the browser for rendering
 
 ## Error Codes
 

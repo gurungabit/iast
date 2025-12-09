@@ -17,7 +17,7 @@ import {
   updateUserSessionName,
   deleteUserSession,
 } from '../models/userSession';
-import { verifyToken } from '../services/auth';
+import { authenticateUser } from '../services/auth';
 import { getValkeyClient } from '../valkey';
 import { getActiveExecutionBySession } from '../services/dynamodb';
 
@@ -30,8 +30,8 @@ export function sessionRoutes(fastify: FastifyInstance): void {
         return await reply.status(401).send(createErrorResponse(ERROR_CODES.AUTH_REQUIRED));
       }
 
-      const token = authHeader.slice(7);
-      const payload = verifyToken(token);
+      const token = authHeader.slice(7).trim();
+      const user = await authenticateUser(token);
 
       const body = request.body as { name: string };
       if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0) {
@@ -43,7 +43,7 @@ export function sessionRoutes(fastify: FastifyInstance): void {
       }
 
       const session = await createUserSession({
-        userId: payload.sub,
+        userId: user.id,
         name: body.name.trim(),
       });
 
@@ -65,10 +65,10 @@ export function sessionRoutes(fastify: FastifyInstance): void {
         return await reply.status(401).send(createErrorResponse(ERROR_CODES.AUTH_REQUIRED));
       }
 
-      const token = authHeader.slice(7);
-      const payload = verifyToken(token);
+      const token = authHeader.slice(7).trim();
+      const user = await authenticateUser(token);
 
-      const sessions = await getUserSessionsByUserId(payload.sub);
+      const sessions = await getUserSessionsByUserId(user.id);
       return await reply.send(createSuccessResponse(sessions));
     } catch (error) {
       if (error instanceof TerminalError) {
@@ -87,11 +87,11 @@ export function sessionRoutes(fastify: FastifyInstance): void {
         return await reply.status(401).send(createErrorResponse(ERROR_CODES.AUTH_REQUIRED));
       }
 
-      const token = authHeader.slice(7);
-      const payload = verifyToken(token);
+      const token = authHeader.slice(7).trim();
+      const user = await authenticateUser(token);
 
       const { sessionId } = request.params as { sessionId: string };
-      const session = await findUserSessionById(payload.sub, sessionId);
+      const session = await findUserSessionById(user.id, sessionId);
 
       if (!session) {
         return await reply
@@ -117,8 +117,8 @@ export function sessionRoutes(fastify: FastifyInstance): void {
         return await reply.status(401).send(createErrorResponse(ERROR_CODES.AUTH_REQUIRED));
       }
 
-      const token = authHeader.slice(7);
-      const payload = verifyToken(token);
+      const token = authHeader.slice(7).trim();
+      const user = await authenticateUser(token);
 
       const { sessionId } = request.params as { sessionId: string };
       const body = request.body as { name: string };
@@ -132,17 +132,17 @@ export function sessionRoutes(fastify: FastifyInstance): void {
       }
 
       // Verify session exists and belongs to user
-      const session = await findUserSessionById(payload.sub, sessionId);
+      const session = await findUserSessionById(user.id, sessionId);
       if (!session) {
         return await reply
           .status(404)
           .send(createErrorResponse(ERROR_CODES.VALIDATION_FAILED, 'Session not found'));
       }
 
-      await updateUserSessionName(payload.sub, sessionId, body.name.trim());
+      await updateUserSessionName(user.id, sessionId, body.name.trim());
 
       // Return updated session
-      const updatedSession = await findUserSessionById(payload.sub, sessionId);
+      const updatedSession = await findUserSessionById(user.id, sessionId);
       if (!updatedSession) {
         return await reply
           .status(500)
@@ -172,13 +172,13 @@ export function sessionRoutes(fastify: FastifyInstance): void {
         return await reply.status(401).send(createErrorResponse(ERROR_CODES.AUTH_REQUIRED));
       }
 
-      const token = authHeader.slice(7);
-      const payload = verifyToken(token);
+      const token = authHeader.slice(7).trim();
+      const user = await authenticateUser(token);
 
       const { sessionId } = request.params as { sessionId: string };
 
       // Verify session exists and belongs to user
-      const session = await findUserSessionById(payload.sub, sessionId);
+      const session = await findUserSessionById(user.id, sessionId);
       if (!session) {
         return await reply
           .status(404)
@@ -207,13 +207,13 @@ export function sessionRoutes(fastify: FastifyInstance): void {
         return await reply.status(401).send(createErrorResponse(ERROR_CODES.AUTH_REQUIRED));
       }
 
-      const token = authHeader.slice(7);
-      const payload = verifyToken(token);
+      const token = authHeader.slice(7).trim();
+      const user = await authenticateUser(token);
 
       const { sessionId } = request.params as { sessionId: string };
 
       // Verify session exists and belongs to user
-      const session = await findUserSessionById(payload.sub, sessionId);
+      const session = await findUserSessionById(user.id, sessionId);
       if (!session) {
         return await reply
           .status(404)
@@ -230,7 +230,7 @@ export function sessionRoutes(fastify: FastifyInstance): void {
         // Continue with deletion even if gateway notification fails
       }
 
-      await deleteUserSession(payload.sub, sessionId);
+      await deleteUserSession(user.id, sessionId);
       return await reply.send(createSuccessResponse({ message: 'Session deleted successfully' }));
     } catch (error) {
       if (error instanceof TerminalError) {

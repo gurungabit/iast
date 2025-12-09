@@ -7,6 +7,8 @@ import { createContext, useContext } from 'react';
 export interface AuthUser {
   id: string;
   email: string;
+  name?: string;
+  tenantId?: string;
 }
 
 export interface AuthContextValue {

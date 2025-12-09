@@ -2,180 +2,108 @@
 // useAuth Hook - Authentication State Management with Persistence
 // ============================================================================
 
-import { useState, useEffect, useCallback } from 'react';
-import type { AuthState } from '../types';
-import type { LoginRequest, RegisterRequest } from '@terminal/shared';
-import {
-  login as apiLogin,
-  register as apiRegister,
-  logout as apiLogout,
-  validateToken,
-} from '../services/auth';
-import {
-  getStoredToken,
-  getStoredUser,
-  getStoredExpiresAt,
-  isTokenExpired,
-  clearAuthStorage,
-} from '../utils/storage';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useIsAuthenticated, useMsal } from '@azure/msal-react';
+import { accountToAuthUser, acquireApiToken, loginRequest } from '../auth/entra';
+import { msalInstance } from '../auth/entra';
+import { fetchCurrentUser } from '../services/auth';
+import type { AuthState, AuthUser } from '../types';
 
 export interface UseAuthReturn {
   state: AuthState;
-  login: (request: LoginRequest) => Promise<boolean>;
-  register: (request: RegisterRequest) => Promise<boolean>;
+  login: () => Promise<void>;
   logout: () => Promise<void>;
-  checkAuth: () => Promise<boolean>;
+  getAccessToken: () => Promise<string>;
 }
 
 export function useAuth(): UseAuthReturn {
+  const { instance, accounts, inProgress } = useMsal();
+  const isMsalAuthenticated = useIsAuthenticated();
   const [state, setState] = useState<AuthState>({
     isAuthenticated: false,
     user: null,
-    token: null,
-    expiresAt: null,
     isLoading: true,
     error: null,
   });
 
-  // Check stored auth on mount
-  useEffect(() => {
-    const initAuth = async (): Promise<void> => {
-      const token = getStoredToken();
-      const user = getStoredUser();
-      const expiresAt = getStoredExpiresAt();
+  const activeAccountUser = useMemo<AuthUser | null>(() => {
+    const account = instance.getActiveAccount() ?? accounts[0] ?? null;
+    return accountToAuthUser(account);
+  }, [accounts, instance]);
 
-      if (token && user && !isTokenExpired()) {
-        // Validate token with server
-        const isValid = await validateToken();
-        if (isValid) {
-          setState({
-            isAuthenticated: true,
-            user,
-            token,
-            expiresAt,
-            isLoading: false,
-            error: null,
-          });
-          return;
-        }
+  useEffect(() => {
+    if (!instance.getActiveAccount() && accounts.length > 0) {
+      instance.setActiveAccount(accounts[0]);
+    }
+  }, [accounts, instance]);
+
+  useEffect(() => {
+    const syncUser = async (): Promise<void> => {
+      if (!isMsalAuthenticated) {
+        setState({
+          isAuthenticated: false,
+          user: null,
+          isLoading: false,
+          error: null,
+        });
+        return;
       }
 
-      // Clear invalid auth
-      clearAuthStorage();
-      setState({
-        isAuthenticated: false,
-        user: null,
-        token: null,
-        expiresAt: null,
-        isLoading: false,
-        error: null,
-      });
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
+
+      try {
+        // Ensure access token works with backend and user is provisioned
+        await acquireApiToken();
+        const backendUser = await fetchCurrentUser();
+        setState({
+          isAuthenticated: true,
+          user: {
+            id: backendUser.id,
+            email: backendUser.email,
+            name: backendUser.name ?? activeAccountUser?.name,
+            tenantId: backendUser.tenantId ?? activeAccountUser?.tenantId,
+          },
+          isLoading: false,
+          error: null,
+        });
+      } catch (error) {
+        setState({
+          isAuthenticated: false,
+          user: null,
+          isLoading: false,
+          error: error instanceof Error ? error.message : 'Authentication failed',
+        });
+      }
     };
 
-    void initAuth();
-  }, []);
+    void syncUser();
+  }, [isMsalAuthenticated, activeAccountUser]);
 
-  const login = useCallback(async (request: LoginRequest): Promise<boolean> => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
-
-    const result = await apiLogin(request);
-
-    if (result.success) {
-      const { user, token, expiresAt } = result.data;
-      setState({
-        isAuthenticated: true,
-        user: { id: user.id, email: user.email },
-        token,
-        expiresAt,
-        isLoading: false,
-        error: null,
-      });
-      return true;
-    }
-
-    setState((prev) => ({
-      ...prev,
-      isLoading: false,
-      error: result.error.message,
-    }));
-    return false;
-  }, []);
-
-  const register = useCallback(async (request: RegisterRequest): Promise<boolean> => {
-    setState((prev) => ({ ...prev, isLoading: true, error: null }));
-
-    const result = await apiRegister(request);
-
-    if (result.success) {
-      const { user, token, expiresAt } = result.data;
-      setState({
-        isAuthenticated: true,
-        user: { id: user.id, email: user.email },
-        token,
-        expiresAt,
-        isLoading: false,
-        error: null,
-      });
-      return true;
-    }
-
-    setState((prev) => ({
-      ...prev,
-      isLoading: false,
-      error: result.error.message,
-    }));
-    return false;
-  }, []);
+  const login = useCallback(async (): Promise<void> => {
+    await instance.loginRedirect(loginRequest);
+  }, [instance]);
 
   const logout = useCallback(async (): Promise<void> => {
-    await apiLogout();
+    await msalInstance.logoutRedirect();
     setState({
       isAuthenticated: false,
       user: null,
-      token: null,
-      expiresAt: null,
       isLoading: false,
       error: null,
     });
   }, []);
 
-  const checkAuth = useCallback(async (): Promise<boolean> => {
-    const token = getStoredToken();
-    if (!token || isTokenExpired()) {
-      clearAuthStorage();
-      setState({
-        isAuthenticated: false,
-        user: null,
-        token: null,
-        expiresAt: null,
-        isLoading: false,
-        error: null,
-      });
-      return false;
-    }
-
-    const isValid = await validateToken();
-    if (!isValid) {
-      clearAuthStorage();
-      setState({
-        isAuthenticated: false,
-        user: null,
-        token: null,
-        expiresAt: null,
-        isLoading: false,
-        error: null,
-      });
-      return false;
-    }
-
-    return true;
+  const getAccessToken = useCallback(async (): Promise<string> => {
+    return acquireApiToken();
   }, []);
 
   return {
-    state,
+    state: {
+      ...state,
+      isLoading: state.isLoading || inProgress !== 'none',
+    },
     login,
-    register,
     logout,
-    checkAuth,
+    getAccessToken,
   };
 }

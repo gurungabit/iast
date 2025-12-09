@@ -68,7 +68,9 @@ export interface UserRecord {
   GSI1PK: string;
   id: string;
   email: string;
-  passwordHash: string;
+  name?: string;
+  tenantId?: string;
+  entraId: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -293,14 +295,13 @@ export async function getActiveExecutionBySession(sessionId: string): Promise<Ex
 // ============================================================================
 
 /**
- * Create a new user in DynamoDB
+ * Create or update a user in DynamoDB
  */
 export async function createUserRecord(user: UserRecord): Promise<void> {
   await docClient.send(
     new PutCommand({
       TableName: TABLE_NAME,
       Item: user,
-      ConditionExpression: 'attribute_not_exists(PK)',
     })
   );
 }

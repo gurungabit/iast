@@ -114,7 +114,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ERROR_CODES.AUTH_REQUIRED]: 'Authentication required',
   [ERROR_CODES.AUTH_INVALID_TOKEN]: 'Invalid authentication token',
   [ERROR_CODES.AUTH_TOKEN_EXPIRED]: 'Authentication token has expired',
-  [ERROR_CODES.AUTH_INVALID_CREDENTIALS]: 'Invalid email or password',
+  [ERROR_CODES.AUTH_INVALID_CREDENTIALS]: 'Invalid authentication credentials',
   [ERROR_CODES.AUTH_USER_NOT_FOUND]: 'User not found',
   [ERROR_CODES.AUTH_SESSION_EXPIRED]: 'Session has expired',
   [ERROR_CODES.FORBIDDEN]: 'Access denied',

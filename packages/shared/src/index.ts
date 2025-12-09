@@ -111,31 +111,19 @@ export {
 export {
   type User,
   type UserSession,
-  type AuthSession,
-  type AuthTokenPayload,
-  type LoginRequest,
-  type RegisterRequest,
-  type AuthResponse,
-  type RefreshTokenRequest,
-  type RefreshTokenResponse,
-  type ValidationResult,
-  isValidEmail,
-  isValidPassword,
-  validateLoginRequest,
-  validateRegisterRequest,
-  AUTH_STORAGE_KEYS,
+  type EntraTokenClaims,
 } from './auth';
 
 // Config
 export {
   type ServerConfig,
   type ValkeyConfig,
-  type AuthConfig,
+  type EntraConfig,
   type TN3270Config,
   type AppConfig,
   DEFAULT_SERVER_CONFIG,
   DEFAULT_VALKEY_CONFIG,
-  DEFAULT_AUTH_CONFIG,
+  DEFAULT_ENTRA_CONFIG,
   DEFAULT_TN3270_CONFIG,
   getDefaultConfig,
 } from './config';

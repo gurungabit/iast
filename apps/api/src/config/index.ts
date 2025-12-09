@@ -46,11 +46,12 @@ export function loadConfig(): AppConfig {
       db: getEnvNumber('VALKEY_DB', 0),
       tls: getEnvBoolean('VALKEY_TLS', false),
     },
-    auth: {
-      jwtSecret: getEnvString('JWT_SECRET', defaults.auth.jwtSecret),
-      tokenExpirationSeconds: getEnvNumber('TOKEN_EXPIRATION_SECONDS', defaults.auth.tokenExpirationSeconds),
-      refreshTokenExpirationSeconds: getEnvNumber('REFRESH_TOKEN_EXPIRATION_SECONDS', defaults.auth.refreshTokenExpirationSeconds),
-      bcryptRounds: getEnvNumber('BCRYPT_ROUNDS', defaults.auth.bcryptRounds),
+    entra: {
+      tenantId: getEnvString('ENTRA_TENANT_ID', defaults.entra.tenantId),
+      clientId: getEnvString('ENTRA_CLIENT_ID', defaults.entra.clientId),
+      apiAudience: getEnvString('ENTRA_API_AUDIENCE', defaults.entra.apiAudience),
+      apiScope: getEnvString('ENTRA_API_SCOPE', defaults.entra.apiScope),
+      authorityHost: getEnvString('ENTRA_AUTHORITY_HOST', defaults.entra.authorityHost ?? 'https://login.microsoftonline.com'),
     },
     tn3270: {
       host: getEnvString('TN3270_HOST', defaults.tn3270.host),

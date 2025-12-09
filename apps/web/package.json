@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@azure/msal-browser": "^3.25.0",
+    "@azure/msal-react": "^2.1.0",
     "@tailwindcss/vite": "^4.1.17",
     "@tanstack/react-router": "^1.139.14",
     "@terminal/shared": "workspace:*",

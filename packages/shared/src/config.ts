@@ -19,11 +19,12 @@ export interface ValkeyConfig {
   tls?: boolean;
 }
 
-export interface AuthConfig {
-  jwtSecret: string;
-  tokenExpirationSeconds: number;
-  refreshTokenExpirationSeconds: number;
-  bcryptRounds: number;
+export interface EntraConfig {
+  tenantId: string;
+  clientId: string;
+  apiAudience: string;
+  apiScope: string;
+  authorityHost?: string;
 }
 
 export interface TN3270Config {
@@ -45,7 +46,7 @@ export interface AppConfig {
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   server: ServerConfig;
   valkey: ValkeyConfig;
-  auth: AuthConfig;
+  entra: EntraConfig;
   tn3270: TN3270Config;
   dynamodb: DynamoDBConfig;
 }
@@ -68,11 +69,12 @@ export const DEFAULT_VALKEY_CONFIG: ValkeyConfig = {
   port: 6379,
 };
 
-export const DEFAULT_AUTH_CONFIG: AuthConfig = {
-  jwtSecret: 'change-me-in-production',
-  tokenExpirationSeconds: 86400, // 24 hours
-  refreshTokenExpirationSeconds: 604800, // 7 days
-  bcryptRounds: 12,
+export const DEFAULT_ENTRA_CONFIG: EntraConfig = {
+  tenantId: 'enter-tenant-id',
+  clientId: 'enter-client-id',
+  apiAudience: 'api://enter-api-client-id',
+  apiScope: 'api://enter-api-client-id/delegate',
+  authorityHost: 'https://login.microsoftonline.com',
 };
 
 export const DEFAULT_TN3270_CONFIG: TN3270Config = {
@@ -95,7 +97,7 @@ export function getDefaultConfig(): AppConfig {
     logLevel: 'debug',
     server: { ...DEFAULT_SERVER_CONFIG },
     valkey: { ...DEFAULT_VALKEY_CONFIG },
-    auth: { ...DEFAULT_AUTH_CONFIG },
+    entra: { ...DEFAULT_ENTRA_CONFIG },
     tn3270: { ...DEFAULT_TN3270_CONFIG },
     dynamodb: { ...DEFAULT_DYNAMODB_CONFIG },
   };

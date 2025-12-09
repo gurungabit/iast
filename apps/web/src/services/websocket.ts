@@ -17,7 +17,7 @@ import {
   serializeMessage,
   deserializeMessage,
 } from '@terminal/shared';
-import { getStoredToken } from '../utils/storage';
+import { acquireApiToken } from '../auth/entra';
 
 export type WebSocketEventHandler = {
   onMessage: (message: MessageEnvelope) => void;
@@ -48,13 +48,26 @@ export class TerminalWebSocket {
     this.isClosing = false;
     this.handlers.onStatusChange('connecting');
 
-    const token = getStoredToken();
-    const params = new URLSearchParams();
-    if (token) params.set('token', token);
-    const queryString = params.toString();
-    const url = `${config.wsBaseUrl}/terminal/${this.sessionId}${queryString ? `?${queryString}` : ''}`;
+    void this.openWithToken();
+  }
 
+  private async openWithToken(): Promise<void> {
     try {
+      const params = new URLSearchParams();
+      try {
+        const token = await acquireApiToken();
+        params.set('token', token);
+      } catch (err) {
+        this.handlers.onError(
+          err instanceof Error ? err : new Error('Failed to acquire access token')
+        );
+        this.handlers.onStatusChange('error');
+        return;
+      }
+
+      const queryString = params.toString();
+      const url = `${config.wsBaseUrl}/terminal/${this.sessionId}${queryString ? `?${queryString}` : ''}`;
+
       this.ws = new WebSocket(url);
       this.setupEventListeners();
     } catch (error) {

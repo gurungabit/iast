@@ -13,8 +13,6 @@ export interface TerminalSession {
 export interface AuthState {
   isAuthenticated: boolean;
   user: AuthUser | null;
-  token: string | null;
-  expiresAt: number | null;
   isLoading: boolean;
   error: string | null;
 }
@@ -22,6 +20,8 @@ export interface AuthState {
 export interface AuthUser {
   id: string;
   email: string;
+  name?: string;
+  tenantId?: string;
 }
 
 export interface TerminalDimensions {
@@ -40,8 +40,5 @@ export type {
   DataMessage,
   ResizeMessage,
   ErrorMessage,
-  LoginRequest,
-  RegisterRequest,
-  AuthResponse,
   User,
 } from '@terminal/shared';
