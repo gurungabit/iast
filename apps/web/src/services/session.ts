@@ -3,14 +3,25 @@
 // ============================================================================
 
 import { getApiUrl } from '../config';
-import { getStoredToken } from '../utils/storage';
+import { msalInstance, apiConfig } from '../config/msalConfig';
 import type { UserSession } from '@terminal/shared';
 import type { ExecutionRecord } from '../components/history/types';
 
+async function getApiToken(): Promise<string> {
+  const account = msalInstance.getActiveAccount() ?? msalInstance.getAllAccounts()[0];
+  if (!account) throw new Error('Not authenticated');
+
+  const response = await msalInstance.acquireTokenSilent({
+    scopes: apiConfig.scopes,
+    account,
+  });
+  return response.accessToken;
+}
+
 async function fetchJson<T>(url: string, init: RequestInit = {}): Promise<T> {
-  const token = getStoredToken();
+  const token = await getApiToken();
   const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  headers['Authorization'] = `Bearer ${token}`;
   if (init.body) headers['Content-Type'] = 'application/json';
 
   const res = await fetch(url, { headers, ...init });

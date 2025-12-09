@@ -17,7 +17,6 @@ import {
   serializeMessage,
   deserializeMessage,
 } from '@terminal/shared';
-import { getStoredToken } from '../utils/storage';
 
 export type WebSocketEventHandler = {
   onMessage: (message: MessageEnvelope) => void;
@@ -25,22 +24,26 @@ export type WebSocketEventHandler = {
   onError: (error: Error) => void;
 };
 
+type TokenProvider = () => Promise<string | null>;
+
 export class TerminalWebSocket {
   private ws: WebSocket | null = null;
   private sessionId: string;
   private handlers: WebSocketEventHandler;
+  private tokenProvider: TokenProvider;
   private reconnectAttempts = 0;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private isClosing = false;
   private seq = 0;
 
-  constructor(sessionId: string, handlers: WebSocketEventHandler) {
+  constructor(sessionId: string, handlers: WebSocketEventHandler, tokenProvider: TokenProvider) {
     this.sessionId = sessionId;
     this.handlers = handlers;
+    this.tokenProvider = tokenProvider;
   }
 
-  connect(): void {
+  async connect(): Promise<void> {
     if (this.ws?.readyState === WebSocket.OPEN) {
       return;
     }
@@ -48,7 +51,12 @@ export class TerminalWebSocket {
     this.isClosing = false;
     this.handlers.onStatusChange('connecting');
 
-    const token = getStoredToken();
+    const token = await this.tokenProvider();
+    if (!token) {
+      this.handlers.onError(new Error('Not authenticated'));
+      this.handlers.onStatusChange('error');
+      return;
+    }
     const params = new URLSearchParams();
     if (token) params.set('token', token);
     const queryString = params.toString();
@@ -126,7 +134,7 @@ export class TerminalWebSocket {
 
     this.reconnectTimeout = setTimeout(() => {
       this.reconnectAttempts++;
-      this.connect();
+      void this.connect();
     }, delay);
   }
 
@@ -233,7 +241,8 @@ export class TerminalWebSocket {
 
 export function createTerminalWebSocket(
   sessionId: string,
-  handlers: WebSocketEventHandler
+  handlers: WebSocketEventHandler,
+  tokenProvider: TokenProvider
 ): TerminalWebSocket {
-  return new TerminalWebSocket(sessionId, handlers);
+  return new TerminalWebSocket(sessionId, handlers, tokenProvider);
 }

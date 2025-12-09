@@ -12,6 +12,7 @@ import {
   createTerminalWebSocket,
   type TerminalWebSocket,
 } from '../services/websocket';
+import { useAuth } from './useAuth';
 import {
   type MessageEnvelope,
   type TN3270Field,
@@ -86,6 +87,7 @@ const FIXED_ROWS = 43;
 
 export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn {
   const { autoConnect = true, onASTStatus, onASTProgress, onASTItemResult, onASTPaused } = options;
+  const { getApiAccessToken } = useAuth();
 
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const terminalInstance = useRef<Terminal | null>(null);
@@ -297,14 +299,18 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
     }, 100);
 
     // Create WebSocket connection
-    wsRef.current = createTerminalWebSocket(sessionId, {
-      onMessage: handleMessage,
-      onStatusChange: handleStatusChange,
-      onError: handleError,
-    });
+    wsRef.current = createTerminalWebSocket(
+      sessionId,
+      {
+        onMessage: handleMessage,
+        onStatusChange: handleStatusChange,
+        onError: handleError,
+      },
+      getApiAccessToken
+    );
 
     if (autoConnect) {
-      wsRef.current.connect();
+      void wsRef.current.connect();
     }
 
     return (): void => {
@@ -320,7 +326,7 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
   }, [sessionId, autoConnect, handleMessage, handleStatusChange, handleError, isInputPosition]);
 
   const connect = useCallback((): void => {
-    wsRef.current?.connect();
+    void wsRef.current?.connect();
   }, []);
 
   const disconnect = useCallback((): void => {

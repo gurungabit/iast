@@ -2,26 +2,25 @@
 // Auth Guard Component
 // ============================================================================
 
-import { useState, type ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../hooks/useTheme';
-import { LoginForm } from './LoginForm';
-import { RegisterForm } from './RegisterForm';
 import { AuthContext } from '../context/AuthContext';
-
-type AuthView = 'login' | 'register';
 
 interface AuthGuardProps {
   children: ReactNode;
 }
 
 export function AuthGuard({ children }: AuthGuardProps): ReactNode {
-  const { state: authState, login, register } = useAuth();
-  const { theme, toggleTheme } = useTheme();
-  const [authView, setAuthView] = useState<AuthView>('login');
+  const { isAuthenticated, isLoading, userInfo, login } = useAuth();
+
+  useEffect(() => {
+    if (!isAuthenticated && !isLoading) {
+      void login();
+    }
+  }, [isAuthenticated, isLoading, login]);
 
   // Show loading spinner while checking auth
-  if (authState.isLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-white dark:bg-zinc-950">
         <div className="text-center">
@@ -32,30 +31,15 @@ export function AuthGuard({ children }: AuthGuardProps): ReactNode {
     );
   }
 
-  // Show auth forms if not authenticated
-  if (!authState.isAuthenticated) {
-    if (authView === 'login') {
-      return (
-        <LoginForm
-          onSubmit={login}
-          onSwitchToRegister={() => setAuthView('register')}
-          isLoading={authState.isLoading}
-          error={authState.error}
-          theme={theme}
-          onToggleTheme={toggleTheme}
-        />
-      );
-    }
-
+  // Require auth
+  if (!isAuthenticated) {
     return (
-      <RegisterForm
-        onSubmit={register}
-        onSwitchToLogin={() => setAuthView('login')}
-        isLoading={authState.isLoading}
-        error={authState.error}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
+      <div className="flex items-center justify-center min-h-screen bg-white dark:bg-zinc-950">
+        <div className="text-center">
+          <div className="w-10 h-10 border-3 border-gray-300 dark:border-zinc-700 border-t-blue-500 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-500 dark:text-zinc-500">Redirecting to sign in...</p>
+        </div>
+      </div>
     );
   }
 
@@ -63,8 +47,8 @@ export function AuthGuard({ children }: AuthGuardProps): ReactNode {
   return (
     <AuthContext.Provider
       value={{
-        user: authState.user,
-        isAuthenticated: authState.isAuthenticated,
+        user: userInfo ? { id: userInfo.id, email: userInfo.email } : null,
+        isAuthenticated,
       }}
     >
       {children}

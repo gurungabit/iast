@@ -18,7 +18,7 @@ import {
   TerminalError,
   ERROR_CODES,
 } from '@terminal/shared';
-import { verifyToken } from '../services/auth';
+import { verifyEntraToken, extractEntraUserId } from '../auth/entra';
 import { createTerminalSession, endTerminalSession, touchSession } from '../services/session';
 import { getValkeyClient } from '../valkey';
 
@@ -34,7 +34,7 @@ export function terminalWebSocket(fastify: FastifyInstance): void {
   fastify.get<{
     Params: TerminalParams;
     Querystring: TerminalQuery;
-  }>('/terminal/:sessionId', { websocket: true }, (socket: WebSocket, request: FastifyRequest<{
+  }>('/terminal/:sessionId', { websocket: true }, async (socket: WebSocket, request: FastifyRequest<{
     Params: TerminalParams;
     Querystring: TerminalQuery;
   }>) => {
@@ -47,8 +47,8 @@ export function terminalWebSocket(fastify: FastifyInstance): void {
     // Verify token if provided
     if (token) {
       try {
-        const payload = verifyToken(token);
-        userId = payload.sub;
+        const payload = await verifyEntraToken(token);
+        userId = extractEntraUserId(payload);
         isAuthenticated = true;
       } catch {
         const errorMsg = createErrorMessage(

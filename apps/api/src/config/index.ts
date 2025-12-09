@@ -28,6 +28,16 @@ function getEnvBoolean(key: string, defaultValue: boolean): boolean {
 export function loadConfig(): AppConfig {
   const defaults = getDefaultConfig();
 
+  const tenantId = getEnvString('ENTRA_TENANT_ID', '');
+  const clientId = getEnvString('ENTRA_CLIENT_ID', '');
+  const apiScope = getEnvString('ENTRA_API_SCOPE', '');
+  const apiAudience =
+    getEnvString('ENTRA_API_AUDIENCE', '') ||
+    // If scope is like api://<appid>/<scope>, take audience part
+    (apiScope.includes('/') ? apiScope.split('/').slice(0, 3).join('/') : '') ||
+    (clientId ? `api://${clientId}` : '');
+  const authorityBase = tenantId ? `https://login.microsoftonline.com/${tenantId}` : '';
+
   return {
     env: getEnvString('NODE_ENV', 'development') as AppConfig['env'],
     logLevel: getEnvString('LOG_LEVEL', 'debug') as AppConfig['logLevel'],
@@ -51,6 +61,14 @@ export function loadConfig(): AppConfig {
       tokenExpirationSeconds: getEnvNumber('TOKEN_EXPIRATION_SECONDS', defaults.auth.tokenExpirationSeconds),
       refreshTokenExpirationSeconds: getEnvNumber('REFRESH_TOKEN_EXPIRATION_SECONDS', defaults.auth.refreshTokenExpirationSeconds),
       bcryptRounds: getEnvNumber('BCRYPT_ROUNDS', defaults.auth.bcryptRounds),
+      enableLegacyAuth: getEnvBoolean('ENABLE_LEGACY_AUTH', defaults.auth.enableLegacyAuth),
+    },
+    entra: {
+      tenantId,
+      clientId,
+      apiAudience,
+      authority: authorityBase ? `${authorityBase}/v2.0` : '',
+      jwksUri: authorityBase ? `${authorityBase}/discovery/v2.0/keys` : '',
     },
     tn3270: {
       host: getEnvString('TN3270_HOST', defaults.tn3270.host),

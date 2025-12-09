@@ -15,7 +15,7 @@ import {
   getFailedPolicies,
   type ExecutionStatus,
 } from '../services/dynamodb';
-import { verifyToken } from '../services/auth';
+import { verifyEntraToken, extractEntraUserId } from '../auth/entra';
 
 // ============================================================================
 // Types
@@ -42,7 +42,7 @@ interface ExecutionParams {
 // Helpers
 // ============================================================================
 
-function getUserIdFromAuth(request: FastifyRequest): string | null {
+async function getUserIdFromAuth(request: FastifyRequest): Promise<string | null> {
   const authHeader = request.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     return null;
@@ -50,8 +50,8 @@ function getUserIdFromAuth(request: FastifyRequest): string | null {
   
   try {
     const token = authHeader.slice(7);
-    const payload = verifyToken(token);
-    return payload.sub; // sub contains the userId
+    const payload = await verifyEntraToken(token);
+    return extractEntraUserId(payload);
   } catch {
     return null;
   }
@@ -77,7 +77,7 @@ export function historyRoutes(fastify: FastifyInstance): void {
    */
   fastify.get('/history', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const userId = getUserIdFromAuth(request);
+      const userId = await getUserIdFromAuth(request);
       if (!userId) {
         return await reply.status(401).send(createErrorResponse(ERROR_CODES.AUTH_REQUIRED));
       }
@@ -116,7 +116,7 @@ export function historyRoutes(fastify: FastifyInstance): void {
     '/history/:executionId',
     async (request, reply) => {
       try {
-        const userId = getUserIdFromAuth(request);
+        const userId = await getUserIdFromAuth(request);
         if (!userId) {
           return await reply.status(401).send(createErrorResponse(ERROR_CODES.AUTH_REQUIRED));
         }
@@ -153,7 +153,7 @@ export function historyRoutes(fastify: FastifyInstance): void {
     '/history/:executionId/policies',
     async (request, reply) => {
       try {
-        const userId = getUserIdFromAuth(request);
+        const userId = await getUserIdFromAuth(request);
         fastify.log.info({ userId, path: request.url }, 'Policies request');
         
         if (!userId) {
@@ -211,7 +211,7 @@ export function historyRoutes(fastify: FastifyInstance): void {
     '/history/:executionId/policies/failed',
     async (request, reply) => {
       try {
-        const userId = getUserIdFromAuth(request);
+        const userId = await getUserIdFromAuth(request);
         if (!userId) {
           return await reply.status(401).send(createErrorResponse(ERROR_CODES.AUTH_REQUIRED));
         }

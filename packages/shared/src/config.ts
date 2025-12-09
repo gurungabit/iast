@@ -24,6 +24,28 @@ export interface AuthConfig {
   tokenExpirationSeconds: number;
   refreshTokenExpirationSeconds: number;
   bcryptRounds: number;
+  /**
+   * Enable legacy username/password auth endpoints.
+   * Kept for transitional compatibility; default is false.
+   */
+  enableLegacyAuth: boolean;
+}
+
+export interface EntraConfig {
+  tenantId: string;
+  clientId: string;
+  /**
+   * Audience expected on issued access tokens (e.g., api://<appId>).
+   */
+  apiAudience: string;
+  /**
+   * Authority/issuer for validation (e.g., https://login.microsoftonline.com/<tenantId>/v2.0).
+   */
+  authority: string;
+  /**
+   * JWKS endpoint for the tenant (e.g., https://login.microsoftonline.com/<tenantId>/discovery/v2.0/keys).
+   */
+  jwksUri: string;
 }
 
 export interface TN3270Config {
@@ -46,6 +68,7 @@ export interface AppConfig {
   server: ServerConfig;
   valkey: ValkeyConfig;
   auth: AuthConfig;
+  entra: EntraConfig;
   tn3270: TN3270Config;
   dynamodb: DynamoDBConfig;
 }
@@ -73,6 +96,15 @@ export const DEFAULT_AUTH_CONFIG: AuthConfig = {
   tokenExpirationSeconds: 86400, // 24 hours
   refreshTokenExpirationSeconds: 604800, // 7 days
   bcryptRounds: 12,
+  enableLegacyAuth: false,
+};
+
+export const DEFAULT_ENTRA_CONFIG: EntraConfig = {
+  tenantId: '',
+  clientId: '',
+  apiAudience: '',
+  authority: '',
+  jwksUri: '',
 };
 
 export const DEFAULT_TN3270_CONFIG: TN3270Config = {
@@ -96,6 +128,7 @@ export function getDefaultConfig(): AppConfig {
     server: { ...DEFAULT_SERVER_CONFIG },
     valkey: { ...DEFAULT_VALKEY_CONFIG },
     auth: { ...DEFAULT_AUTH_CONFIG },
+    entra: { ...DEFAULT_ENTRA_CONFIG },
     tn3270: { ...DEFAULT_TN3270_CONFIG },
     dynamodb: { ...DEFAULT_DYNAMODB_CONFIG },
   };

@@ -16,7 +16,7 @@ import {
   type ASTStatusMeta,
   type ASTControlAction,
 } from '@terminal/shared';
-import { getStoredToken } from '../utils/storage';
+import { useAuth } from './useAuth';
 
 export type ObserverStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
@@ -61,6 +61,7 @@ export function useExecutionObserver({
   resume: () => void;
   cancel: () => void;
 } {
+  const { getApiAccessToken } = useAuth();
   const [state, setState] = useState<ExecutionObserverState>({
     status: 'disconnected',
     progress: null,
@@ -137,112 +138,115 @@ export function useExecutionObserver({
       return;
     }
 
-    const token = getStoredToken();
-    if (!token) {
-      setState((prev) => ({
-        ...prev,
-        status: 'error',
-        error: 'Not authenticated',
-      }));
-      return;
-    }
-
-    setState((prev) => ({ ...prev, status: 'connecting', error: null }));
-
-    const params = new URLSearchParams({ token });
-    const url = `${config.wsBaseUrl}/terminal/${sessionId}?${params}`;
-
-    // Track if this effect instance is still active (handles React StrictMode double-invocation)
     let isActive = true;
 
-    try {
-      const ws = new WebSocket(url);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        if (isActive && mountedRef.current) {
-          setState((prev) => ({ ...prev, status: 'connected', error: null }));
+    const connectWs = async () => {
+      const token = await getApiAccessToken();
+      if (!token) {
+        if (isActive) {
+          setState((prev) => ({
+            ...prev,
+            status: 'error',
+            error: 'Not authenticated',
+          }));
         }
-      };
+        return;
+      }
 
-      ws.onmessage = (event: MessageEvent<string>) => {
-        // Only process messages if this WebSocket is still the current one
-        if (!isActive || wsRef.current !== ws) return;
-        
-        try {
-          const message = deserializeMessage(event.data);
+      setState((prev) => ({ ...prev, status: 'connecting', error: null }));
 
-          // Filter by execution ID
-          if (isASTProgressMessage(message)) {
-            if (message.meta.executionId === executionId) {
+      const params = new URLSearchParams({ token });
+      const url = `${config.wsBaseUrl}/terminal/${sessionId}?${params}`;
+
+      try {
+        const ws = new WebSocket(url);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          if (isActive && mountedRef.current) {
+            setState((prev) => ({ ...prev, status: 'connected', error: null }));
+          }
+        };
+
+        ws.onmessage = (event: MessageEvent<string>) => {
+          if (!isActive || wsRef.current !== ws) return;
+          
+          try {
+            const message = deserializeMessage(event.data);
+
+            if (isASTProgressMessage(message)) {
+              if (message.meta.executionId === executionId) {
+                setState((prev) => ({
+                  ...prev,
+                  progress: message.meta,
+                }));
+              }
+            } else if (isASTItemResultMessage(message)) {
+              if (message.meta.executionId === executionId) {
+                const result: PolicyResult = {
+                  itemId: message.meta.itemId,
+                  status: message.meta.status,
+                  durationMs: message.meta.durationMs,
+                  error: message.meta.error,
+                  data: message.meta.data,
+                };
+                setState((prev) => ({
+                  ...prev,
+                  policyResults: [...prev.policyResults, result],
+                }));
+              }
+            } else if (isASTStatusMessage(message)) {
               setState((prev) => ({
                 ...prev,
-                progress: message.meta,
+                astStatus: message.meta,
               }));
-            }
-          } else if (isASTItemResultMessage(message)) {
-            if (message.meta.executionId === executionId) {
-              const result: PolicyResult = {
-                itemId: message.meta.itemId,
-                status: message.meta.status,
-                durationMs: message.meta.durationMs,
-                error: message.meta.error,
-                data: message.meta.data,
-              };
+            } else if (isASTPausedMessage(message)) {
               setState((prev) => ({
                 ...prev,
-                policyResults: [...prev.policyResults, result],
+                isPaused: message.meta.paused,
               }));
             }
-          } else if (isASTStatusMessage(message)) {
+          } catch {
+            // Ignore parse errors for messages we don't care about
+          }
+        };
+
+        ws.onerror = () => {
+          if (isActive && mountedRef.current) {
             setState((prev) => ({
               ...prev,
-              astStatus: message.meta,
-            }));
-          } else if (isASTPausedMessage(message)) {
-            setState((prev) => ({
-              ...prev,
-              isPaused: message.meta.paused,
+              status: 'error',
+              error: 'WebSocket connection error',
             }));
           }
-        } catch {
-          // Ignore parse errors for messages we don't care about
-        }
-      };
+        };
 
-      ws.onerror = () => {
+        ws.onclose = () => {
+          if (isActive && mountedRef.current) {
+            setState((prev) => ({ ...prev, status: 'disconnected' }));
+          }
+          if (wsRef.current === ws) {
+            wsRef.current = null;
+          }
+        };
+      } catch (err) {
         if (isActive && mountedRef.current) {
           setState((prev) => ({
             ...prev,
             status: 'error',
-            error: 'WebSocket connection error',
+            error: err instanceof Error ? err.message : 'Failed to connect',
           }));
         }
-      };
-
-      ws.onclose = () => {
-        if (isActive && mountedRef.current) {
-          setState((prev) => ({ ...prev, status: 'disconnected' }));
-        }
-        if (wsRef.current === ws) {
-          wsRef.current = null;
-        }
-      };
-    } catch (err) {
-      if (isActive && mountedRef.current) {
-        setState((prev) => ({
-          ...prev,
-          status: 'error',
-          error: err instanceof Error ? err.message : 'Failed to connect',
-        }));
       }
-    }
+    };
+
+    void connectWs();
 
     return () => {
       isActive = false;
       disconnect();
     };
-  }, [sessionId, executionId, enabled, disconnect]);
+  }, [sessionId, executionId, enabled, disconnect, getApiAccessToken]);
 
   return { ...state, disconnect, sendControl, pause, resume, cancel };
 }
