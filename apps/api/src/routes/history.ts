@@ -44,20 +44,15 @@ interface ExecutionParams {
 
 async function getUserIdFromAuth(request: FastifyRequest): Promise<string | null> {
   const authHeader = request.headers.authorization;
-  request.log.info({
-    authHeaderPresent: !!authHeader,
-    authHeaderPrefix: authHeader ? authHeader.slice(0, 10) : undefined,
-  }, 'Auth header check');
   if (!authHeader?.startsWith('Bearer ')) {
     return null;
   }
-  
+
   try {
     const token = authHeader.slice(7);
     const payload = await verifyEntraToken(token, request.log);
     return extractEntraUserId(payload);
-  } catch (err) {
-    request.log.warn({ err: err instanceof Error ? err.message : String(err) }, 'Token verification failed');
+  } catch {
     return null;
   }
 }
