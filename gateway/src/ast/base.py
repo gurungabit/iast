@@ -443,54 +443,98 @@ class AST(ABC):
     # ------------------------------------------------------------------ #
     # Hooks for subclasses
     # ------------------------------------------------------------------ #
-    def login(
-        self, host: "Host", username: str, password: str
+    def authenticate(
+        self,
+        host: "Host",
+        user: str,
+        password: str,
+        expected_keywords_after_login: list[str],
+        application: str = "",
+        group: str = "",
     ) -> tuple[bool, str, list[str]]:
-        """
-        Default login flow. Subclasses may override if needed.
-        Returns (success, error_message, screenshots).
+        """Authenticate to the mainframe system.
+
+        Common authentication logic that can be used by all AST subclasses.
+        Override this method if you need custom authentication logic.
+
+        Args:
+            host: Host automation interface
+            user: Username
+            password: Password
+            expected_keywords_after_login: List of text strings to expect after successful login
+            application: Application name (optional)
+            group: Group name (optional)
+
+        Returns:
+            Tuple of (success, error_message, screenshots)
         """
         screenshots: list[str] = []
 
-        log.info("Login: waiting for Logon screen...")
-        if not host.wait_for_text("Logon", timeout=120):
-            return False, "Timeout waiting for Logon screen", screenshots
+        # Check if already at expected post-login screen (already authenticated)
+        if expected_keywords_after_login:
+            for keyword in expected_keywords_after_login:
+                if host.screen_contains(keyword):
+                    log.info("Already at expected screen", keyword=keyword)
+                    screenshots.append(host.show_screen("Already Authenticated"))
+                    return True, "", screenshots
 
-        screenshots.append(host.show_screen("Logon Screen"))
-        log.info("Login: entering username...")
-        host.fill_field_by_label("Logon", username)
-        host.enter()
+        # Perform authentication
+        log.info("Starting authentication", user=user)
 
-        log.info("Login: waiting for password prompt...")
-        if not host.wait_for_text("ENTER CURRENT PASSWORD FOR", timeout=30):
-            return False, "Failed to reach password prompt", screenshots
+        try:
+            # Fill userid field
+            if not host.fill_field_by_label("Userid", user, case_sensitive=False):
+                error_msg = "Failed to find Userid field"
+                log.error(error_msg)
+                screenshots.append(host.show_screen("Userid Field Not Found"))
+                return False, error_msg, screenshots
 
-        screenshots.append(host.show_screen("Password Prompt"))
-        log.info("Login: entering password...")
-        host.fill_field_at_position(1, 1, password)
-        host.enter()
+            # Fill password field
+            if not host.fill_field_by_label("Password", password, case_sensitive=False):
+                error_msg = "Failed to find Password field"
+                log.error(error_msg)
+                screenshots.append(host.show_screen("Password Field Not Found"))
+                return False, error_msg, screenshots
 
-        log.info("Login: waiting for Welcome message...")
-        if not host.wait_for_text("Welcome to the TSO system", timeout=60):
-            return False, "Failed to reach Welcome screen", screenshots
+            # Fill application field if provided
+            if application and not host.fill_field_by_label(
+                "Application", application, case_sensitive=False
+            ):
+                log.warning("Failed to find Application field", application=application)
 
-        screenshots.append(host.show_screen("Welcome Screen"))
-        host.enter()
+            # Fill group field if provided
+            if group and not host.fill_field_by_label(
+                "Group", group, case_sensitive=False
+            ):
+                log.warning("Failed to find Group field", group=group)
 
-        log.info("Login: waiting for fortune cookie...")
-        if not host.wait_for_text("fortune cookie", timeout=30):
-            return False, "Failed to reach fortune cookie screen", screenshots
+            # Submit login
+            host.enter()
 
-        screenshots.append(host.show_screen("Fortune Cookie"))
-        host.enter()
+            # Verify we reached expected screen
+            if expected_keywords_after_login:
+                for keyword in expected_keywords_after_login:
+                    if host.wait_for_text(keyword):
+                        log.info("Authentication successful", keyword=keyword)
+                        screenshots.append(
+                            host.show_screen("Authentication Successful")
+                        )
+                        return True, "", screenshots
 
-        log.info("Login: waiting for TSO Applications menu...")
-        if not host.wait_for_text("TSO Applications", timeout=30):
-            return False, "Failed to reach TSO Applications menu", screenshots
+                error_msg = f"Authentication may have failed - expected keywords not found: {expected_keywords_after_login}"
+                log.error(error_msg)
+                screenshots.append(host.show_screen("Authentication Failed"))
+                return False, error_msg, screenshots
 
-        screenshots.append(host.show_screen("TSO Applications"))
+            log.info("Authentication completed")
+            screenshots.append(host.show_screen("Authentication Completed"))
+            return True, "", screenshots
 
-        return True, "", screenshots
+        except Exception as e:
+            error_msg = f"Exception during authentication: {str(e)}"
+            log.error("Exception during authentication", error=str(e), exc_info=True)
+            screenshots.append(host.show_screen("Authentication Exception"))
+            return False, error_msg, screenshots
 
     @abstractmethod
     def logoff(self, host: "Host") -> tuple[bool, str, list[str]]:
@@ -618,7 +662,15 @@ class AST(ABC):
         try:
             if not raw_items:
                 log.info("No items to process, doing single login/logoff cycle")
-                success, error, screenshots = self.login(host, username, password)
+                success, error, screenshots = self.authenticate(
+                    host,
+                    user=username,
+                    password=password,
+                    expected_keywords_after_login=["Fire System Selection"],
+                    # TODO: Take this from parameters
+                    application="FIRE06",
+                    group="@OOFIRE",
+                )
                 all_screenshots.extend(screenshots)
                 if not success:
                     raise Exception(error)
@@ -663,8 +715,14 @@ class AST(ABC):
                         continue
 
                     try:
-                        success, error, screenshots = self.login(
-                            host, username, password
+                        success, error, screenshots = self.authenticate(
+                            host,
+                            user=username,
+                            password=password,
+                            expected_keywords_after_login=["Fire System Selection"],
+                            # TODO: Take this from parameters
+                            application="FIRE06",
+                            group="@OOFIRE",
                         )
                         all_screenshots.extend(screenshots)
                         if not success:
