@@ -23,6 +23,9 @@ export function LoginASTForm(): React.ReactNode {
   // Policy numbers input
   const [policyInput, setPolicyInput] = useState<string>('');
 
+  // Parallel execution option
+  const [useParallel, setUseParallel] = useState<boolean>(false);
+
   // Parse and validate policy numbers
   const { validPolicies, invalidCount } = useMemo(() => {
     const parsed = parsePolicyNumbers(policyInput);
@@ -48,10 +51,15 @@ export function LoginASTForm(): React.ReactNode {
           payload.policyNumbers = validPolicies;
         }
 
+        // Enable parallel processing if selected
+        if (useParallel) {
+          payload.parallel = true;
+        }
+
         executeAST('login', payload);
       }
     },
-    [executeAST, credentials, isValid, isRunning, validPolicies, user]
+    [executeAST, credentials, isValid, isRunning, validPolicies, user, useParallel]
   );
 
   const hasPolicies = validPolicies.length > 0;
@@ -144,6 +152,16 @@ export function LoginASTForm(): React.ReactNode {
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRememberMe(e.target.checked)}
           disabled={isRunning}
         />
+
+        {validPolicies.length > 1 && (
+          <Checkbox
+            label="Parallel processing"
+            description="Process policies concurrently (faster but uses more resources)"
+            checked={useParallel}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUseParallel(e.target.checked)}
+            disabled={isRunning}
+          />
+        )}
 
         {/* Progress Bar (shown during batch processing) */}
         {isRunning && progress && hasPolicies && (
