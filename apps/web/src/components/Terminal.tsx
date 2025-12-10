@@ -286,6 +286,7 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
                     pauseAST();
                   }
                 }}
+                title={isPaused ? 'Resume AST execution' : 'Pause after current item completes or fails'}
                 className="px-3 py-1.5 text-xs rounded border cursor-pointer transition-colors
                   bg-yellow-600 text-white border-yellow-600 hover:bg-yellow-700"
               >
@@ -293,6 +294,7 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
               </button>
               <button
                 onClick={() => cancelAST()}
+                title="Stop after current item completes or fails"
                 className="px-3 py-1.5 text-xs rounded border cursor-pointer transition-colors
                   bg-red-600 text-white border-red-600 hover:bg-red-700"
               >

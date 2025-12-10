@@ -123,6 +123,11 @@ class AST(ABC):
     name: str = "base"
     description: str = "Base AST class"
 
+    # Authentication configuration - subclasses should override these
+    auth_expected_keywords: list[str] = []  # Keywords to verify successful login
+    auth_application: str = ""  # Application name for login
+    auth_group: str = ""  # Group name for login
+
     def __init__(self) -> None:
         self._result: ASTResult | None = None
         self._execution_id: str = ""
@@ -537,22 +542,79 @@ class AST(ABC):
             return False, error_msg, screenshots
 
     @abstractmethod
-    def logoff(self, host: "Host") -> tuple[bool, str, list[str]]:
+    def logoff(
+        self, host: "Host", target_screen_keywords: list[str] | None = None
+    ) -> tuple[bool, str, list[str]]:
         """Logoff flow implemented by subclasses."""
+        raise NotImplementedError("Subclasses must implement logoff method")
 
-    def validate_item(self, item_id: str) -> bool:
-        """Override to validate an item identifier."""
+    def validate_item(self, item: Any) -> bool:
+        """Override to validate an item.
+
+        Args:
+            item: The item to validate (can be str, dict, or any type)
+
+        Returns:
+            True if valid, False to skip this item
+        """
         return True
+
+    def get_item_id(self, item: Any) -> str:
+        """Get a string identifier for an item (used for logging and recording).
+
+        Override this if items are dicts or complex objects.
+
+        Args:
+            item: The item to get an ID for
+
+        Returns:
+            String identifier for the item
+        """
+        if isinstance(item, dict):
+            # Try common key names for ID
+            return str(
+                item.get("id") or item.get("policyNumber") or item.get("name") or item
+            )
+        return str(item)
+
+    def prepare_items(self, **kwargs: Any) -> list[Any]:
+        """Prepare items to process.
+
+        Override this method to fetch items from external sources (e.g., API, database).
+        By default, returns items from kwargs['policyNumbers'] or kwargs['items'].
+
+        Items can be any type (str, dict, etc.) - process_single_item should handle the type.
+
+        Args:
+            **kwargs: Parameters passed to execute()
+
+        Returns:
+            List of items to process (can be strings, dicts, or any type)
+        """
+        return kwargs.get("policyNumbers") or kwargs.get("items") or []
 
     @abstractmethod
     def process_single_item(
         self,
         host: "Host",
-        item_id: str,
+        item: Any,
         index: int,
         total: int,
     ) -> tuple[bool, str, dict[str, Any]]:
-        """Per-item processing implemented by subclasses."""
+        """Per-item processing implemented by subclasses.
+
+        Args:
+            host: Host automation interface
+            item: The item to process (can be str, dict, or any type from prepare_items)
+            index: Current item index (1-based)
+            total: Total number of items
+
+        Returns:
+            Tuple of (success, error_message, item_data)
+        """
+        raise NotImplementedError(
+            "Subclasses must implement process_single_item method"
+        )
 
     # ------------------------------------------------------------------ #
     # Execution helpers
@@ -629,7 +691,7 @@ class AST(ABC):
         """
         username = kwargs.get("username")
         password = kwargs.get("password")
-        raw_items: list[str] = kwargs.get("policyNumbers") or kwargs.get("items") or []
+        raw_items: list[Any] = self.prepare_items(**kwargs)
         app_user_id: str = kwargs.get("userId", "anonymous")
         self._session_id = kwargs.get("sessionId", self._execution_id)
 
@@ -661,165 +723,146 @@ class AST(ABC):
 
         try:
             if not raw_items:
-                log.info("No items to process, doing single login/logoff cycle")
-                success, error, screenshots = self.authenticate(
-                    host,
-                    user=username,
-                    password=password,
-                    expected_keywords_after_login=["Fire System Selection"],
-                    # TODO: Take this from parameters
-                    application="FIRE06",
-                    group="@OOFIRE",
-                )
-                all_screenshots.extend(screenshots)
-                if not success:
-                    raise Exception(error)
-
-                success, error, screenshots = self.logoff(host)
-                all_screenshots.extend(screenshots)
-                if not success:
-                    raise Exception(error)
-
+                log.info("No items to process, returning early")
                 result.status = ASTStatus.SUCCESS
-                result.message = f"Successfully logged in and out as {username}"
-            else:
-                total = len(raw_items)
-                log.info(f"Processing {total} items (full cycle each)...")
+                result.message = "No items to process"
+                return result
 
-                for idx, item_id in enumerate(raw_items):
-                    if not self.wait_if_paused():
-                        log.info("AST cancelled by user")
-                        result.status = ASTStatus.CANCELLED
-                        result.message = "Cancelled by user"
-                        break
+            total = len(raw_items)
+            log.info(f"Processing {total} items (full cycle each)...")
 
-                    item_start = datetime.now()
+            for idx, item in enumerate(raw_items):
+                if not self.wait_if_paused():
+                    log.info("AST cancelled by user")
+                    result.status = ASTStatus.CANCELLED
+                    result.message = "Cancelled by user"
+                    break
+
+                item_id = self.get_item_id(item)
+                item_start = datetime.now()
+                self.report_progress(
+                    current=idx + 1,
+                    total=total,
+                    current_item=item_id,
+                    item_status="running",
+                    message=f"Item {idx + 1}/{total}: Logging in",
+                )
+
+                if not self.validate_item(item):
+                    self._record_item_result(
+                        item_id=item_id,
+                        status="skipped",
+                        item_start=item_start,
+                        item_results=item_results,
+                        current=idx + 1,
+                        total=total,
+                        error="Invalid item",
+                    )
+                    continue
+
+                try:
+                    success, error, screenshots = self.authenticate(
+                        host,
+                        user=username,
+                        password=password,
+                        expected_keywords_after_login=self.auth_expected_keywords,
+                        application=self.auth_application,
+                        group=self.auth_group,
+                    )
+                    all_screenshots.extend(screenshots)
+                    if not success:
+                        raise Exception(f"Login failed: {error}")
+
                     self.report_progress(
                         current=idx + 1,
                         total=total,
                         current_item=item_id,
                         item_status="running",
-                        message=f"Item {idx + 1}/{total}: Logging in",
+                        message=f"Item {idx + 1}/{total}: Processing",
+                    )
+                    success, error, item_data = self.process_single_item(
+                        host, item, idx + 1, total
+                    )
+                    if not success:
+                        raise Exception(f"Process failed: {error}")
+
+                    self.report_progress(
+                        current=idx + 1,
+                        total=total,
+                        current_item=item_id,
+                        item_status="running",
+                        message=f"Item {idx + 1}/{total}: Logging off",
+                    )
+                    success, error, screenshots = self.logoff(host)
+                    all_screenshots.extend(screenshots)
+                    if not success:
+                        raise Exception(f"Logoff failed: {error}")
+
+                    duration_ms = self._record_item_result(
+                        item_id=item_id,
+                        status="success",
+                        item_start=item_start,
+                        item_results=item_results,
+                        current=idx + 1,
+                        total=total,
+                        item_data=item_data,
+                    )
+                    log.info(
+                        "Item completed successfully",
+                        item=item_id,
+                        duration_ms=duration_ms,
                     )
 
-                    if not self.validate_item(item_id):
-                        self._record_item_result(
-                            item_id=item_id,
-                            status="skipped",
-                            item_start=item_start,
-                            item_results=item_results,
-                            current=idx + 1,
-                            total=total,
-                            error="Invalid item",
-                        )
-                        continue
+                except Exception as e:
+                    error_screen = None
+                    try:
+                        error_screen = host.get_formatted_screen(show_row_numbers=False)
+                    except Exception:
+                        pass
+
+                    duration_ms = self._record_item_result(
+                        item_id=item_id,
+                        status="failed",
+                        item_start=item_start,
+                        item_results=item_results,
+                        current=idx + 1,
+                        total=total,
+                        error=str(e),
+                        item_data=(
+                            {"errorScreen": error_screen} if error_screen else None
+                        ),
+                    )
+                    log.warning(
+                        "Item failed",
+                        item=item_id,
+                        error=str(e),
+                        duration_ms=duration_ms,
+                    )
 
                     try:
-                        success, error, screenshots = self.authenticate(
-                            host,
-                            user=username,
-                            password=password,
-                            expected_keywords_after_login=["Fire System Selection"],
-                            # TODO: Take this from parameters
-                            application="FIRE06",
-                            group="@OOFIRE",
-                        )
-                        all_screenshots.extend(screenshots)
-                        if not success:
-                            raise Exception(f"Login failed: {error}")
+                        log.info("Attempting recovery logoff...")
+                        self.logoff(host)
+                    except Exception:
+                        log.warning("Recovery logoff failed, continuing...")
 
-                        self.report_progress(
-                            current=idx + 1,
-                            total=total,
-                            current_item=item_id,
-                            item_status="running",
-                            message=f"Item {idx + 1}/{total}: Processing",
-                        )
-                        success, error, item_data = self.process_single_item(
-                            host, item_id, idx + 1, total
-                        )
-                        if not success:
-                            raise Exception(f"Process failed: {error}")
+            success_count = sum(1 for r in item_results if r.status == "success")
+            failed_count = sum(1 for r in item_results if r.status == "failed")
+            skipped_count = sum(1 for r in item_results if r.status == "skipped")
 
-                        self.report_progress(
-                            current=idx + 1,
-                            total=total,
-                            current_item=item_id,
-                            item_status="running",
-                            message=f"Item {idx + 1}/{total}: Logging off",
-                        )
-                        success, error, screenshots = self.logoff(host)
-                        all_screenshots.extend(screenshots)
-                        if not success:
-                            raise Exception(f"Logoff failed: {error}")
-
-                        duration_ms = self._record_item_result(
-                            item_id=item_id,
-                            status="success",
-                            item_start=item_start,
-                            item_results=item_results,
-                            current=idx + 1,
-                            total=total,
-                            item_data=item_data,
-                        )
-                        log.info(
-                            "Item completed successfully",
-                            item=item_id,
-                            duration_ms=duration_ms,
-                        )
-
-                    except Exception as e:
-                        error_screen = None
-                        try:
-                            error_screen = host.get_formatted_screen(
-                                show_row_numbers=False
-                            )
-                        except Exception:
-                            pass
-
-                        duration_ms = self._record_item_result(
-                            item_id=item_id,
-                            status="failed",
-                            item_start=item_start,
-                            item_results=item_results,
-                            current=idx + 1,
-                            total=total,
-                            error=str(e),
-                            item_data=(
-                                {"errorScreen": error_screen} if error_screen else None
-                            ),
-                        )
-                        log.warning(
-                            "Item failed",
-                            item=item_id,
-                            error=str(e),
-                            duration_ms=duration_ms,
-                        )
-
-                        try:
-                            log.info("Attempting recovery logoff...")
-                            self.logoff(host)
-                        except Exception:
-                            log.warning("Recovery logoff failed, continuing...")
-
-                success_count = sum(1 for r in item_results if r.status == "success")
-                failed_count = sum(1 for r in item_results if r.status == "failed")
-                skipped_count = sum(1 for r in item_results if r.status == "skipped")
-
-                if not self.is_cancelled:
-                    result.status = ASTStatus.SUCCESS
-                    result.message = (
-                        f"Processed {total} items "
-                        f"({success_count} success, {failed_count} failed, {skipped_count} skipped)"
-                    )
-                result.item_results = item_results
-                result.data.update(
-                    {
-                        "successCount": success_count,
-                        "failedCount": failed_count,
-                        "skippedCount": skipped_count,
-                    }
+            if not self.is_cancelled:
+                result.status = ASTStatus.SUCCESS
+                result.message = (
+                    f"Processed {total} items "
+                    f"({success_count} success, {failed_count} failed, {skipped_count} skipped)"
                 )
+            result.item_results = item_results
+            result.data.update(
+                {
+                    "successCount": success_count,
+                    "failedCount": failed_count,
+                    "skippedCount": skipped_count,
+                }
+            )
 
             result.screenshots = all_screenshots
 
