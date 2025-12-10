@@ -462,8 +462,8 @@ class ParallelExecutor(ASTExecutor):
         host: str = "localhost",
         port: int = 3270,
         secure: bool = False,
-        maxwait: int = 30,
-        waitsleep: float = 0.5,
+        maxwait: int = 120,
+        waitsleep: float = 1,
     ) -> None:
         self.max_concurrent = max_concurrent
         self.host_address = host
