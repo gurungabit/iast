@@ -211,7 +211,6 @@ class PolicyResult(BaseModel):
     completed_at: datetime | None = None
     duration_ms: int | None = None
     error: str | None = None
-    screenshots: list[str] = Field(default_factory=list)
     data: dict[str, Any] = Field(default_factory=dict)
 
     def to_dynamodb(self) -> dict[str, Any]:
@@ -228,7 +227,6 @@ class PolicyResult(BaseModel):
             ),
             "duration_ms": self.duration_ms,
             "error": self.error,
-            "screenshots": self.screenshots,
             "data": self.data,
         }
 
@@ -251,6 +249,5 @@ class PolicyResult(BaseModel):
             ),
             duration_ms=item.get("duration_ms"),
             error=item.get("error"),
-            screenshots=item.get("screenshots", []),
             data=item.get("data", {}),
         )

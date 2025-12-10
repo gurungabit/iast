@@ -219,7 +219,7 @@ class ASTExecutor(ABC):
                 message=f"Item {index}/{total}: Logging in",
             )
 
-            success, error, _ = ast.authenticate(
+            success, error = ast.authenticate(
                 host,
                 user=context.username,
                 password=context.password,
@@ -254,7 +254,7 @@ class ASTExecutor(ABC):
                 message=f"Item {index}/{total}: Logging off",
             )
 
-            success, error, _ = ast.logoff(host)
+            success, error = ast.logoff(host)
             if not success:
                 log.warning("Logoff failed", error=error)
 

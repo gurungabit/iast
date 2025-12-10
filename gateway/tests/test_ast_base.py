@@ -32,7 +32,7 @@ class SampleAST(AST):
         self.executed_with: dict | None = None
 
     def logoff(self, host, target_screen_keywords=None):
-        return True, "", []
+        return True, ""
 
     def process_single_item(self, host, item, index: int, total: int):
         if self.should_timeout:
@@ -51,7 +51,7 @@ class SampleAST(AST):
         group="",
     ):
         # Skip authentication for tests
-        return True, "", []
+        return True, ""
 
 
 class ASTBaseTests(unittest.TestCase):

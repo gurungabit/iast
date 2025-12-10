@@ -56,7 +56,6 @@ class ASTResult:
     started_at: datetime | None = None
     completed_at: datetime | None = None
     error: str | None = None
-    screenshots: list[str] = field(default_factory=lambda: [])
     item_results: list[ItemResult] = field(default_factory=lambda: [])
 
     @property
@@ -135,6 +134,9 @@ class AST(ABC):
     auth_expected_keywords: list[str] = []  # Keywords to verify successful login
     auth_application: str = ""  # Application name for login
     auth_group: str = ""  # Group name for login
+    # Whether this AST supports parallel execution
+    # Subclasses should set this to True if they can run in parallel
+    supports_parallel: bool = False
 
     def __init__(self) -> None:
         self._result: ASTResult | None = None
@@ -278,7 +280,7 @@ class AST(ABC):
         expected_keywords_after_login: list[str],
         application: str = "",
         group: str = "",
-    ) -> tuple[bool, str, list[str]]:
+    ) -> tuple[bool, str]:
         """Authenticate to the mainframe system.
 
         Common authentication logic that can be used by all AST subclasses.
@@ -293,17 +295,14 @@ class AST(ABC):
             group: Group name (optional)
 
         Returns:
-            Tuple of (success, error_message, screenshots)
+            Tuple of (success, error_message)
         """
-        screenshots: list[str] = []
-
         # Check if already at expected post-login screen (already authenticated)
         if expected_keywords_after_login:
             for keyword in expected_keywords_after_login:
                 if host.screen_contains(keyword):
                     log.info("Already at expected screen", keyword=keyword)
-                    screenshots.append(host.show_screen("Already Authenticated"))
-                    return True, "", screenshots
+                    return True, ""
 
         # Perform authentication
         log.info("Starting authentication", user=user)
@@ -312,21 +311,18 @@ class AST(ABC):
             if not host.wait_for_text("SIGNON", timeout=100):
                 error_msg = "Failed to find SIGNON screen"
                 log.error(error_msg)
-                screenshots.append(host.show_screen("SIGNON Screen Not Found"))
-                return False, error_msg, screenshots
+                return False, error_msg
             # Fill userid field
             if not host.fill_field_by_label("Userid", user, case_sensitive=False):
                 error_msg = "Failed to find Userid field"
                 log.error(error_msg)
-                screenshots.append(host.show_screen("Userid Field Not Found"))
-                return False, error_msg, screenshots
+                return False, error_msg
 
             # Fill password field
             if not host.fill_field_by_label("Password", password, case_sensitive=False):
                 error_msg = "Failed to find Password field"
                 log.error(error_msg)
-                screenshots.append(host.show_screen("Password Field Not Found"))
-                return False, error_msg, screenshots
+                return False, error_msg
 
             # Fill application field if provided
             if application and not host.fill_field_by_label(
@@ -348,25 +344,19 @@ class AST(ABC):
                 for keyword in expected_keywords_after_login:
                     if host.wait_for_text(keyword):
                         log.info("Authentication successful", keyword=keyword)
-                        screenshots.append(
-                            host.show_screen("Authentication Successful")
-                        )
-                        return True, "", screenshots
+                        return True, ""
 
                 error_msg = f"Authentication may have failed - expected keywords not found: {expected_keywords_after_login}"
                 log.error(error_msg)
-                screenshots.append(host.show_screen("Authentication Failed"))
-                return False, error_msg, screenshots
+                return False, error_msg
 
             log.info("Authentication completed")
-            screenshots.append(host.show_screen("Authentication Completed"))
-            return True, "", screenshots
+            return True, ""
 
         except Exception as e:
             error_msg = f"Exception during authentication: {str(e)}"
             log.error("Exception during authentication", error=str(e), exc_info=True)
-            screenshots.append(host.show_screen("Authentication Exception"))
-            return False, error_msg, screenshots
+            return False, error_msg
 
     # ------------------------------------------------------------------ #
     # Abstract methods (must be implemented by subclasses)
@@ -374,7 +364,7 @@ class AST(ABC):
     @abstractmethod
     def logoff(
         self, host: "Host", target_screen_keywords: list[str] | None = None
-    ) -> tuple[bool, str, list[str]]:
+    ) -> tuple[bool, str]:
         """Logoff flow implemented by subclasses.
 
         Args:
@@ -382,7 +372,7 @@ class AST(ABC):
             target_screen_keywords: Optional list of keywords to verify sign-off reached target screen
 
         Returns:
-            Tuple of (success, error_message, screenshots)
+            Tuple of (success, error_message)
         """
         raise NotImplementedError("Subclasses must implement logoff method")
 
@@ -456,7 +446,3 @@ class AST(ABC):
             List of items to process (can be strings, dicts, or any type)
         """
         return kwargs.get("policyNumbers") or kwargs.get("items") or []
-
-    # Whether this AST supports parallel execution
-    # Subclasses should set this to True if they can run in parallel
-    supports_parallel: bool = False

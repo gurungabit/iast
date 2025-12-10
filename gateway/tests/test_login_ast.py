@@ -24,6 +24,9 @@ class _FakeHost:
         self.wait_calls.append(text)
         return True
 
+    def screen_contains(self, text: str) -> bool:
+        return False  # Not already logged in
+
     def show_screen(self, title: str) -> str:
         self.screens.append(title)
         return f"{title}:screen"
@@ -107,7 +110,6 @@ class LoginASTTests(unittest.TestCase):
 
         self.assertEqual(result.status, ASTStatus.SUCCESS)
         self.assertEqual(len(result.item_results), 1)
-        self.assertGreater(len(host.screens), 0)
         self.assertTrue(fake_db.policy_results)
         self.assertTrue(any(u["status"] == "success" for u in fake_db.updates))
 
