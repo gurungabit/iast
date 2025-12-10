@@ -38,10 +38,22 @@ export class TerminalWebSocket {
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private isClosing = false;
   private seq = 0;
+  private refCount = 0;  // Track number of components using this connection
 
   constructor(sessionId: string, handlers: WebSocketEventHandler) {
     this.sessionId = sessionId;
     this.handlers = handlers;
+  }
+
+  /** Increment reference count */
+  addRef(): void {
+    this.refCount++;
+  }
+
+  /** Decrement reference count, returns true if should actually disconnect */
+  release(): boolean {
+    this.refCount = Math.max(0, this.refCount - 1);
+    return this.refCount === 0;
   }
 
   connect(): void {
@@ -211,6 +223,13 @@ export class TerminalWebSocket {
    *                         Default is false to allow sessions with running ASTs to persist.
    */
   disconnect(destroySession = false): void {
+    // Use reference counting - only actually disconnect if no more users
+    // This handles React StrictMode where cleanup of first mount runs after second mount
+    if (!destroySession && !this.release()) {
+      // Still have active references, don't actually disconnect
+      return;
+    }
+
     this.isClosing = true;
 
     if (this.reconnectTimeout) {
@@ -230,10 +249,8 @@ export class TerminalWebSocket {
       this.ws = null;
     }
 
-    // Remove from active connections when destroyed
-    if (destroySession) {
-      activeConnections.delete(this.sessionId);
-    }
+    // Remove from active connections
+    activeConnections.delete(this.sessionId);
 
     this.handlers.onStatusChange('disconnected');
   }
@@ -246,6 +263,7 @@ export class TerminalWebSocket {
     return this.ws?.readyState === WebSocket.OPEN;
   }
 
+
   /** Update handlers - used when reusing an existing connection */
   updateHandlers(handlers: WebSocketEventHandler): void {
     this.handlers = handlers;
@@ -254,7 +272,8 @@ export class TerminalWebSocket {
 
 /**
  * Get or create a WebSocket connection for a session.
- * Uses singleton pattern to prevent duplicate connections (handles React StrictMode).
+ * Uses singleton pattern with reference counting to prevent duplicate connections.
+ * Handles React StrictMode double-mounting.
  */
 export function createTerminalWebSocket(
   sessionId: string,
@@ -263,13 +282,15 @@ export function createTerminalWebSocket(
   // Check for existing connection
   const existing = activeConnections.get(sessionId);
   if (existing) {
-    // Reuse existing connection, update handlers
+    // Reuse existing connection, update handlers, increment ref count
     existing.updateHandlers(handlers);
+    existing.addRef();
     return existing;
   }
 
-  // Create new connection
+  // Create new connection with ref count of 1
   const ws = new TerminalWebSocket(sessionId, handlers);
+  ws.addRef();
   activeConnections.set(sessionId, ws);
   return ws;
 }
