@@ -59,10 +59,14 @@ def run_ast(
     Returns:
         ASTResult with execution status and data
     """
-    if parallel and ast.supports_parallel:
+    # Extract parallel from kwargs if not passed directly
+    # This handles the case where params dict is spread into kwargs
+    use_parallel = parallel or kwargs.pop("parallel", False)
+
+    if use_parallel and ast.supports_parallel:
         return _run_parallel(ast, execution_id, **kwargs)
 
-    if parallel and not ast.supports_parallel:
+    if use_parallel and not ast.supports_parallel:
         log.warning(
             f"Parallel execution requested but not supported by {ast.name}",
             ast=ast.name,
@@ -135,6 +139,11 @@ def _run_parallel(
 ) -> ASTResult:
     """Run the AST in parallel using independent ATI sessions."""
     ast._execution_id = execution_id or str(uuid4())
+    log.info(
+        f"Starting AST (parallel): {ast.name}",
+        ast=ast.name,
+        execution_id=ast._execution_id,
+    )
 
     max_concurrent = kwargs.get("maxConcurrent", 10)
     host_address = kwargs.get("hostAddress", "localhost")

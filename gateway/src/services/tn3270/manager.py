@@ -574,11 +574,19 @@ class TN3270Manager:
                 on_pause_state=on_pause_state,
             )
 
+            # Build params with host config for parallel execution
+            run_params = {**(params or {})}
+            # Add host config from session for parallel mode
+            if "hostAddress" not in run_params:
+                run_params["hostAddress"] = session.host
+            if "hostPort" not in run_params:
+                run_params["hostPort"] = session.port
+
             # Run the AST in executor (blocking operations)
             # Pass execution_id so it matches what we store in DynamoDB
             result = await loop.run_in_executor(
                 _executor,
-                lambda: run_ast(ast, host, execution_id=execution_id, **(params or {})),
+                lambda: run_ast(ast, host, execution_id=execution_id, **run_params),
             )
 
             # Clear the running AST
