@@ -19,7 +19,7 @@ const msalInstance = new PublicClientApplication(msalConfig)
 async function initializeApp() {
   // Initialize MSAL
   await msalInstance.initialize()
-  
+
   // Handle redirect promise (for redirect-based auth flows)
   // This MUST complete before rendering to avoid re-renders
   const response = await msalInstance.handleRedirectPromise()

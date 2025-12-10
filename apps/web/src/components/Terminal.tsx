@@ -112,6 +112,10 @@ function getStatusText(status: ConnectionStatus): string {
 }
 
 export function Terminal({ sessionId, autoConnect = true, onStatusChange, onReady, onASTStatus, onASTProgress, onASTItemResult, onASTPaused }: TerminalProps): React.ReactNode {
+  // Get AST running state from context first (need for inputDisabled)
+  const { isRunning: isASTRunning, runningAST, status: astStatus } = useAST();
+  const isPaused = astStatus === 'paused';
+
   const {
     terminalRef,
     status,
@@ -125,11 +129,15 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
     pauseAST,
     resumeAST,
     cancelAST,
-  } = useTerminal({ sessionId, autoConnect, onASTStatus, onASTProgress, onASTItemResult, onASTPaused });
-
-  // Get AST running state from context
-  const { isRunning: isASTRunning, runningAST, status: astStatus } = useAST();
-  const isPaused = astStatus === 'paused';
+  } = useTerminal({
+    sessionId,
+    autoConnect,
+    inputDisabled: isASTRunning && !isPaused,
+    onASTStatus,
+    onASTProgress,
+    onASTItemResult,
+    onASTPaused,
+  });
 
   // Expose API to parent
   useEffect(() => {
@@ -179,20 +187,20 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
             />
             <span className="text-zinc-100 font-medium">{getStatusText(status)}</span>
           </div>
-          
+
           {/* PF/PA Keys Dropdown */}
           {status === 'connected' && (
             <div ref={menuRef} className="relative">
               <button
                 onClick={() => setKeyMenuOpen(!keyMenuOpen)}
                 className={`px-3 py-1.5 text-xs flex items-center gap-1 rounded border cursor-pointer transition-colors
-                  ${keyMenuOpen 
-                    ? 'bg-blue-600 text-white border-blue-600' 
+                  ${keyMenuOpen
+                    ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-gray-100 dark:bg-zinc-800 text-gray-800 dark:text-zinc-200 border-gray-300 dark:border-zinc-700 hover:bg-gray-200 dark:hover:bg-zinc-700'}`}
               >
                 Keys ▾
               </button>
-              
+
               {keyMenuOpen && (
                 <div className="absolute top-full left-0 mt-1 min-w-[340px] p-3 rounded-md border shadow-lg z-50 bg-white dark:bg-zinc-900 border-gray-200 dark:border-zinc-700">
                   {/* PF Keys */}
@@ -216,7 +224,7 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
                       ))}
                     </div>
                   </div>
-                  
+
                   {/* PA Keys & Actions */}
                   <div className="mb-3">
                     <div className="text-[11px] uppercase mb-1.5 text-gray-500 dark:text-zinc-500 font-medium">
@@ -228,8 +236,8 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
                           key={label}
                           onClick={() => handleKeyClick(key)}
                           className={`px-2.5 py-1.5 text-[11px] rounded border cursor-pointer transition-colors
-                            ${label === 'Enter' 
-                              ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 active:bg-blue-800' 
+                            ${label === 'Enter'
+                              ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 active:bg-blue-800'
                               : 'bg-gray-100 dark:bg-zinc-800 text-gray-800 dark:text-zinc-200 border-gray-300 dark:border-zinc-700 hover:bg-gray-200 dark:hover:bg-zinc-700 hover:border-gray-400 dark:hover:border-zinc-600 active:bg-gray-300 dark:active:bg-zinc-600'}`}
                         >
                           {label}
