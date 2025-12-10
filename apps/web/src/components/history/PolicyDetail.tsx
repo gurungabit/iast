@@ -22,7 +22,7 @@ export function PolicyDetail({ policy, execution, onBack }: PolicyDetailProps) {
           { label: execution.ast_name, onClick: onBack },
           { label: policy.policy_number }
         ]} />
-        
+
         <div className="mt-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold font-mono text-gray-900 dark:text-zinc-100">
             {policy.policy_number}
@@ -32,7 +32,7 @@ export function PolicyDetail({ policy, execution, onBack }: PolicyDetailProps) {
           </span>
         </div>
       </div>
-      
+
       {/* Content */}
       <div className="flex-1 overflow-auto p-4 space-y-4">
         {/* Stats */}
@@ -45,16 +45,15 @@ export function PolicyDetail({ policy, execution, onBack }: PolicyDetailProps) {
           </div>
           <div className="p-3 rounded-lg bg-gray-50 dark:bg-zinc-800/50">
             <div className="text-xs text-gray-500 dark:text-zinc-500 mb-1">Status</div>
-            <div className={`text-lg font-semibold ${
-              policy.status === 'success' ? 'text-emerald-600 dark:text-emerald-400' :
-              policy.status === 'failed' ? 'text-red-600 dark:text-red-400' :
-              'text-yellow-600 dark:text-yellow-400'
-            }`}>
+            <div className={`text-lg font-semibold ${policy.status === 'success' ? 'text-emerald-600 dark:text-emerald-400' :
+                policy.status === 'failed' ? 'text-red-600 dark:text-red-400' :
+                  'text-yellow-600 dark:text-yellow-400'
+              }`}>
               {policy.status.charAt(0).toUpperCase() + policy.status.slice(1)}
             </div>
           </div>
         </div>
-        
+
         {/* Timestamps */}
         <div className="p-3 rounded-lg bg-gray-50 dark:bg-zinc-800/50 space-y-2">
           <div className="flex justify-between text-sm">
@@ -70,7 +69,7 @@ export function PolicyDetail({ policy, execution, onBack }: PolicyDetailProps) {
             </span>
           </div>
         </div>
-        
+
         {/* Error */}
         {policy.error && (
           <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
@@ -80,7 +79,7 @@ export function PolicyDetail({ policy, execution, onBack }: PolicyDetailProps) {
             </pre>
           </div>
         )}
-        
+
         {/* Error Screen - shown when policy failed and has screen capture */}
         {policy.status === 'failed' && typeof policy.policy_data?.errorScreen === 'string' && (
           <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-700">
@@ -90,7 +89,26 @@ export function PolicyDetail({ policy, execution, onBack }: PolicyDetailProps) {
             </pre>
           </div>
         )}
-        
+
+        {/* Screenshots - captured during item processing */}
+        {Array.isArray(policy.policy_data?.screenshots) && policy.policy_data.screenshots.length > 0 && (
+          <div className="space-y-3">
+            <div className="text-xs font-medium text-gray-700 dark:text-zinc-300">
+              Screenshots ({policy.policy_data.screenshots.length})
+            </div>
+            {policy.policy_data.screenshots.map((screenshot: { label: string; screen: string }, idx: number) => (
+              <div key={idx} className="p-3 rounded-lg bg-zinc-900 border border-zinc-700">
+                <div className="text-xs font-medium text-zinc-400 mb-2">
+                  {screenshot.label || `Screenshot ${idx + 1}`}
+                </div>
+                <pre className="text-xs text-green-400 whitespace-pre font-mono overflow-x-auto leading-tight">
+                  {screenshot.screen}
+                </pre>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Policy Data */}
         {policy.policy_data && Object.keys(policy.policy_data).length > 0 && (
           <div className="p-3 rounded-lg bg-gray-50 dark:bg-zinc-800/50">
@@ -100,7 +118,7 @@ export function PolicyDetail({ policy, execution, onBack }: PolicyDetailProps) {
             </pre>
           </div>
         )}
-        
+
         {/* Actions - only show for failed policies */}
         {policy.status === 'failed' && (
           <div className="flex gap-2 pt-2">

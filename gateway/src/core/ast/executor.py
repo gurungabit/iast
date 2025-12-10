@@ -209,6 +209,9 @@ class ASTExecutor(ABC):
         item_id = ast.get_item_id(item)
         item_start = datetime.now()
 
+        # Clear any screenshots from previous item
+        ast.clear_screenshots()
+
         try:
             # Authenticate
             ast.report_progress(
@@ -245,6 +248,13 @@ class ASTExecutor(ABC):
             if not success:
                 raise Exception(f"Process failed: {error}")
 
+            # Collect screenshots captured during processing
+            if item_data is None:
+                item_data = {}
+            screenshots = ast.get_screenshots()
+            if screenshots:
+                item_data["screenshots"] = screenshots
+
             # Logoff
             ast.report_progress(
                 current=index,
@@ -275,6 +285,14 @@ class ASTExecutor(ABC):
             except Exception:
                 pass
 
+            # Collect any screenshots captured before the error
+            error_item_data: dict[str, Any] = {}
+            screenshots = ast.get_screenshots()
+            if screenshots:
+                error_item_data["screenshots"] = screenshots
+            if error_screen:
+                error_item_data["errorScreen"] = error_screen
+
             # Try recovery logoff
             try:
                 ast.logoff(host)
@@ -286,7 +304,7 @@ class ASTExecutor(ABC):
                 status="failed",
                 item_start=item_start,
                 error=str(e),
-                item_data={"errorScreen": error_screen} if error_screen else None,
+                item_data=error_item_data if error_item_data else None,
             )
 
     def _finalize_result(
@@ -444,11 +462,15 @@ class ParallelExecutor(ASTExecutor):
         host: str = "localhost",
         port: int = 3270,
         secure: bool = False,
+        maxwait: int = 30,
+        waitsleep: float = 0.5,
     ) -> None:
         self.max_concurrent = max_concurrent
         self.host_address = host
         self.port = port
         self.secure = secure
+        self.maxwait = maxwait
+        self.waitsleep = waitsleep
         self._thread_pool = concurrent.futures.ThreadPoolExecutor(
             max_workers=max_concurrent,
             thread_name_prefix="ati-parallel",
@@ -467,7 +489,13 @@ class ParallelExecutor(ASTExecutor):
         }
 
     def _create_ati_session(self, session_name: str) -> Ati:
-        """Create a new ATI session and connect to the host."""
+        """Create a new ATI session and connect to the host.
+
+        Waits for the SIGNON screen to appear before returning.
+
+        Raises:
+            Exception: If session creation fails or SIGNON screen not found
+        """
         ati = Ati()
 
         # Connection settings
@@ -480,8 +508,20 @@ class ParallelExecutor(ASTExecutor):
         ati.set("SESSION_DEVICE_TYPE", "IBM-3279-4-E")
         ati.set("SESSION_PS_SIZE", "43x80")
 
+        # Configure timeouts BEFORE creating session
+        ati.maxwait = self.maxwait
+        ati.waitsleep = self.waitsleep
+        ati.maxlostwarn = 0  # Suppress lost session warnings during wait
+
         # Create session
         ati.set("SESSION", session_name)
+
+        # Wait for SIGNON screen to appear
+        if not ati.wait(lambda: ati.scrhas("SIGNON")):
+            raise Exception(
+                f"SIGNON screen not found for session {session_name} "
+                f"(RC={ati.rc}, SESLOST={ati.seslost})"
+            )
 
         return ati
 

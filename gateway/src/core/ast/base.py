@@ -152,6 +152,9 @@ class AST(ABC):
         self._cancelled = False
         self._session_id: str = ""
 
+        # Thread-local storage for screenshots (safe for parallel execution)
+        self._thread_local = threading.local()
+
     def set_callbacks(
         self,
         on_progress: ProgressCallback | None = None,
@@ -162,6 +165,38 @@ class AST(ABC):
         self._on_progress = on_progress
         self._on_item_result = on_item_result
         self._on_pause_state = on_pause_state
+
+    # ------------------------------------------------------------------ #
+    # Screenshot capture for item processing
+    # ------------------------------------------------------------------ #
+    def capture_screenshot(self, host: "Host", label: str = "") -> None:
+        """Capture a screenshot during item processing.
+
+        Call this from process_single_item() to capture screens at key points.
+        Screenshots are automatically collected and saved with each item result.
+        Thread-safe for parallel execution.
+
+        Args:
+            host: Host automation interface
+            label: Optional label describing this screenshot (e.g., "After Submit")
+        """
+        try:
+            screen = host.get_formatted_screen(show_row_numbers=False)
+            if not hasattr(self._thread_local, "screenshots"):
+                self._thread_local.screenshots = []
+            self._thread_local.screenshots.append({"label": label, "screen": screen})
+        except Exception as e:
+            log.warning("Failed to capture screenshot", label=label, error=str(e))
+
+    def clear_screenshots(self) -> None:
+        """Clear screenshots for a new item. Called by executor before each item."""
+        self._thread_local.screenshots = []
+
+    def get_screenshots(self) -> list[dict[str, str]]:
+        """Get screenshots captured during current item processing."""
+        if not hasattr(self._thread_local, "screenshots"):
+            return []
+        return self._thread_local.screenshots.copy()
 
     # ------------------------------------------------------------------ #
     # Pause/Resume/Cancel
@@ -308,10 +343,10 @@ class AST(ABC):
         log.info("Starting authentication", user=user)
 
         try:
-            if not host.wait_for_text("SIGNON", timeout=100):
-                error_msg = "Failed to find SIGNON screen"
-                log.error(error_msg)
-                return False, error_msg
+            # if not host.wait_for_text("SIGNON", timeout=100):
+            #     error_msg = "Failed to find SIGNON screen"
+            #     log.error(error_msg)
+            #     return False, error_msg
             # Fill userid field
             if not host.fill_field_by_label("Userid", user, case_sensitive=False):
                 error_msg = "Failed to find Userid field"
