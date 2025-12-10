@@ -344,18 +344,20 @@ function TabContent({
     handleASTItemResult,
     handleASTPaused,
     restoreFromExecution,
+    isRunning: storeIsRunning,
+    reset,
   } = useAST(tab.id);
 
-  const [checkedForActiveExecution, setCheckedForActiveExecution] = useState(false);
-
-  // Check for active execution on mount (handles page refresh)
+  // Check for active execution on mount AND whenever tab becomes visible
+  // This handles the case where user navigates away and AST completes while away
   useEffect(() => {
-    if (checkedForActiveExecution || !tab.sessionId) return;
+    if (!tab.sessionId) return;
 
-    const checkActiveExecution = async () => {
+    const syncExecutionState = async () => {
       try {
         const execution = await getActiveExecution(tab.sessionId);
         if (execution && (execution.status === 'running' || execution.status === 'paused')) {
+          // AST is still running - restore/update state
           restoreFromExecution({
             ast_name: execution.ast_name,
             status: execution.status,
@@ -364,16 +366,29 @@ function TabContent({
             failed_count: execution.failed_count,
             execution_id: execution.execution_id,
           });
+        } else if (storeIsRunning) {
+          // Store thinks AST is running, but it's actually completed
+          // Reset the state to sync with reality
+          if (execution) {
+            // There was an execution that completed
+            handleASTComplete({
+              status: execution.status === 'success' ? 'completed' : execution.status === 'failed' ? 'error' : 'completed',
+              message: execution.message || '',
+              error: execution.error,
+              data: {},
+            });
+          } else {
+            // No execution found at all - just reset
+            reset();
+          }
         }
       } catch (error) {
-        console.error('Failed to check for active execution:', error);
-      } finally {
-        setCheckedForActiveExecution(true);
+        console.error('Failed to sync execution state:', error);
       }
     };
 
-    checkActiveExecution();
-  }, [tab.sessionId, checkedForActiveExecution, restoreFromExecution]);
+    syncExecutionState();
+  }, [tab.sessionId, restoreFromExecution, storeIsRunning, handleASTComplete, reset]);
 
   const handleTerminalReady = useCallback(
     (api: TerminalApi) => {
