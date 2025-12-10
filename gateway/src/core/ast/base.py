@@ -309,6 +309,11 @@ class AST(ABC):
         log.info("Starting authentication", user=user)
 
         try:
+            if not host.wait_for_text("SIGNON", timeout=100):
+                error_msg = "Failed to find SIGNON screen"
+                log.error(error_msg)
+                screenshots.append(host.show_screen("SIGNON Screen Not Found"))
+                return False, error_msg, screenshots
             # Fill userid field
             if not host.fill_field_by_label("Userid", user, case_sensitive=False):
                 error_msg = "Failed to find Userid field"

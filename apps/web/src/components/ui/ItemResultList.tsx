@@ -55,27 +55,28 @@ export function ItemResultList({
         <div
           key={`${item.itemId}-${index}`}
           className={`
-            flex items-center justify-between px-2 py-1.5 rounded text-xs
+            px-2 py-1.5 rounded text-xs
             ${statusStyles[item.status]}
           `}
         >
-          <div className="flex items-center gap-2 min-w-0">
-            <StatusIcon status={item.status} />
-            <span className="font-mono truncate">{item.itemId}</span>
-          </div>
-          
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <StatusIcon status={item.status} />
+              <span className="font-mono truncate">{item.itemId}</span>
+            </div>
+            
             {item.durationMs !== undefined && (
-              <span className="text-[10px] opacity-75">
+              <span className="text-[10px] opacity-75 flex-shrink-0">
                 {item.durationMs}ms
               </span>
             )}
-            {item.error && (
-              <span className="text-[10px] text-red-600 dark:text-red-400 truncate max-w-[100px]">
-                {item.error}
-              </span>
-            )}
           </div>
+          
+          {item.error && (
+            <p className="mt-1 text-[11px] text-red-600 dark:text-red-400 break-words pl-5">
+              {item.error}
+            </p>
+          )}
         </div>
       ))}
     </div>
