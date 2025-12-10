@@ -8,13 +8,14 @@ Each AST is a self-contained automation script that performs a specific
 transaction or workflow on the mainframe.
 """
 
-from .base import (
+from ..core.ast import (
     AST,
     ASTResult,
     ASTStatus,
     ItemResult,
     ProgressCallback,
     ItemResultCallback,
+    run_ast,
 )
 from .login import LoginAST
 
@@ -26,4 +27,5 @@ __all__ = [
     "ProgressCallback",
     "ItemResultCallback",
     "LoginAST",
+    "run_ast",
 ]

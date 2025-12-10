@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import structlog
 
-from .base import AST
+from ..core.ast import AST
 
 if TYPE_CHECKING:
     from ..services.tn3270.host import Host
@@ -53,6 +53,7 @@ class LoginAST(AST):
 
     name = "login"
     description = "Login to TSO and process policies (full cycle per policy)"
+    supports_parallel = True  # This AST supports parallel execution
 
     # Authentication configuration for Fire system
     auth_expected_keywords = ["Fire System Selection"]
@@ -122,7 +123,9 @@ class LoginAST(AST):
         log.warning("Failed to reach expected sign-off screen")
         return False
 
-    def logoff(self, host: "Host", target_screen_keywords: list[str] | None = None) -> tuple[bool, str, list[str]]:
+    def logoff(
+        self, host: "Host", target_screen_keywords: list[str] | None = None
+    ) -> tuple[bool, str, list[str]]:
         """Implement abstract logoff using sign_off."""
         screenshots: list[str] = []
 

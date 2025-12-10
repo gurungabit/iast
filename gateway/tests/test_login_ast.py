@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from src.ast.login import LoginAST
-from src.ast.base import ASTStatus
+from src.ast import ASTStatus, run_ast
 
 
 class _FakeHost:
@@ -28,11 +28,15 @@ class _FakeHost:
         self.screens.append(title)
         return f"{title}:screen"
 
-    def fill_field_by_label(self, label: str, value: str, case_sensitive: bool = False) -> bool:
+    def fill_field_by_label(
+        self, label: str, value: str, case_sensitive: bool = False
+    ) -> bool:
         self.filled.append((label, value))
         return True
 
-    def fill_field_at_position(self, row: int, col: int, value: str, clear_first: bool = True) -> None:
+    def fill_field_at_position(
+        self, row: int, col: int, value: str, clear_first: bool = True
+    ) -> None:
         self.filled.append((f"pos:{row},{col}", value))
 
     def enter(self, text: str | None = None) -> None:
@@ -57,10 +61,14 @@ class _FakeDB:
     def put_execution(self, **kwargs) -> None:
         self.executions.append((kwargs.get("data", {}), kwargs))
 
-    def put_policy_result(self, execution_id: str, policy_number: str, data: dict) -> None:
+    def put_policy_result(
+        self, execution_id: str, policy_number: str, data: dict
+    ) -> None:
         self.policy_results.append((policy_number, data))
 
-    def update_execution(self, session_id: str, execution_id: str, updates: dict) -> None:
+    def update_execution(
+        self, session_id: str, execution_id: str, updates: dict
+    ) -> None:
         self.updates.append(updates)
 
 
@@ -71,20 +79,23 @@ class LoginASTTests(unittest.TestCase):
         host = _FakeHost()
         ast = LoginAST()
 
-        result = ast.run(host)
+        result = run_ast(ast, host)
 
         self.assertEqual(result.status, ASTStatus.FAILED)
         self.assertIn("username and password", result.message)
 
-    @patch("src.ast.base.get_dynamodb_client")
+    @patch("src.core.ast.runner.get_dynamodb_client")
     @patch("src.ast.login.time.sleep", return_value=None)
-    def test_run_processes_valid_policy(self, _sleep: object, mock_db_factory: object) -> None:
+    def test_run_processes_valid_policy(
+        self, _sleep: object, mock_db_factory: object
+    ) -> None:
         host = _FakeHost()
         fake_db = _FakeDB()
         mock_db_factory.return_value = fake_db
 
         ast = LoginAST()
-        result = ast.run(
+        result = run_ast(
+            ast,
             host,
             execution_id="exec-123",
             username="USER1",
@@ -100,15 +111,18 @@ class LoginASTTests(unittest.TestCase):
         self.assertTrue(fake_db.policy_results)
         self.assertTrue(any(u["status"] == "success" for u in fake_db.updates))
 
-    @patch("src.ast.base.get_dynamodb_client")
+    @patch("src.core.ast.runner.get_dynamodb_client")
     @patch("src.ast.login.time.sleep", return_value=None)
-    def test_run_skips_invalid_policy(self, _sleep: object, mock_db_factory: object) -> None:
+    def test_run_skips_invalid_policy(
+        self, _sleep: object, mock_db_factory: object
+    ) -> None:
         host = _FakeHost()
         fake_db = _FakeDB()
         mock_db_factory.return_value = fake_db
 
         ast = LoginAST()
-        result = ast.run(
+        result = run_ast(
+            ast,
             host,
             execution_id="exec-456",
             username="USER1",

@@ -5,14 +5,21 @@ from __future__ import annotations
 import threading
 import time
 import unittest
+from unittest.mock import MagicMock, patch
 
 from datetime import datetime, timedelta
 
-from src.ast.base import AST, ASTResult, ASTStatus, ItemResult
+from src.ast import AST, ASTResult, ASTStatus, ItemResult, run_ast
 
 
 class DummyHost:
     """Minimal host stub."""
+
+    def get_formatted_screen(self, show_row_numbers=True):
+        return "dummy screen"
+
+    def show_screen(self, title):
+        return f"screenshot:{title}"
 
 
 class SampleAST(AST):
@@ -24,23 +31,27 @@ class SampleAST(AST):
         self.should_fail = False
         self.executed_with: dict | None = None
 
-    def logoff(self, host: DummyHost):
+    def logoff(self, host, target_screen_keywords=None):
         return True, "", []
 
-    def process_single_item(self, host: DummyHost, item_id: str, index: int, total: int):
-        return True, "", {}
-
-    def execute(self, host: DummyHost, **kwargs):
-        self.executed_with = kwargs
-        if kwargs.get("raise_timeout"):
+    def process_single_item(self, host, item, index: int, total: int):
+        if self.should_timeout:
             raise TimeoutError("took too long")
-        if kwargs.get("raise_error"):
+        if self.should_fail:
             raise RuntimeError("boom")
+        return True, "", {"processed": item}
 
-        result = ASTResult(status=ASTStatus.RUNNING, data={"host_type": type(host).__name__})
-        self.report_progress(1, 5, current_item="item-1", item_status="running", message="working")
-        self.report_item_result("item-1", "success", duration_ms=10)
-        return result
+    def authenticate(
+        self,
+        host,
+        user,
+        password,
+        expected_keywords_after_login,
+        application="",
+        group="",
+    ):
+        # Skip authentication for tests
+        return True, "", []
 
 
 class ASTBaseTests(unittest.TestCase):
@@ -79,23 +90,58 @@ class ASTBaseTests(unittest.TestCase):
         self.assertTrue(self.ast.is_cancelled)
         self.assertFalse(self.ast.wait_if_paused(timeout=0.01))
 
-    def test_run_success_sets_result(self) -> None:
-        result = self.ast.run(self.host, execution_id="exec-1")
+    @patch("src.core.ast.runner.get_dynamodb_client")
+    def test_run_success_sets_result(self, mock_db) -> None:
+        mock_db.return_value = None  # No persistence for tests
+        result = run_ast(
+            self.ast,
+            self.host,
+            execution_id="exec-1",
+            username="testuser",
+            password="testpass",
+            items=["item1"],
+        )
         self.assertTrue(result.is_success)
-        self.assertEqual(result.data["host_type"], "DummyHost")
         self.assertEqual(self.ast.execution_id, "exec-1")
         self.assertTrue(self.progress_calls)
         self.assertTrue(self.item_calls)
 
-    def test_run_handles_timeout(self) -> None:
-        result = self.ast.run(self.host, raise_timeout=True)
-        self.assertEqual(result.status, ASTStatus.TIMEOUT)
-        self.assertIn("Timeout", result.message)
+    @patch("src.core.ast.runner.get_dynamodb_client")
+    def test_run_handles_timeout(self, mock_db) -> None:
+        mock_db.return_value = None
+        self.ast.should_timeout = True
+        result = run_ast(
+            self.ast,
+            self.host,
+            username="testuser",
+            password="testpass",
+            items=["item1"],
+        )
+        self.assertEqual(
+            result.status, ASTStatus.SUCCESS
+        )  # Execution completes but item fails
+        # The item itself failed with the timeout
+        self.assertEqual(len(result.item_results), 1)
+        self.assertEqual(result.item_results[0].status, "failed")
+        self.assertIn("took too long", result.item_results[0].error or "")
 
-    def test_run_handles_generic_error(self) -> None:
-        result = self.ast.run(self.host, raise_error=True)
-        self.assertEqual(result.status, ASTStatus.FAILED)
-        self.assertIn("Error:", result.message)
+    @patch("src.core.ast.runner.get_dynamodb_client")
+    def test_run_handles_generic_error(self, mock_db) -> None:
+        mock_db.return_value = None
+        self.ast.should_fail = True
+        result = run_ast(
+            self.ast,
+            self.host,
+            username="testuser",
+            password="testpass",
+            items=["item1"],
+        )
+        self.assertEqual(
+            result.status, ASTStatus.SUCCESS
+        )  # Execution completes but item fails
+        self.assertEqual(len(result.item_results), 1)
+        self.assertEqual(result.item_results[0].status, "failed")
+        self.assertIn("boom", result.item_results[0].error or "")
 
     def test_ast_result_helpers_and_item_result(self) -> None:
         start = datetime.now()
@@ -123,4 +169,3 @@ class ASTBaseTests(unittest.TestCase):
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
-

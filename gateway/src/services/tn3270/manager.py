@@ -24,8 +24,7 @@ from uuid import uuid4
 
 import structlog
 
-from ...ast import LoginAST
-from ...ast.base import AST
+from ...ast import AST, LoginAST, run_ast
 from ...core import ErrorCodes, TerminalError, TN3270Config
 from ...models import (
     ASTControlMessage,
@@ -57,7 +56,9 @@ from tnz import tnz as tnz_module
 log = structlog.get_logger()
 
 # Thread pool for running blocking tnz operations
-_executor = concurrent.futures.ThreadPoolExecutor(max_workers=10, thread_name_prefix="tnz")
+_executor = concurrent.futures.ThreadPoolExecutor(
+    max_workers=10, thread_name_prefix="tnz"
+)
 
 
 # 3270 key mappings from xterm.js input
@@ -177,7 +178,9 @@ class TN3270Manager:
             return existing
 
         if len(self._sessions) >= self._config.max_sessions:
-            raise TerminalError(ErrorCodes.SESSION_LIMIT_REACHED, "Maximum TN3270 sessions reached")
+            raise TerminalError(
+                ErrorCodes.SESSION_LIMIT_REACHED, "Maximum TN3270 sessions reached"
+            )
 
         host = host or self._config.host
         port = port or self._config.port
@@ -225,7 +228,9 @@ class TN3270Manager:
             )
 
             # Send session created message
-            msg = create_session_created_message(session_id, f"tn3270://{host}:{port}", 0)
+            msg = create_session_created_message(
+                session_id, f"tn3270://{host}:{port}", 0
+            )
             await self._valkey.publish_tn3270_output(session_id, serialize_message(msg))
 
             # Wait for initial screen data in thread (before starting update loop)
@@ -254,14 +259,17 @@ class TN3270Manager:
 
         # Set encoding: cp037 for default character set, cp310 for APL graphics (0xf1)
         tnz.encoding = "cp037", 0  # Default character set
-        tnz.encoding = "cp310", 0xf1  # Alternate character set (APL graphics with box drawing)
+        tnz.encoding = (
+            "cp310",
+            0xF1,
+        )  # Alternate character set (APL graphics with box drawing)
 
         # Enable TN3270E protocol
         tnz.use_tn3270e = True
 
         # Set device type to IBM-3279-4-E (color terminal, 80x43)
         tnz.terminal_type = "IBM-3279-4-E"
-        
+
         # Enable color support
         tnz.capable_color = True
 
@@ -272,7 +280,7 @@ class TN3270Manager:
         tnz.dmaxcol = 80
         tnz.maxrow = 43
         tnz.maxcol = 80
-        
+
         # Reinitialize buffers with correct size
         buffer_size = 43 * 80
         tnz.buffer_size = buffer_size
@@ -374,7 +382,9 @@ class TN3270Manager:
                 await self._process_input(session, msg.payload)
             elif isinstance(msg, ASTRunMessage):
                 # Run AST as background task so we can still receive control messages
-                asyncio.create_task(self._run_ast(session, msg.meta.ast_name, msg.meta.params))
+                asyncio.create_task(
+                    self._run_ast(session, msg.meta.ast_name, msg.meta.params)
+                )
             elif isinstance(msg, ASTControlMessage):
                 await self._handle_ast_control(session, msg.meta.action)
         except Exception:
@@ -441,7 +451,9 @@ class TN3270Manager:
         status_msg = create_ast_status_message(
             session.session_id, ast_name, "running", message=f"Starting {ast_name}..."
         )
-        await self._valkey.publish_tn3270_output(session.session_id, serialize_message(status_msg))
+        await self._valkey.publish_tn3270_output(
+            session.session_id, serialize_message(status_msg)
+        )
 
         # Get the event loop for thread-safe callbacks
         loop = asyncio.get_running_loop()
@@ -566,7 +578,7 @@ class TN3270Manager:
             # Pass execution_id so it matches what we store in DynamoDB
             result = await loop.run_in_executor(
                 _executor,
-                lambda: ast.run(host, execution_id=execution_id, **(params or {})),
+                lambda: run_ast(ast, host, execution_id=execution_id, **(params or {})),
             )
 
             # Clear the running AST
@@ -601,7 +613,9 @@ class TN3270Manager:
             # Clear the running AST on error
             session.running_ast = None
 
-            log.exception("AST execution error", ast_name=ast_name, session_id=session.session_id)
+            log.exception(
+                "AST execution error", ast_name=ast_name, session_id=session.session_id
+            )
             status_msg = create_ast_status_message(
                 session.session_id,
                 ast_name,
@@ -623,7 +637,9 @@ class TN3270Manager:
                 if data.startswith(seq):
                     method = getattr(tnz, action, None)
                     if method:
-                        log.debug("3270 key", action=action, session_id=session.session_id)
+                        log.debug(
+                            "3270 key", action=action, session_id=session.session_id
+                        )
                         await loop.run_in_executor(_executor, method)
                         # Send updated screen after key
                         await self._send_screen_update(session)
@@ -675,7 +691,9 @@ class TN3270Manager:
             screen_data.rows,
             screen_data.cols,
         )
-        await self._valkey.publish_tn3270_output(session.session_id, serialize_message(msg))
+        await self._valkey.publish_tn3270_output(
+            session.session_id, serialize_message(msg)
+        )
 
     async def _handle_control(self, session_id: str, raw_data: str) -> None:
         """Handle control messages."""
@@ -687,7 +705,9 @@ class TN3270Manager:
 
         except TerminalError as e:
             error_msg = create_error_message(session_id, e.code, e.message)
-            await self._valkey.publish_tn3270_output(session_id, serialize_message(error_msg))
+            await self._valkey.publish_tn3270_output(
+                session_id, serialize_message(error_msg)
+            )
         except Exception:
             log.exception("Handle control error", session_id=session_id)
 
@@ -722,7 +742,9 @@ class TN3270Manager:
             try:
                 parsed = parse_message(raw_data)
                 if hasattr(parsed, "session_id"):
-                    error_msg = create_error_message(parsed.session_id, e.code, e.message)
+                    error_msg = create_error_message(
+                        parsed.session_id, e.code, e.message
+                    )
                     await self._valkey.publish_tn3270_output(
                         parsed.session_id, serialize_message(error_msg)
                     )
@@ -744,7 +766,9 @@ def get_tn3270_manager() -> TN3270Manager:
     return _manager
 
 
-def init_tn3270_manager(config: "TN3270Config", valkey: "ValkeyClient") -> TN3270Manager:
+def init_tn3270_manager(
+    config: "TN3270Config", valkey: "ValkeyClient"
+) -> TN3270Manager:
     """Initialize and return the TN3270 manager."""
     global _manager
     _manager = TN3270Manager(config, valkey)
