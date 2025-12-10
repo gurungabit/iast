@@ -268,6 +268,13 @@ class ASTExecutor(ABC):
         except Exception as e:
             log.warning("Item failed", item=item_id, error=str(e))
 
+            # Capture the screen at time of error
+            error_screen = None
+            try:
+                error_screen = host.get_formatted_screen(show_row_numbers=False)
+            except Exception:
+                pass
+
             # Try recovery logoff
             try:
                 ast.logoff(host)
@@ -279,6 +286,7 @@ class ASTExecutor(ABC):
                 status="failed",
                 item_start=item_start,
                 error=str(e),
+                item_data={"errorScreen": error_screen} if error_screen else None,
             )
 
     def _finalize_result(
