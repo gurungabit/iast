@@ -131,9 +131,10 @@ class ValkeyClientTests(IsolatedAsyncioTestCase):
         self.publisher.publish.assert_awaited_once_with(channel, "payload")
 
     async def test_init_and_close_valkey_client_singleton(self) -> None:
-        with patch.object(ValkeyClient, "connect", new_callable=AsyncMock) as mock_connect, patch.object(
-            ValkeyClient, "disconnect", new_callable=AsyncMock
-        ) as mock_disconnect:
+        with (
+            patch.object(ValkeyClient, "connect", new_callable=AsyncMock) as mock_connect,
+            patch.object(ValkeyClient, "disconnect", new_callable=AsyncMock) as mock_disconnect,
+        ):
             client = await init_valkey_client(self.config)
 
             mock_connect.assert_awaited_once()
@@ -187,4 +188,3 @@ class ValkeyClientTests(IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

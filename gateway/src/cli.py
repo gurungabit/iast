@@ -22,11 +22,20 @@ def run_tests() -> None:
 def run_coverage() -> None:
     """Execute the suite while collecting coverage data."""
     sys.exit(
-        pytest.main([
-            str(TESTS_DIR),
-            "-v",
-            f"--cov={SRC_DIR}",
-            "--cov-report=html",
-            "--cov-report=term-missing",
-        ])
+        pytest.main(
+            [
+                str(TESTS_DIR),
+                "-v",
+                f"--cov={SRC_DIR}",
+                "--cov-report=html",
+                "--cov-report=term-missing",
+            ]
+        )
     )
+
+
+def run_format() -> None:
+    """Format all Python files using black."""
+    import subprocess
+
+    sys.exit(subprocess.call(["black", str(PROJECT_ROOT)]))

@@ -132,9 +132,7 @@ class TN3270Renderer:
 
         # Field tracking
         fields: list[Field] = []
-        field_starts: list[tuple[int, bool, bool]] = (
-            []
-        )  # (addr, protected, intensified)
+        field_starts: list[tuple[int, bool, bool]] = []  # (addr, protected, intensified)
 
         # First pass: find all field attribute positions
         for addr in range(maxrow * maxcol):
@@ -185,7 +183,7 @@ class TN3270Renderer:
         in_hidden_field = False
         # Track positions where we should show underscores (for multi-char indicator)
         underscore_positions = 0
-        
+
         # Render screen
         for row in range(maxrow):
             if row > 0:
@@ -206,19 +204,19 @@ class TN3270Renderer:
                     # Field attribute - decode it
                     field_protected = bool(fa & 0x20)
                     field_intensified = bool(fa & 0x08)
-                    field_hidden = (fa & 0x0c) == 0x0c  # Nondisplay field (password)
+                    field_hidden = (fa & 0x0C) == 0x0C  # Nondisplay field (password)
 
                     # Field attribute positions are NEVER displayed - always render as space
                     # The dc buffer may contain underscore or other chars, but we ignore it
                     char = " "
-                    
+
                     # Track if this is an unprotected (input) field
                     prev_was_unprotected_field = not field_protected
                     # Track if this field is hidden (password field)
                     in_hidden_field = field_hidden
                     # Reset underscore counter at field boundaries
                     underscore_positions = 0
-                    
+
                     # Clear highlighting for field attribute positions - don't show underline/blink/reverse
                     eh = 0
 
@@ -237,9 +235,11 @@ class TN3270Renderer:
                     # Regular character
                     # Decode EBCDIC to displayable character
                     char = self._decode_char(dc, cs, tnz)
-                    
+
                     # Check if we should show underscore indicator (but not for hidden/password fields)
-                    if prev_was_unprotected_field and not in_hidden_field and dc in (0x00, 0x40):  # NULL or SPACE
+                    if (
+                        prev_was_unprotected_field and not in_hidden_field and dc in (0x00, 0x40)
+                    ):  # NULL or SPACE
                         # Check next positions to see if they're also empty (up to 6 max)
                         next_empty_count = 1  # Current position is empty
                         for i in range(1, 6):
@@ -252,10 +252,10 @@ class TN3270Renderer:
                                     break
                             else:
                                 break
-                        
+
                         # Show underscores for the next positions that are empty (max 6)
                         underscore_positions = min(next_empty_count, 6)
-                    
+
                     # If we're in underscore display mode, enable underscore highlighting
                     if underscore_positions > 0:
                         eh = HIGHLIGHT_UNDERSCORE  # Set underscore highlighting
@@ -263,7 +263,7 @@ class TN3270Renderer:
                     # Mask password fields - if we're in a hidden field and there's actual data
                     elif in_hidden_field and char not in (" ", ""):
                         char = "*"
-                    
+
                     prev_was_unprotected_field = False
 
                 # Determine colors
@@ -279,11 +279,7 @@ class TN3270Renderer:
                     cell_bg = 0  # Default black background
 
                 # Build escape sequence if attributes changed
-                if (
-                    cell_fg != current_fg
-                    or cell_bg != current_bg
-                    or eh != current_highlight
-                ):
+                if cell_fg != current_fg or cell_bg != current_bg or eh != current_highlight:
                     seq = self._build_attr_sequence(cell_fg, cell_bg, eh)
                     output.append(seq)
                     current_fg = cell_fg
@@ -320,7 +316,7 @@ class TN3270Renderer:
 
     def _decode_char(self, dc: int, cs: int, tnz: "Tnz") -> str:
         """Decode an EBCDIC character to displayable ASCII/Unicode.
-        
+
         Args:
             dc: Data character byte
             cs: Character set ID from plane_cs (0 for default, 0xf1 for alternate)
@@ -343,13 +339,13 @@ class TN3270Renderer:
                 if decoded and (decoded.isprintable() or (0x2500 <= ord(decoded) <= 0x257F)):
                     return decoded
                 return " "
-            
+
             # Fallback to cp037 if codec not available
             decoded = bytes([dc]).decode("cp037", errors="replace")
             if decoded.isprintable():
                 return decoded
             return " "
-            
+
         except Exception:
             return " "
 

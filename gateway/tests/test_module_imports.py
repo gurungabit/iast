@@ -27,8 +27,9 @@ class _fresh_module:
 
 class ModuleImportTests(unittest.TestCase):
     def test_app_module_configures_structlog(self) -> None:
-        with patch("structlog.configure") as mock_config, patch(
-            "structlog.get_logger", return_value=object()
+        with (
+            patch("structlog.configure") as mock_config,
+            patch("structlog.get_logger", return_value=object()),
         ):
             with _fresh_module("src.app") as app_module:
                 self.assertTrue(mock_config.called)
@@ -60,4 +61,3 @@ class ModuleImportTests(unittest.TestCase):
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
-

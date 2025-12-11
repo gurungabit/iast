@@ -31,9 +31,7 @@ class _FakeHost:
         self.screens.append(title)
         return f"{title}:screen"
 
-    def fill_field_by_label(
-        self, label: str, value: str, case_sensitive: bool = False
-    ) -> bool:
+    def fill_field_by_label(self, label: str, value: str, case_sensitive: bool = False) -> bool:
         self.filled.append((label, value))
         return True
 
@@ -64,14 +62,10 @@ class _FakeDB:
     def put_execution(self, **kwargs) -> None:
         self.executions.append((kwargs.get("data", {}), kwargs))
 
-    def put_policy_result(
-        self, execution_id: str, policy_number: str, data: dict
-    ) -> None:
+    def put_policy_result(self, execution_id: str, policy_number: str, data: dict) -> None:
         self.policy_results.append((policy_number, data))
 
-    def update_execution(
-        self, session_id: str, execution_id: str, updates: dict
-    ) -> None:
+    def update_execution(self, session_id: str, execution_id: str, updates: dict) -> None:
         self.updates.append(updates)
 
 

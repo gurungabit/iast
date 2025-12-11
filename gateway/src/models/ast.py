@@ -143,9 +143,9 @@ class ASTProgressMeta(BaseModel):
     current_item: str | None = Field(default=None, alias="currentItem")
     """Current item identifier (e.g., policy number)."""
 
-    item_status: (
-        Literal["pending", "running", "success", "failed", "skipped"] | None
-    ) = Field(default=None, alias="itemStatus")
+    item_status: Literal["pending", "running", "success", "failed", "skipped"] | None = Field(
+        default=None, alias="itemStatus"
+    )
     """Status of current item."""
 
     message: str | None = None
@@ -231,9 +231,7 @@ def create_ast_progress_message(
     current: int,
     total: int,
     current_item: str | None = None,
-    item_status: (
-        Literal["pending", "running", "success", "failed", "skipped"] | None
-    ) = None,
+    item_status: Literal["pending", "running", "success", "failed", "skipped"] | None = None,
     message: str | None = None,
 ) -> ASTProgressMessage:
     """Create an AST progress message."""

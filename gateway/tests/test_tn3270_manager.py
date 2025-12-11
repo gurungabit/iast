@@ -57,19 +57,23 @@ class TN3270ManagerTests(IsolatedAsyncioTestCase):
 
     async def test_create_session_initializes_state_and_channels(self) -> None:
         stub_tnz = _StubTnz()
-        with patch.object(
-            TN3270Manager,
-            "_create_tnz_connection",
-            return_value=stub_tnz,
-        ), patch.object(
-            TN3270Manager,
-            "_send_screen_update",
-            new=AsyncMock(),
-        ) as mock_screen, patch.object(
-            TN3270Manager,
-            "_update_loop",
-            new=AsyncMock(),
-        ) as mock_update:
+        with (
+            patch.object(
+                TN3270Manager,
+                "_create_tnz_connection",
+                return_value=stub_tnz,
+            ),
+            patch.object(
+                TN3270Manager,
+                "_send_screen_update",
+                new=AsyncMock(),
+            ) as mock_screen,
+            patch.object(
+                TN3270Manager,
+                "_update_loop",
+                new=AsyncMock(),
+            ) as mock_update,
+        ):
             session = await self.manager.create_session("session-1")
             await session._update_task  # type: ignore[union-attr]
 
@@ -81,9 +85,11 @@ class TN3270ManagerTests(IsolatedAsyncioTestCase):
 
     async def test_destroy_session_unsubscribes_and_cleans_up(self) -> None:
         stub_tnz = _StubTnz()
-        with patch.object(TN3270Manager, "_create_tnz_connection", return_value=stub_tnz), patch.object(
-            TN3270Manager, "_send_screen_update", new=AsyncMock()
-        ), patch.object(TN3270Manager, "_update_loop", new=AsyncMock(return_value=None)):
+        with (
+            patch.object(TN3270Manager, "_create_tnz_connection", return_value=stub_tnz),
+            patch.object(TN3270Manager, "_send_screen_update", new=AsyncMock()),
+            patch.object(TN3270Manager, "_update_loop", new=AsyncMock(return_value=None)),
+        ):
             session = await self.manager.create_session("session-2")
             await session._update_task  # type: ignore[union-attr]
 

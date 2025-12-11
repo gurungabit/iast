@@ -16,14 +16,10 @@ class ChannelHelperTests(unittest.TestCase):
         importlib.reload(channels)
 
     def test_input_channel_pattern(self) -> None:
-        self.assertEqual(
-            channels.get_tn3270_input_channel("sess-1"), "tn3270.input.sess-1"
-        )
+        self.assertEqual(channels.get_tn3270_input_channel("sess-1"), "tn3270.input.sess-1")
 
     def test_output_channel_pattern(self) -> None:
-        self.assertEqual(
-            channels.get_tn3270_output_channel("sess-99"), "tn3270.output.sess-99"
-        )
+        self.assertEqual(channels.get_tn3270_output_channel("sess-99"), "tn3270.output.sess-99")
 
     def test_control_channel_constant(self) -> None:
         self.assertEqual(channels.TN3270_CONTROL_CHANNEL, "tn3270.control")
@@ -31,4 +27,3 @@ class ChannelHelperTests(unittest.TestCase):
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
-

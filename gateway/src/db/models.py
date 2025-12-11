@@ -86,9 +86,7 @@ class User(BaseModel):
             email=item["email"],
             created_at=datetime.fromisoformat(item["created_at"]),
             updated_at=(
-                datetime.fromisoformat(item["updated_at"])
-                if item.get("updated_at")
-                else None
+                datetime.fromisoformat(item["updated_at"]) if item.get("updated_at") else None
             ),
         )
 
@@ -168,9 +166,7 @@ class ASTExecution(BaseModel):
             "result": self.result,
             "error": self.error,
             "started_at": self.started_at.isoformat(),
-            "completed_at": (
-                self.completed_at.isoformat() if self.completed_at else None
-            ),
+            "completed_at": (self.completed_at.isoformat() if self.completed_at else None),
         }
 
     @classmethod
@@ -189,9 +185,7 @@ class ASTExecution(BaseModel):
             error=item.get("error"),
             started_at=datetime.fromisoformat(item["started_at"]),
             completed_at=(
-                datetime.fromisoformat(item["completed_at"])
-                if item.get("completed_at")
-                else None
+                datetime.fromisoformat(item["completed_at"]) if item.get("completed_at") else None
             ),
         )
 
@@ -222,9 +216,7 @@ class PolicyResult(BaseModel):
             "policy_number": self.policy_number,
             "status": self.status.value,
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": (
-                self.completed_at.isoformat() if self.completed_at else None
-            ),
+            "completed_at": (self.completed_at.isoformat() if self.completed_at else None),
             "duration_ms": self.duration_ms,
             "error": self.error,
             "data": self.data,
@@ -238,14 +230,10 @@ class PolicyResult(BaseModel):
             policy_number=item["policy_number"],
             status=PolicyStatus(item["status"]),
             started_at=(
-                datetime.fromisoformat(item["started_at"])
-                if item.get("started_at")
-                else None
+                datetime.fromisoformat(item["started_at"]) if item.get("started_at") else None
             ),
             completed_at=(
-                datetime.fromisoformat(item["completed_at"])
-                if item.get("completed_at")
-                else None
+                datetime.fromisoformat(item["completed_at"]) if item.get("completed_at") else None
             ),
             duration_ms=item.get("duration_ms"),
             error=item.get("error"),

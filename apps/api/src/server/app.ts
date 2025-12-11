@@ -20,6 +20,10 @@ export async function buildApp(): Promise<FastifyInstance> {
               target: 'pino-pretty',
               options: {
                 colorize: true,
+                singleLine: true,
+                translateTime: 'HH:MM:ss.l',
+                ignore: 'pid,hostname',
+                messageFormat: '{req.method} {req.url} {res.statusCode} ({responseTime}ms)',
               },
             }
           : undefined,

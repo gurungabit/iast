@@ -28,14 +28,16 @@ class AppAsyncTests(unittest.IsolatedAsyncioTestCase):
         fake_manager = SimpleNamespace(start=AsyncMock())
         fake_loop = SimpleNamespace(add_signal_handler=lambda *args, **kwargs: None)
 
-        with patch.object(app_module, "get_config", return_value=config), patch(
-            "src.db.get_dynamodb_client"
-        ) as mock_db, patch.object(
-            app_module, "init_valkey_client", new=AsyncMock(return_value=fake_valkey)
-        ) as mock_valkey, patch.object(
-            app_module, "init_tn3270_manager", return_value=fake_manager
-        ) as mock_manager, patch(
-            "asyncio.get_running_loop", return_value=fake_loop
+        with (
+            patch.object(app_module, "get_config", return_value=config),
+            patch("src.db.get_dynamodb_client") as mock_db,
+            patch.object(
+                app_module, "init_valkey_client", new=AsyncMock(return_value=fake_valkey)
+            ) as mock_valkey,
+            patch.object(
+                app_module, "init_tn3270_manager", return_value=fake_manager
+            ) as mock_manager,
+            patch("asyncio.get_running_loop", return_value=fake_loop),
         ):
             task = asyncio.create_task(app_module.async_main())
             await asyncio.sleep(0)
@@ -52,9 +54,10 @@ class AppAsyncTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_shutdown_handles_manager_and_valkey(self) -> None:
         fake_manager = SimpleNamespace(destroy_all_sessions=AsyncMock())
-        with patch("src.app.get_tn3270_manager", return_value=fake_manager, autospec=False), patch(
-            "src.app.close_valkey_client", new=AsyncMock(), autospec=False
-        ) as mock_close:
+        with (
+            patch("src.app.get_tn3270_manager", return_value=fake_manager, autospec=False),
+            patch("src.app.close_valkey_client", new=AsyncMock(), autospec=False) as mock_close,
+        ):
             app_module._shutdown_event = asyncio.Event()
             await app_module.shutdown()
 
@@ -100,9 +103,11 @@ class AppAsyncTests(unittest.IsolatedAsyncioTestCase):
             # Second call: run shutdown normally
             return original_run(coro)
 
-        with patch.object(app_module, "async_main", new=fake_async_main), patch.object(
-            app_module, "shutdown", new=fake_shutdown
-        ), patch("asyncio.run", side_effect=fake_run) as mock_run:
+        with (
+            patch.object(app_module, "async_main", new=fake_async_main),
+            patch.object(app_module, "shutdown", new=fake_shutdown),
+            patch("asyncio.run", side_effect=fake_run) as mock_run,
+        ):
             app_module.main()
 
         self.assertEqual(mock_run.call_count, 2)
@@ -112,4 +117,3 @@ class AppAsyncTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
-

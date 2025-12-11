@@ -75,4 +75,3 @@ class TN3270MessageTests(unittest.TestCase):
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
-

@@ -89,20 +89,22 @@ class ManagerExtendedTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_handle_gateway_control_success_and_error(self) -> None:
         payload = SessionCreateMessage(sessionId="abc", meta={"shell": "host:50"})
-        with patch(
-            "src.services.tn3270.manager.parse_message", return_value=payload
-        ), patch.object(self.manager, "create_session", new=AsyncMock()) as mock_create:
+        with (
+            patch("src.services.tn3270.manager.parse_message", return_value=payload),
+            patch.object(self.manager, "create_session", new=AsyncMock()) as mock_create,
+        ):
             await self.manager._handle_gateway_control("raw")
         mock_create.assert_awaited_once_with("abc", host="host", port=50)
 
         error = TerminalError("E1", "fail")
         second_payload = SimpleNamespace(session_id="abc")
-        with patch(
-            "src.services.tn3270.manager.parse_message",
-            side_effect=[error, second_payload],
-        ), patch.object(
-            self.valkey, "publish_tn3270_output", new=AsyncMock()
-        ) as mock_publish:
+        with (
+            patch(
+                "src.services.tn3270.manager.parse_message",
+                side_effect=[error, second_payload],
+            ),
+            patch.object(self.valkey, "publish_tn3270_output", new=AsyncMock()) as mock_publish,
+        ):
             await self.manager._handle_gateway_control("broken")
         mock_publish.assert_awaited()
 
@@ -120,31 +122,26 @@ class ManagerExtendedTests(unittest.IsolatedAsyncioTestCase):
         from src.models import DataMessage
 
         data_msg = DataMessage(sessionId="sess", payload="ABC")
-        with patch(
-            "src.services.tn3270.manager.parse_message", return_value=data_msg
-        ), patch.object(
-            self.manager, "_process_input", new=AsyncMock()
-        ) as mock_process:
+        with (
+            patch("src.services.tn3270.manager.parse_message", return_value=data_msg),
+            patch.object(self.manager, "_process_input", new=AsyncMock()) as mock_process,
+        ):
             await self.manager._handle_input("sess", "raw")
         mock_process.assert_awaited_once()
 
         destroy_msg = SessionDestroyMessage(sessionId="sess")
-        with patch(
-            "src.services.tn3270.manager.parse_message", return_value=destroy_msg
-        ), patch.object(
-            self.manager, "destroy_session", new=AsyncMock()
-        ) as mock_destroy:
+        with (
+            patch("src.services.tn3270.manager.parse_message", return_value=destroy_msg),
+            patch.object(self.manager, "destroy_session", new=AsyncMock()) as mock_destroy,
+        ):
             await self.manager._handle_input("sess", "raw")
         mock_destroy.assert_awaited_once_with("sess", "user_requested")
 
-        ctrl_msg = ASTControlMessage(
-            sessionId="sess", meta=ASTControlMeta(action="pause")
-        )
-        with patch(
-            "src.services.tn3270.manager.parse_message", return_value=ctrl_msg
-        ), patch.object(
-            self.manager, "_handle_ast_control", new=AsyncMock()
-        ) as mock_control:
+        ctrl_msg = ASTControlMessage(sessionId="sess", meta=ASTControlMeta(action="pause"))
+        with (
+            patch("src.services.tn3270.manager.parse_message", return_value=ctrl_msg),
+            patch.object(self.manager, "_handle_ast_control", new=AsyncMock()) as mock_control,
+        ):
             await self.manager._handle_input("sess", "raw")
         mock_control.assert_awaited_once()
 
@@ -158,9 +155,7 @@ class ManagerExtendedTests(unittest.IsolatedAsyncioTestCase):
             connected=True,
         )
         self.manager._sessions["reuse"] = stub_session
-        with patch.object(
-            self.manager, "_send_screen_update", new=AsyncMock()
-        ) as mock_send:
+        with patch.object(self.manager, "_send_screen_update", new=AsyncMock()) as mock_send:
             result = await self.manager.create_session("reuse")
         self.assertIs(result, stub_session)
         mock_send.assert_awaited_once()
@@ -168,11 +163,10 @@ class ManagerExtendedTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_handle_input_ignores_unknown_session(self) -> None:
         data_msg = DataMessage(sessionId="missing", payload="ABC")
-        with patch(
-            "src.services.tn3270.manager.parse_message", return_value=data_msg
-        ), patch.object(
-            self.manager, "_process_input", new=AsyncMock()
-        ) as mock_process:
+        with (
+            patch("src.services.tn3270.manager.parse_message", return_value=data_msg),
+            patch.object(self.manager, "_process_input", new=AsyncMock()) as mock_process,
+        ):
             await self.manager._handle_input("missing", "raw")
         mock_process.assert_not_awaited()
 
@@ -202,20 +196,20 @@ class ManagerExtendedTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_handle_control_destroy_and_errors(self) -> None:
         destroy_msg = SessionDestroyMessage(sessionId="sess")
-        with patch(
-            "src.services.tn3270.manager.parse_message", return_value=destroy_msg
-        ), patch.object(
-            self.manager, "destroy_session", new=AsyncMock()
-        ) as mock_destroy:
+        with (
+            patch("src.services.tn3270.manager.parse_message", return_value=destroy_msg),
+            patch.object(self.manager, "destroy_session", new=AsyncMock()) as mock_destroy,
+        ):
             await self.manager._handle_control("sess", "raw")
         mock_destroy.assert_awaited_once_with("sess", "user_requested")
 
-        with patch(
-            "src.services.tn3270.manager.parse_message",
-            side_effect=TerminalError("E", "fail"),
-        ), patch.object(
-            self.valkey, "publish_tn3270_output", new=AsyncMock()
-        ) as mock_publish:
+        with (
+            patch(
+                "src.services.tn3270.manager.parse_message",
+                side_effect=TerminalError("E", "fail"),
+            ),
+            patch.object(self.valkey, "publish_tn3270_output", new=AsyncMock()) as mock_publish,
+        ):
             await self.manager._handle_control("sess", "raw")
         mock_publish.assert_awaited()
 
@@ -265,9 +259,7 @@ class ManagerExtendedTests(unittest.IsolatedAsyncioTestCase):
             def __init__(self) -> None:
                 self.callbacks: dict[str, tuple] = {}
 
-            def set_callbacks(
-                self, on_progress=None, on_item_result=None, on_pause_state=None
-            ):
+            def set_callbacks(self, on_progress=None, on_item_result=None, on_pause_state=None):
                 self.callbacks = {
                     "on_progress": on_progress,
                     "on_item_result": on_item_result,
@@ -294,16 +286,19 @@ class ManagerExtendedTests(unittest.IsolatedAsyncioTestCase):
             connected=True,
         )
 
-        with patch("src.services.tn3270.manager.Host", return_value=MagicMock()), patch(
-            "src.services.tn3270.manager.LoginAST", return_value=StubAST()
-        ), patch("src.services.tn3270.manager.uuid4", return_value="exec-1"), patch(
-            "src.services.tn3270.manager.asyncio.get_running_loop",
-            return_value=FakeLoop(),
-        ), patch(
-            "src.services.tn3270.manager.asyncio.run_coroutine_threadsafe",
-            side_effect=lambda coro, loop: asyncio.create_task(coro),
-        ), patch.object(
-            self.manager, "_send_screen_update", new=AsyncMock()
+        with (
+            patch("src.services.tn3270.manager.Host", return_value=MagicMock()),
+            patch("src.services.tn3270.manager.LoginAST", return_value=StubAST()),
+            patch("src.services.tn3270.manager.uuid4", return_value="exec-1"),
+            patch(
+                "src.services.tn3270.manager.asyncio.get_running_loop",
+                return_value=FakeLoop(),
+            ),
+            patch(
+                "src.services.tn3270.manager.asyncio.run_coroutine_threadsafe",
+                side_effect=lambda coro, loop: asyncio.create_task(coro),
+            ),
+            patch.object(self.manager, "_send_screen_update", new=AsyncMock()),
         ):
             self.valkey.publish_tn3270_output.reset_mock()
             await self.manager._run_ast(session, "login", {"foo": "bar"})

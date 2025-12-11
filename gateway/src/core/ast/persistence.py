@@ -123,15 +123,9 @@ class ASTPersistence:
             if error:
                 updates["error"] = error
             else:
-                updates["success_count"] = sum(
-                    1 for r in item_results if r.status == "success"
-                )
-                updates["failed_count"] = sum(
-                    1 for r in item_results if r.status == "failed"
-                )
-                updates["skipped_count"] = sum(
-                    1 for r in item_results if r.status == "skipped"
-                )
+                updates["success_count"] = sum(1 for r in item_results if r.status == "success")
+                updates["failed_count"] = sum(1 for r in item_results if r.status == "failed")
+                updates["skipped_count"] = sum(1 for r in item_results if r.status == "skipped")
 
             self._db.update_execution(
                 session_id=session_id,

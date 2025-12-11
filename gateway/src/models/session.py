@@ -63,9 +63,7 @@ class SessionCreatedMessage(BaseMessage):
     meta: SessionCreatedMeta
 
 
-def create_session_created_message(
-    session_id: str, shell: str, pid: int
-) -> SessionCreatedMessage:
+def create_session_created_message(session_id: str, shell: str, pid: int) -> SessionCreatedMessage:
     """Create a session created message."""
     return SessionCreatedMessage(
         sessionId=session_id,
@@ -94,9 +92,7 @@ class SessionDestroyedMessage(BaseMessage):
     meta: SessionDestroyedMeta | None = None
 
 
-def create_session_destroyed_message(
-    session_id: str, reason: str
-) -> SessionDestroyedMessage:
+def create_session_destroyed_message(session_id: str, reason: str) -> SessionDestroyedMessage:
     """Create a session destroyed message."""
     return SessionDestroyedMessage(
         sessionId=session_id,

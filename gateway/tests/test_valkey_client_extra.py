@@ -50,7 +50,9 @@ class ValkeyClientTests(unittest.IsolatedAsyncioTestCase):
         publisher = FakeRedis()
         subscriber = FakeRedis()
 
-        with patch("src.services.valkey.redis.from_url", side_effect=[publisher, subscriber]) as from_url:
+        with patch(
+            "src.services.valkey.redis.from_url", side_effect=[publisher, subscriber]
+        ) as from_url:
             await client.connect()
 
         expected_url = "redis://:pw@host:6380/2"
@@ -96,4 +98,3 @@ class ValkeyClientTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
-

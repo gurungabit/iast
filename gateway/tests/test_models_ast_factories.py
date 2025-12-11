@@ -62,9 +62,7 @@ class ASTFactoryTests(unittest.TestCase):
         self.assertEqual(msg.meta.status, "success")
 
     def test_create_ast_paused_message_uses_payload(self) -> None:
-        msg = ast_module.create_ast_paused_message(
-            "sess", paused=True, message="Paused for review"
-        )
+        msg = ast_module.create_ast_paused_message("sess", paused=True, message="Paused for review")
         self.assertIsInstance(msg, ast_module.ASTPausedMessage)
         self.assertTrue(msg.meta.paused)
         self.assertEqual(msg.payload, "Paused for review")
@@ -72,4 +70,3 @@ class ASTFactoryTests(unittest.TestCase):
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
-

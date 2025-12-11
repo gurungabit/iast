@@ -117,9 +117,7 @@ class ASTBaseTests(unittest.TestCase):
             password="testpass",
             items=["item1"],
         )
-        self.assertEqual(
-            result.status, ASTStatus.SUCCESS
-        )  # Execution completes but item fails
+        self.assertEqual(result.status, ASTStatus.SUCCESS)  # Execution completes but item fails
         # The item itself failed with the timeout
         self.assertEqual(len(result.item_results), 1)
         self.assertEqual(result.item_results[0].status, "failed")
@@ -136,9 +134,7 @@ class ASTBaseTests(unittest.TestCase):
             password="testpass",
             items=["item1"],
         )
-        self.assertEqual(
-            result.status, ASTStatus.SUCCESS
-        )  # Execution completes but item fails
+        self.assertEqual(result.status, ASTStatus.SUCCESS)  # Execution completes but item fails
         self.assertEqual(len(result.item_results), 1)
         self.assertEqual(result.item_results[0].status, "failed")
         self.assertIn("boom", result.item_results[0].error or "")

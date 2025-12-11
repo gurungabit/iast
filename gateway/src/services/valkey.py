@@ -90,9 +90,7 @@ class ValkeyClient:
 
         if self._pubsub:
             await self._pubsub.subscribe(channel)
-            log.debug(
-                "Subscribed to TN3270 input", session_id=session_id, channel=channel
-            )
+            log.debug("Subscribed to TN3270 input", session_id=session_id, channel=channel)
 
     async def unsubscribe_tn3270_session(self, session_id: str) -> None:
         """Unsubscribe from all TN3270 channels for a session."""

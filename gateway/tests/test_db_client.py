@@ -39,9 +39,7 @@ class DynamoDBClientTests(unittest.TestCase):
     def test_constructor_validates_connection(self) -> None:
         DynamoDBClient(self.config)
         self.mock_low_level.describe_table.assert_called_once()
-        self.mock_resource.return_value.Table.assert_called_once_with(
-            self.config.table_name
-        )
+        self.mock_resource.return_value.Table.assert_called_once_with(self.config.table_name)
 
     def test_constructor_raises_when_validation_fails(self) -> None:
         self.mock_low_level.describe_table.side_effect = Exception("boom")
@@ -103,4 +101,3 @@ class DynamoDBClientTests(unittest.TestCase):
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
-

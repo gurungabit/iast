@@ -16,9 +16,7 @@ class TerminalErrorTests(unittest.TestCase):
         importlib.reload(errors_module)
 
     def test_terminal_error_from_enum(self) -> None:
-        err = errors_module.TerminalError(
-            errors_module.ErrorCodes.AUTH_REQUIRED, "login required"
-        )
+        err = errors_module.TerminalError(errors_module.ErrorCodes.AUTH_REQUIRED, "login required")
 
         self.assertEqual(err.code, errors_module.ErrorCodes.AUTH_REQUIRED.value)
         self.assertEqual(err.message, "login required")
@@ -40,4 +38,3 @@ class TerminalErrorTests(unittest.TestCase):
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
-

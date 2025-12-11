@@ -123,4 +123,3 @@ class MessageFactoryTests(unittest.TestCase):
         self.assertEqual(msg.payload, "Processing item")
         self.assertEqual(msg.meta.execution_id, "exec-1")
         self.assertEqual(msg.meta.ast_name, "login")
-

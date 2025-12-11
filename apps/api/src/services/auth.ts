@@ -28,21 +28,19 @@ const JWKS_CACHE_TTL = 60 * 60 * 1000; // 1 hour
  * Get or create cached JWKS for Azure AD token validation
  * Note: If behind a corporate proxy, set HTTPS_PROXY or HTTP_PROXY environment variable
  */
-async function getJWKS(): Promise<jose.JWTVerifyGetKey> {
+function getJWKS(): jose.JWTVerifyGetKey {
   const now = Date.now();
-  
+
   if (jwksCache && (now - jwksCacheTime) < JWKS_CACHE_TTL) {
     return jwksCache;
   }
 
   // Use common endpoint which works for multi-tenant apps
   const jwksUri = `https://login.microsoftonline.com/common/discovery/v2.0/keys`;
-  
-  console.log(`Fetching JWKS from: ${jwksUri}`);
-  
+
   jwksCache = jose.createRemoteJWKSet(new URL(jwksUri));
   jwksCacheTime = now;
-  
+
   return jwksCache;
 }
 
@@ -52,8 +50,8 @@ async function getJWKS(): Promise<jose.JWTVerifyGetKey> {
  */
 export async function verifyEntraToken(token: string): Promise<EntraTokenPayload> {
   try {
-    const jwks = await getJWKS();
-    
+    const jwks = getJWKS();
+
     // Accept both api://clientId and clientId as valid audiences
     const configuredAudience = config.auth.entraAudience;
     const audiences = [
@@ -61,7 +59,7 @@ export async function verifyEntraToken(token: string): Promise<EntraTokenPayload
       configuredAudience.replace('api://', ''),
       `api://${configuredAudience}`,
     ].filter((v, i, a) => a.indexOf(v) === i); // unique values
-    
+
     const { payload } = await jose.jwtVerify(token, jwks, {
       audience: audiences,
       issuer: `https://login.microsoftonline.com/${config.auth.entraTenantId}/v2.0`,
@@ -78,7 +76,7 @@ export async function verifyEntraToken(token: string): Promise<EntraTokenPayload
       iat: payload.iat as number,
       exp: payload.exp as number,
       sub: payload.sub as string,
-      oid: payload.oid as string,
+      oid: payload.oid,
       preferred_username: payload.preferred_username as string | undefined,
       name: payload.name as string | undefined,
       email: (payload.email || payload.preferred_username) as string | undefined,
