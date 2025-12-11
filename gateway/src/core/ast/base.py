@@ -208,7 +208,9 @@ class AST(ABC):
             self._pause_event.clear()
             log.info("AST paused", ast=self.name, execution_id=self._execution_id)
             if self._on_pause_state:
-                self._on_pause_state(True, "AST paused - you can make manual adjustments")
+                self._on_pause_state(
+                    True, "AST paused - you can make manual adjustments"
+                )
 
     def resume(self) -> None:
         """Resume the AST execution."""
@@ -266,7 +268,9 @@ class AST(ABC):
         current: int,
         total: int,
         current_item: str | None = None,
-        item_status: Literal["pending", "running", "success", "failed", "skipped"] | None = None,
+        item_status: (
+            Literal["pending", "running", "success", "failed", "skipped"] | None
+        ) = None,
         message: str | None = None,
     ) -> None:
         """Report progress to the callback."""
@@ -280,6 +284,17 @@ class AST(ABC):
             current_item=current_item,
             item_status=item_status,
         )
+
+    def report_status(self, message: str) -> None:
+        """Report a status message (convenience helper).
+
+        Use this for simple status updates during prepare_items or processing.
+
+        Example:
+            self.report_status("Fetching data from PolicyAPI...")
+            self.report_status(f"Found {len(items)} policies")
+        """
+        self.report_progress(0, 0, None, "running", message)
 
     def report_item_result(
         self,
@@ -362,7 +377,9 @@ class AST(ABC):
                 log.warning("Failed to find Application field", application=application)
 
             # Fill group field if provided
-            if group and not host.fill_field_by_label("Group", group, case_sensitive=False):
+            if group and not host.fill_field_by_label(
+                "Group", group, case_sensitive=False
+            ):
                 log.warning("Failed to find Group field", group=group)
 
             # Submit login
@@ -424,7 +441,9 @@ class AST(ABC):
         Returns:
             Tuple of (success, error_message, item_data)
         """
-        raise NotImplementedError("Subclasses must implement process_single_item method")
+        raise NotImplementedError(
+            "Subclasses must implement process_single_item method"
+        )
 
     # ------------------------------------------------------------------ #
     # Optional hooks for subclasses
@@ -453,7 +472,9 @@ class AST(ABC):
         """
         if isinstance(item, dict):
             # Try common key names for ID
-            return str(item.get("id") or item.get("policyNumber") or item.get("name") or item)
+            return str(
+                item.get("id") or item.get("policyNumber") or item.get("name") or item
+            )
         return str(item)
 
     def prepare_items(self, **kwargs: Any) -> list[Any]:

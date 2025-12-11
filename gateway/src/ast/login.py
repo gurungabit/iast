@@ -78,6 +78,25 @@ class LoginAST(AST):
 
         return False, "Failed to sign off"
 
+    def prepare_items(self, **kwargs: Any) -> list[Any]:
+        """Prepare policy numbers to process.
+
+        Override to fetch from external sources with progress reporting.
+        """
+        self.report_status("Preparing policy list...")
+
+        # Get policies from kwargs (default behavior)
+        policies: list[Any] = kwargs.get("policyNumbers") or kwargs.get("items") or []
+
+        # Example: If you need to fetch from an API
+        # self.report_status("Fetching data from PolicyAPI...")
+        # policies = await fetch_from_api()
+
+        if policies:
+            self.report_status(f"Found {len(policies)} policies to process")
+
+        return policies
+
     def validate_item(self, item: Any) -> bool:
         return validate_policy_number(str(item))
 
