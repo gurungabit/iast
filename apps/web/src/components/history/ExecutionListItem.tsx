@@ -2,7 +2,7 @@
 // Execution List Item Component
 // ============================================================================
 
-import { Check, X } from 'lucide-react'
+import { Check, X, Clock } from 'lucide-react'
 import { StatusIcon } from './StatusIcon'
 import { STATUS_COLORS, type ExecutionRecord } from './types'
 
@@ -12,16 +12,33 @@ interface ExecutionListItemProps {
   onClick: () => void
 }
 
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  const seconds = Math.floor(ms / 1000)
+  if (seconds < 60) return `${seconds}s`
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds % 60
+  if (minutes < 60) return `${minutes}m ${remainingSeconds}s`
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  return `${hours}h ${remainingMinutes}m`
+}
+
 export function ExecutionListItem({ execution, isSelected, onClick }: ExecutionListItemProps) {
   const startTime = new Date(execution.started_at)
   const formatTime = (date: Date) => date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-  
+
+  // Calculate duration if completed
+  const duration = execution.completed_at
+    ? new Date(execution.completed_at).getTime() - startTime.getTime()
+    : null
+
   return (
     <button
       onClick={onClick}
       className={`
         cursor-pointer w-full text-left p-3 rounded-lg transition-all duration-150
-        ${isSelected 
+        ${isSelected
           ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 ring-1 ring-blue-300 dark:ring-blue-700'
           : 'bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 border-gray-200 dark:border-zinc-800'
         }
@@ -39,6 +56,12 @@ export function ExecutionListItem({ execution, isSelected, onClick }: ExecutionL
       </div>
       <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-zinc-500">
         <span>{formatTime(startTime)}</span>
+        {duration !== null && (
+          <span className="flex items-center gap-0.5">
+            <Clock className="w-3 h-3" />
+            {formatDuration(duration)}
+          </span>
+        )}
         <span>{execution.policy_count} policies</span>
         {execution.failed_count ? <span className="text-red-500 flex items-center gap-0.5"><X className="w-3 h-3" />{execution.failed_count}</span> : null}
         {execution.success_count ? <span className="text-emerald-500 flex items-center gap-0.5"><Check className="w-3 h-3" />{execution.success_count}</span> : null}

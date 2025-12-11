@@ -88,10 +88,7 @@ class LoginASTTests(unittest.TestCase):
         self.assertIn("username and password", result.message)
 
     @patch("src.core.ast.runner.get_dynamodb_client")
-    @patch("src.ast.login.time.sleep", return_value=None)
-    def test_run_processes_valid_policy(
-        self, _sleep: object, mock_db_factory: object
-    ) -> None:
+    def test_run_processes_valid_policy(self, mock_db_factory: object) -> None:
         host = _FakeHost()
         fake_db = _FakeDB()
         mock_db_factory.return_value = fake_db
@@ -114,10 +111,7 @@ class LoginASTTests(unittest.TestCase):
         self.assertTrue(any(u["status"] == "success" for u in fake_db.updates))
 
     @patch("src.core.ast.runner.get_dynamodb_client")
-    @patch("src.ast.login.time.sleep", return_value=None)
-    def test_run_skips_invalid_policy(
-        self, _sleep: object, mock_db_factory: object
-    ) -> None:
+    def test_run_skips_invalid_policy(self, mock_db_factory: object) -> None:
         host = _FakeHost()
         fake_db = _FakeDB()
         mock_db_factory.return_value = fake_db

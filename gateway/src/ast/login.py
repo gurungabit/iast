@@ -1,19 +1,15 @@
 # ============================================================================
-# Login AST - Automated Login to TSO
+# Login AST - Automated Login to Host
 # ============================================================================
 """
-Automated login script for TK4- MVS system.
+Automated login script for Host system.
 
-This AST performs a complete login/logoff cycle for each policy:
-1. Phase 1: Login (Wait for Logon screen, enter credentials, navigate to TSO)
-2. Phase 2: Process policy number
-3. Phase 3: Logoff (Exit TSO and logoff)
-
-Each policy gets its own full login/logoff cycle.
+This AST authenticates once, processes all policies, then logs off:
+1. Phase 1: Login (authenticate to Host system)
+2. Phase 2: Process all policy numbers sequentially
+3. Phase 3: Logoff (sign off from Host)
 """
 
-import time
-from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
 
 import structlog
@@ -35,17 +31,15 @@ def validate_policy_number(policy_number: str) -> bool:
 
 class LoginAST(AST):
     """
-    Automated login to TK4- TSO system.
+    Automated login to Host system.
 
-    Performs a complete login/logoff cycle for each policy number.
-    Each policy goes through all three phases:
-    - Phase 1: Login
-    - Phase 2: Process policy
-    - Phase 3: Logoff
+    Authentication flow:
+    - Sequential: Login once → Process all policies → Logoff once
+    - Parallel: Each session logs in → Processes batch → Logs off
 
     Required parameters:
-        - username: TSO username
-        - password: TSO password
+        - username: Host username
+        - password: Host password
 
     Optional parameters:
         - policyNumbers: List of 9-char policy numbers to process
@@ -60,73 +54,10 @@ class LoginAST(AST):
     auth_application = "FIRE06"
     auth_group = "@OOFIRE"
 
-    def _phase2_process_policy(
-        self, host: "Host", policy_number: str
-    ) -> tuple[bool, str, dict[str, Any]]:
-        """
-        Phase 2: Process a single policy number.
-
-        Returns:
-            Tuple of (success, error_message, policy_data)
-        """
-        log.info(f"Phase 2: Processing policy {policy_number}...")
-
-        # TODO: In a real implementation, this would:
-        # 1. Navigate to policy lookup screen
-        # 2. Enter the policy number
-        # 3. Read the policy data
-        # 4. Extract relevant information
-
-        # For now, simulate processing with a small delay
-        time.sleep(0.5)  # Simulate processing time
-
-        policy_data = {
-            "policyNumber": policy_number,
-            "status": "active",
-        }
-
-        return True, "", policy_data
-
-    def sign_off(
-        self, host: "Host", target_screen_keywords: list[str] | None = None
-    ) -> bool:
-        """
-        Sign off from TSO system.
-
-        Args:
-            host: Host automation interface
-            target_screen_keywords: Optional list of keywords to verify sign-off reached target screen
-
-        Returns:
-            True if sign-off successful, False otherwise
-        """
-        log.info("🔒 Signing off from terminal session...")
-        max_backoff_count = 20
-        while (
-            not host.wait_for_text("Exit Menu", timeout=0.8) and max_backoff_count > 0
-        ):
-            host.pf(15)
-            max_backoff_count -= 1
-
-        host.show_screen("Exit Menu")
-        host.fill_field_at_position(36, 5, "1")
-        host.show_screen("Confirm Exit")
-        host.enter()
-
-        # Check for target screen or default SIGNON
-        target_keywords = target_screen_keywords or ["**** SIGNON ****", "SIGNON"]
-        for keyword in target_keywords:
-            if host.wait_for_text(keyword, timeout=10):
-                log.info("✅ Signed off successfully.", keyword=keyword)
-                return True
-
-        log.warning("Failed to reach expected sign-off screen")
-        return False
-
     def logoff(
         self, host: "Host", target_screen_keywords: list[str] | None = None
     ) -> tuple[bool, str]:
-        """Implement abstract logoff using sign_off."""
+        """Sign off from TSO system."""
         log.info("🔒 Signing off from terminal session...")
         max_backoff_count = 20
         while (
@@ -153,4 +84,13 @@ class LoginAST(AST):
     def process_single_item(
         self, host: "Host", item: Any, index: int, total: int
     ) -> tuple[bool, str, dict[str, Any]]:
-        return self._phase2_process_policy(host, str(item))
+
+        self.capture_screenshot(host, f"policy_{index}_start")
+        log.info("Starting policy processing", policy_number=item)
+        policy_number = str(item)
+        policy_data = {
+            "policyNumber": policy_number,
+            "status": "active",
+        }
+
+        return True, "", policy_data

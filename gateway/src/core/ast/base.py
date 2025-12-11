@@ -181,7 +181,7 @@ class AST(ABC):
             label: Optional label describing this screenshot (e.g., "After Submit")
         """
         try:
-            screen = host.get_formatted_screen(show_row_numbers=False)
+            screen = host.show_screen("Current screen")
             if not hasattr(self._thread_local, "screenshots"):
                 self._thread_local.screenshots = []
             self._thread_local.screenshots.append({"label": label, "screen": screen})
