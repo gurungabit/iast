@@ -79,6 +79,7 @@ The frontend is a single-page application (SPA) providing:
 - **Authentication**: Azure Entra ID SSO via MSAL.js
 
 **Key Files:**
+
 ```
 apps/web/src/
 ├── components/
@@ -98,6 +99,7 @@ apps/web/src/
 ```
 
 **State Flow:**
+
 ```mermaid
 flowchart LR
     subgraph "React Components"
@@ -131,6 +133,7 @@ The API server acts as the bridge between the browser and the TN3270 gateway:
 - **Message Routing**: Forwards messages between browser and gateway via Valkey
 
 **Key Files:**
+
 ```
 apps/api/src/
 ├── server/
@@ -174,6 +177,7 @@ The gateway handles TN3270 protocol communication with mainframes:
 - **Field Detection**: Extracts protected/unprotected field positions
 
 **Key Files:**
+
 ```
 gateway/src/
 ├── app.py                    # Main application entry
@@ -451,10 +455,12 @@ class LoginAST(AST):
 ```
 
 **Execution Modes:**
+
 - **Sequential**: Single session processes all items
 - **Parallel**: Multiple sessions divide the workload
 
 **Progress Reporting:**
+
 ```mermaid
 flowchart LR
     A["AST Start"] --> B["Login"]
@@ -574,6 +580,7 @@ terminal/
 ### Environment Variables
 
 **API Server (`apps/api/.env`):**
+
 ```env
 PORT=3000
 HOST=0.0.0.0
@@ -597,6 +604,7 @@ ENTRA_AUDIENCE=api://your-api-client-id
 ```
 
 **Web Frontend (`apps/web/.env`):**
+
 ```env
 VITE_API_URL=http://localhost:3000
 VITE_WS_URL=ws://localhost:3000
@@ -609,6 +617,7 @@ VITE_ENTRA_API_SCOPE=api://your-api-client-id/.default
 ```
 
 **Gateway (`gateway/.env`):**
+
 ```env
 # Valkey
 VALKEY_HOST=localhost

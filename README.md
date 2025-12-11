@@ -1,194 +1,132 @@
-# Terminal Monorepo
+# IAST - Interactive Automated Streamlined Terminal
 
-A full-stack web-based terminal application that provides secure, real-time TN3270 terminal emulation through a browser. The architecture follows a microservices pattern with clear separation of concerns.
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              Browser (Client)                                │
-│  ┌─────────────────────────────────────────────────────────────────────────┐ │
-│  │                     React + Vite + xterm.js                             │ │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────────┐   │ │
-│  │  │   Auth UI    │  │ Theme Toggle │  │     Terminal Component       │   │ │
-│  │  │ (Login/Reg)  │  │ (Light/Dark) │  │    (xterm.js + WebSocket)    │   │ │
-│  │  └──────────────┘  └──────────────┘  └──────────────────────────────┘   │ │
-│  └─────────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      │ HTTP (REST) + WebSocket
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            API Server (Node.js)                              │
-│  ┌─────────────────────────────────────────────────────────────────────────┐ │
-│  │                      Fastify + @fastify/websocket                       │ │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────────┐   │ │
-│  │  │  Auth Routes │  │   Session    │  │    WebSocket Terminal        │   │ │
-│  │  │ (JWT/bcrypt) │  │  Management  │  │       Handler                │   │ │
-│  │  └──────────────┘  └──────────────┘  └──────────────────────────────┘   │ │
-│  └─────────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      │ Pub/Sub (Redis Protocol)
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          Valkey (Redis-compatible)                           │
-│  ┌─────────────────────────────────────────────────────────────────────────┐ │
-│  │                         Pub/Sub Channels                                │ │
-│  │  ┌──────────────────┐  ┌─────────────────┐  ┌──────────────────────┐    │ │
-│  │  │ gateway.control  │  │ tn3270.input.<id>│  │  tn3270.output.<id>  │    │ │
-│  │  │ (session create) │  │ (user keystrokes)│  │  (TN3270 output)     │    │ │
-│  │  └──────────────────┘  └─────────────────┘  └──────────────────────┘    │ │
-│  └─────────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      │ Pub/Sub (Redis Protocol)
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          TN3270 Gateway (Python)                                │
-│  ┌─────────────────────────────────────────────────────────────────────────┐ │
-│  │                    asyncio + redis-py + tn3270                          │ │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────────┐   │ │
-│  │  │ Valkey Client│  │ TN3270 Manager│  │      TN3270 Sessions         │   │ │
-│  │  │  (Pub/Sub)   │  │ (connect)    │  │   (TN3270 connections)       │   │ │
-│  │  └──────────────┘  └──────────────┘  └──────────────────────────────┘   │ │
-│  └─────────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-## Project Structure
-
-```
-terminal/
-├── apps/
-│   ├── api/                    # Fastify backend server
-│   │   └── src/
-│   │       ├── routes/         # HTTP endpoints (auth)
-│   │       ├── ws/             # WebSocket handlers
-│   │       ├── services/       # Business logic (auth, session)
-│   │       ├── models/         # Data models (user)
-│   │       └── valkey/         # Valkey pub/sub client
-│   │
-│   └── web/                    # React frontend
-│       └── src/
-│           ├── components/     # UI components (Terminal, LoginForm, etc.)
-│           ├── hooks/          # React hooks (useAuth, useTerminal, useTheme)
-│           ├── services/       # API client, WebSocket service
-│           └── config/         # Frontend configuration
-│
-├── packages/
-│   └── shared/                 # Shared TypeScript types & utilities
-│       └── src/
-│           ├── messages.ts     # Message envelope types
-│           ├── channels.ts     # Pub/sub channel definitions
-│           ├── errors.ts       # Error codes & types
-│           ├── auth.ts         # Auth-related types
-│           └── utils.ts        # Shared utilities
-│
-├── gateway/                    # Python TN3270 gateway
-│   └── src/
-│       ├── app.py              # Main entry point
-│       ├── tn3270_manager.py   # TN3270 session management
-│       ├── valkey_client.py    # Async Valkey client
-│       ├── models.py           # Pydantic message models
-│       ├── config.py           # Gateway configuration
-│       ├── tn3270_client.py    # TN3270 protocol client
-│
-├── infra/
-│   └── docker-compose.dev.yml  # Valkey container for development
-│
-├── scripts/
-│   ├── dev.sh                  # Development startup script
-│   ├── dev-session.sh          # Per-session gateway management (dev)
-│   └── setup-dynamodb.sh       # DynamoDB setup script
-│
-├── docs/
-│   ├── ARCHITECTURE.md         # Detailed architecture documentation
-│   └── diagrams.md             # Additional diagrams
-│
-├── .github/
-│   └── copilot-instructions.md # GitHub Copilot instructions
-│
-└── tnz/                        # Placeholder directory
-```
-
-## Prerequisites
-
-- Node.js 24+
-- pnpm 10+
-- Python 3.12+
-- uv (Python package manager)
-- Docker (for Valkey and DynamoDB Local)
+A web-based TN3270 terminal emulator with automation capabilities for IBM mainframe systems. Features real-time terminal emulation, Azure Entra ID authentication, and Automated Streamlined Transactions (ASTs).
 
 ## Quick Start
 
 ```bash
-# Install dependencies
+# Prerequisites check
+node --version  # >= 24.0.0
+pnpm --version  # >= 10.0.0
+python --version  # >= 3.12
+uv --version  # any recent version
+docker --version  # for local infrastructure
+
+# Clone and setup
+git clone <>
+cd iast
+
+# Install all dependencies
 pnpm install
 cd gateway && uv sync && cd ..
 
-# Start infrastructure (Valkey + DynamoDB)
-docker compose -f infra/docker-compose.dev.yml up -d
-
-# Start all services
+# Start everything (infrastructure + all services)
 pnpm dev
-
-# Services will be available at:
-# - Web:    http://localhost:5173
-# - API:    http://localhost:3000
-# - Valkey: localhost:6379
-# - DynamoDB: localhost:8042
 ```
 
-### Demo User
+**Services:**
 
-A demo user is automatically created on API startup:
+| Service | URL | Description |
+|---------|-----|-------------|
+| Web | `http://localhost:5173` | React frontend |
+| API | `http://localhost:3000` | Fastify API server |
+| Valkey | `localhost:6379` | Message broker |
+| DynamoDB | `localhost:8042` | Local database |
 
-- Email: `demo@example.com`
-- Password: `demo1234`
+---
 
-## Development
+## Prerequisites
 
-### Build All
+### Required
+
+| Tool | Version | Installation |
+|------|---------|--------------|
+| **Node.js** | >= 24.0.0 | [nodejs.org](https://nodejs.org) or `nvm install 24` |
+| **pnpm** | >= 10.0.0 | `corepack enable && corepack prepare pnpm@latest --activate` |
+| **Python** | >= 3.12 | [python.org](https://python.org) or `pyenv install 3.12` |
+| **uv** | latest | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| **Docker** | latest | [docker.com](https://docker.com) |
+
+### Optional
+
+| Tool | Purpose |
+|------|---------|
+| **Hercules** | Local mainframe emulator for testing |
+| **VPN** | Access to real mainframe systems |
+
+---
+
+## Development Setup
+
+### 1. Install Dependencies
 
 ```bash
-pnpm build
+# TypeScript packages (pnpm workspaces)
+pnpm install
+
+# Python gateway
+cd gateway && uv sync && cd ..
 ```
 
-### Lint
+### 2. Configure Environment
+
+Copy environment templates:
 
 ```bash
-pnpm lint
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+cp gateway/.env.example gateway/.env
 ```
 
-### Type Check
-
-```bash
-pnpm typecheck
-```
-
-### Format Code
-
-```bash
-pnpm format
-```
-
-### Clean
-
-```bash
-pnpm clean
-```
-
-## Environment Variables
-
-### API (`apps/api/.env`)
+**API Server (`apps/api/.env`):**
 
 ```env
 PORT=3000
 HOST=0.0.0.0
+LOG_LEVEL=info
+
+# Valkey
 VALKEY_HOST=localhost
 VALKEY_PORT=6379
-JWT_SECRET=your-secret-key
+
+# DynamoDB Local
+DYNAMODB_ENDPOINT=http://localhost:8042
+DYNAMODB_REGION=us-east-1
+DYNAMODB_TABLE_NAME=terminal
+DYNAMODB_ACCESS_KEY_ID=dummy
+DYNAMODB_SECRET_ACCESS_KEY=dummy
+
+# Azure Entra ID
+ENTRA_TENANT_ID=your-tenant-id
+ENTRA_CLIENT_ID=your-api-client-id
+ENTRA_AUDIENCE=api://your-api-client-id
+```
+
+**Web Frontend (`apps/web/.env`):**
+
+```env
+VITE_API_URL=http://localhost:3000
+VITE_WS_URL=ws://localhost:3000
+
+# Azure Entra ID (SPA)
+VITE_ENTRA_CLIENT_ID=your-spa-client-id
+VITE_ENTRA_TENANT_ID=your-tenant-id
+VITE_ENTRA_REDIRECT_URI=http://localhost:5173
+VITE_ENTRA_API_SCOPE=api://your-api-client-id/.default
+```
+
+**Gateway (`gateway/.env`):**
+
+```env
+VALKEY_HOST=localhost
+VALKEY_PORT=6379
+
+# TN3270 Mainframe
+TN3270_HOST=mainframe.example.com
+TN3270_PORT=23
+TN3270_MAX_SESSIONS=10
+
+# DynamoDB
 DYNAMODB_ENDPOINT=http://localhost:8042
 DYNAMODB_REGION=us-east-1
 DYNAMODB_TABLE_NAME=terminal
@@ -196,47 +134,204 @@ DYNAMODB_ACCESS_KEY_ID=dummy
 DYNAMODB_SECRET_ACCESS_KEY=dummy
 ```
 
-### Web (`apps/web/.env`)
+### 3. Start Development
 
-```env
-VITE_API_URL=http://localhost:3000
-VITE_WS_URL=ws://localhost:3000
+```bash
+# Start everything (recommended)
+pnpm dev
+
+# Or start components individually:
+pnpm dev:valkey    # Infrastructure (Valkey + DynamoDB)
+pnpm dev:api       # API server only
+pnpm dev:web       # Frontend only
+pnpm dev:gateway   # Python gateway only
 ```
 
-### Gateway (`gateway/.env`)
+---
 
-```env
-VALKEY_HOST=localhost
-VALKEY_PORT=6379
-TN3270_HOST=your-tn3270-host
-TN3270_PORT=23
-TN3270_MAX_SESSIONS=10
+## Development Commands
+
+### Running Services
+
+```bash
+pnpm dev              # Start all services + infrastructure
+pnpm app              # Start all services (infrastructure must be running)
+pnpm dev:web          # React frontend (localhost:5173)
+pnpm dev:api          # API server (localhost:3000)
+pnpm dev:gateway      # Python gateway
+pnpm dev:valkey       # Start Valkey + DynamoDB containers
+pnpm dev:valkey:stop  # Stop infrastructure containers
 ```
 
-## Message Flow
+### Code Quality
 
-1. User authenticates via REST API (login/register)
-2. Browser establishes WebSocket connection with JWT token
-3. API validates token and creates session
-4. API publishes `session.create` to `gateway.control` Valkey channel
-5. Gateway establishes TN3270 connection and subscribes to `tn3270.input.<sessionId>`
-6. User types in browser terminal (xterm.js)
-7. Web sends `data` message via WebSocket to API
-8. API publishes to `tn3270.input.<sessionId>` Valkey channel
-9. Gateway sends to TN3270 host
-10. TN3270 output is received by Gateway
-11. Gateway publishes to `tn3270.output.<sessionId>` Valkey channel
-12. API subscribes and forwards via WebSocket
-13. Web receives and renders in xterm.js
+```bash
+pnpm typecheck        # TypeScript type checking
+pnpm lint             # ESLint (strict mode)
+pnpm format           # Prettier formatting
+pnpm build            # Build all packages
+pnpm clean            # Clean all build artifacts
+```
 
-## Error Codes
+### Gateway (Python)
 
-| Code | Category | Description |
-|------|----------|-------------|
-| E1xxx | Auth | Authentication errors |
-| E2xxx | Session | Session management errors |
-| E3xxx | TN3270 | TN3270 connection errors |
-| E4xxx | WebSocket | WebSocket errors |
-| E5xxx | Valkey | Valkey/Redis errors |
+```bash
+pnpm test:gateway     # Run pytest tests
+pnpm coverage:gateway # Run tests with coverage
+cd gateway && uv run gateway-format  # Format Python code
+```
 
-## License
+### Workspace Commands
+
+```bash
+# Add dependency to specific workspace
+pnpm --filter @terminal/api add <package>
+pnpm --filter @terminal/web add -D <package>
+
+# Run command in specific workspace
+pnpm --filter @terminal/api <script>
+
+# Run across all workspaces
+pnpm run --recursive <script>
+```
+
+---
+
+## Project Structure
+
+```text
+iast/
+├── apps/
+│   ├── api/                    # Node.js API server (Fastify)
+│   │   └── src/
+│   │       ├── routes/         # HTTP endpoints
+│   │       ├── ws/             # WebSocket handlers
+│   │       ├── services/       # Business logic
+│   │       └── valkey/         # Pub/sub client
+│   │
+│   └── web/                    # React frontend (Vite)
+│       └── src/
+│           ├── components/     # UI components
+│           ├── hooks/          # React hooks
+│           ├── routes/         # Page components
+│           ├── stores/         # Zustand stores
+│           └── services/       # API/WebSocket clients
+│
+├── packages/
+│   └── shared/                 # Shared TypeScript types
+│       └── src/
+│           ├── messages.ts     # Message envelope types
+│           ├── channels.ts     # Pub/sub channels
+│           └── errors.ts       # Error codes
+│
+├── gateway/                    # Python TN3270 gateway
+│   └── src/
+│       ├── app.py              # Entry point
+│       ├── services/           # TN3270, Valkey services
+│       ├── core/               # AST framework
+│       └── models/             # Pydantic models
+│
+├── infra/                      # Docker compose files
+├── scripts/                    # Dev scripts
+└── docs/                       # Architecture documentation
+```
+
+---
+
+## Architecture
+
+```text
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Browser   │────▶│  API Server │────▶│   Valkey    │────▶│   Gateway   │
+│  (React +   │ WS  │  (Fastify)  │ P/S │  (Pub/Sub)  │ P/S │  (Python)   │
+│  xterm.js)  │◀────│             │◀────│             │◀────│             │
+└─────────────┘     └─────────────┘     └─────────────┘     └──────┬──────┘
+                                                                    │ TN3270
+                                                                    ▼
+                                                            ┌─────────────┐
+                                                            │  Mainframe  │
+                                                            │   (z/OS)    │
+                                                            └─────────────┘
+```
+
+**Data Flow:**
+
+1. User types in browser terminal (xterm.js)
+2. WebSocket sends keystrokes to API server
+3. API publishes to Valkey channel `tn3270.input.<sessionId>`
+4. Gateway receives and sends TN3270 commands to mainframe
+5. Mainframe responds with screen data
+6. Gateway renders to ANSI and publishes to `tn3270.output.<sessionId>`
+7. API forwards via WebSocket to browser
+8. xterm.js renders the terminal output
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | React 19, Vite 7, TypeScript, xterm.js, TanStack Router, Zustand, Tailwind CSS v4 |
+| **API Server** | Node.js 24, Fastify 5, TypeScript, ioredis, jose |
+| **Gateway** | Python 3.12, asyncio, tnz, redis-py, Pydantic, structlog |
+| **Message Broker** | Valkey (Redis-compatible) |
+| **Database** | DynamoDB (single-table design) |
+| **Auth** | Azure Entra ID (OAuth 2.0 + JWT) |
+
+---
+
+## Documentation
+
+- [Architecture Guide](./docs/ARCHITECTURE.md) - Detailed system architecture
+- [AWS Deployment](./docs/AWS_DEPLOYMENT.md) - Production deployment guide
+- [Diagrams](./docs/diagrams.md) - Visual architecture diagrams
+- [Copilot Instructions](./.github/copilot-instructions.md) - AI coding guidelines
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**pnpm not found:**
+
+```bash
+corepack enable
+corepack prepare pnpm@latest --activate
+```
+
+**uv not found:**
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source ~/.bashrc  # or ~/.zshrc
+```
+
+**Docker containers won't start:**
+
+```bash
+# Check if ports are in use
+lsof -i :6379  # Valkey
+lsof -i :8042  # DynamoDB
+
+# Force recreate containers
+docker compose -f infra/docker-compose.dev.yml down -v
+docker compose -f infra/docker-compose.dev.yml up -d
+```
+
+**TypeScript errors after update:**
+
+```bash
+pnpm clean
+pnpm install
+pnpm typecheck
+```
+
+**Python import errors:**
+
+```bash
+cd gateway
+uv sync --reinstall
+```
+
+---
