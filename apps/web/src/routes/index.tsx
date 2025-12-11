@@ -314,8 +314,23 @@ function TerminalPage() {
       <div className="flex-1 flex flex-col gap-4 p-4">
         {tabs.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              No sessions available. Create one to get started.
+            <div className="flex flex-col items-center gap-4">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                No sessions available. Create one to get started.
+              </div>
+              <button
+                className="flex items-center gap-2 px-4 py-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                onClick={handleAddTab}
+                disabled={isCreatingSession}
+                aria-label="New session"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M8 3v10M3 8h10" />
+                </svg>
+                <span className="text-sm whitespace-nowrap">
+                  {isCreatingSession ? 'Creating...' : 'New Session'}
+                </span>
+              </button>
             </div>
           </div>
         ) : (
