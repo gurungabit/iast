@@ -1,559 +1,879 @@
-# Terminal Architecture Diagrams
+# IAST Architecture Diagrams
 
-## System Architecture
+This document contains detailed architecture diagrams for the IAST (Interactive Automated Streamlined Terminal) system.
 
-```mermaid
-flowchart TB
-    subgraph Browser["` **Browser** _(Client)_ `"]
-        direction LR
-        React["`**React 19** + Vite 7
-        + TanStack Router`"]
-        XTerm["`**xterm.js** Terminal`"]
-        Zustand["`**Zustand** Store
-        _(AST State)_`"]
-        Auth["`**MSAL** Auth
-        _(Entra ID SSO)_`"]
-    end
+## Table of Contents
 
-    subgraph EntraID["` **Azure Entra ID** `"]
-        direction TB
-        JWKS["`JWKS Endpoint`"]
-        TokenEndpoint["`Token Endpoint`"]
-    end
+1. [System Topology](#system-topology)
+2. [Low-Level Architecture](#low-level-architecture)
+3. [Component Diagrams](#component-diagrams)
+4. [Data Flow Diagrams](#data-flow-diagrams)
+5. [Deployment Diagrams](#deployment-diagrams)
 
-    subgraph API["` **API Server** _(Node.js)_ `"]
-        direction TB
-        Fastify["`**Fastify 5**`"]
-        WS["`WebSocket Handler`"]
-        AuthService["`Auth Service
-        _(jose + JWKS)_`"]
-        HistoryAPI["`History API`"]
-        SessionAPI["`Session API`"]
-        ValkeyClient1["`Valkey Client`"]
-        DynamoDBClient1["`DynamoDB Client`"]
-    end
+---
 
-    subgraph Valkey["` **Valkey** _(Redis-compatible)_ `"]
-        direction TB
-        PubSub["`**Pub/Sub Channels**`"]
-        GatewayCtrl["`gateway.control`"]
-        Tn3270Input["`tn3270.input.*`"]
-        Tn3270Output["`tn3270.output.*`"]
-        Tn3270Control["`tn3270.control.*`"]
-    end
+## System Topology
 
-    subgraph DynamoDB["` **DynamoDB** _(AWS/Local)_ `"]
-        direction TB
-        UsersTable["`Users Table`"]
-        SessionsTable["`Sessions Table`"]
-        ExecutionsTable["`Executions Table`"]
-        PoliciesTable["`Policies Table`"]
-    end
-
-    subgraph Gateway["` **TN3270 Gateway** _(Python)_ `"]
-        direction TB
-        AsyncIO["`**asyncio** Runtime`"]
-        ValkeyClient2["`Valkey Client`"]
-        DynamoDBClient2["`DynamoDB Client`"]
-        ASTEngine["`AST Engine`"]
-        Tn3270Manager["`TN3270 Manager`"]
-        Tn3270Session1["`TN3270 Session 1`"]
-        Tn3270Session2["`TN3270 Session 2`"]
-        Tn3270SessionN["`TN3270 Session N`"]
-    end
-
-    subgraph Mainframe["` **Mainframe** _(TN3270 Host)_ `"]
-        direction TB
-        TSO["`IBM z/OS
-        TSO/ISPF`"]
-    end
-
-    React --> Auth & XTerm & Zustand
-
-    Auth -->|"`**MSAL OAuth**`"| TokenEndpoint
-    AuthService -->|"`**Validate Token**`"| JWKS
-    XTerm -->|"`**WebSocket**`"| WS
-    Zustand -.->|"`State sync`"| XTerm
-
-    WS --> SessionAPI & ValkeyClient1
-    AuthService --> DynamoDBClient1
-    HistoryAPI --> DynamoDBClient1
-    SessionAPI --> DynamoDBClient1
-    DynamoDBClient1 -->|"`_Read/Write_`"| UsersTable & SessionsTable
-
-    ValkeyClient1 -->|"`_Publish_`"| PubSub
-    PubSub -->|"`_Subscribe_`"| ValkeyClient2
-
-    ValkeyClient2 --> Tn3270Manager & ASTEngine
-    ASTEngine --> DynamoDBClient2
-    DynamoDBClient2 -->|"`_Read/Write_`"| ExecutionsTable & PoliciesTable
-    Tn3270Manager --> Tn3270Session1 & Tn3270Session2 & Tn3270SessionN
-    Tn3270Session1 & Tn3270Session2 & Tn3270SessionN -->|"`**TN3270 TCP**`"| TSO
-```
-
-## Frontend State Architecture
+### High-Level Network Topology
 
 ```mermaid
 flowchart TB
-    subgraph Browser["` **Browser** `"]
-        direction TB
-        
-        subgraph Router["` **TanStack Router** `"]
-            RootLayout["`Root Layout
-            _(AuthGuard, Navbar)_`"]
-            TerminalPage["`Terminal Page
-            _/_ `"]
-            HistoryPage["`History Page
-            _/history_ `"]
-        end
-
-        subgraph ZustandStore["` **Zustand Store** _(astStore)_ `"]
-            TabsState["`tabs: Record<tabId, TabState>`"]
-            ActiveTabId["`activeTabId: string`"]
-            TabState1["`Tab State 1
-            - selectedASTId
-            - status
-            - progress
-            - itemResults
-            - lastResult`"]
-            TabState2["`Tab State 2
-            - ...`"]
-        end
-
-        subgraph Components["` **Components** `"]
-            Terminal["`Terminal Component
-            _(useTerminal hook)_`"]
-            ASTPanel["`AST Panel
-            _(useAST hook)_`"]
-            HistoryList["`History List
-            _(useExecutionObserver)_`"]
-        end
+    subgraph Internet["Internet Zone"]
+        Users["👥 Users"]
+        CDN["☁️ CloudFront CDN"]
     end
 
-    RootLayout --> TerminalPage & HistoryPage
-    TerminalPage --> Terminal & ASTPanel
-    HistoryPage --> HistoryList
+    subgraph DMZ["DMZ / Public Subnet"]
+        ALB["⚖️ Application Load Balancer"]
+    end
 
-    Terminal -->|"`setRunCallback`"| ZustandStore
-    ASTPanel -->|"`executeAST, setSelectedASTId`"| ZustandStore
-    ZustandStore -->|"`state per tab`"| TabState1 & TabState2
+    subgraph Private["Private Subnet"]
+        subgraph APICluster["API Cluster"]
+            API1["⚡ API Server 1"]
+            API2["⚡ API Server 2"]
+            APIx["⚡ API Server N"]
+        end
+
+        subgraph GatewayCluster["Gateway Cluster"]
+            GW1["🐍 TN3270 Gateway 1"]
+            GW2["🐍 TN3270 Gateway 2"]
+            GWx["🐍 TN3270 Gateway N"]
+        end
+
+        Cache["📡 ElastiCache (Valkey/Redis)"]
+    end
+
+    subgraph Data["Data Layer"]
+        DDB["🗄️ DynamoDB"]
+        S3["📦 S3 Bucket (Static Assets)"]
+    end
+
+    subgraph OnPrem["On-Premises / Direct Connect"]
+        Mainframe["🖥️ IBM Mainframe (z/OS)"]
+    end
+
+    subgraph Auth["Identity Provider"]
+        Entra["🔐 Azure Entra ID"]
+    end
+
+    Users --> CDN
+    Users --> Entra
+    CDN --> S3
+    Users --> ALB
+    ALB --> API1 & API2 & APIx
     
-    TabsState --> TabState1 & TabState2
+    API1 & API2 & APIx --> Cache
+    Cache --> GW1 & GW2 & GWx
+    
+    API1 & API2 & APIx --> DDB
+    GW1 & GW2 & GWx --> DDB
+    GW1 & GW2 & GWx --> Mainframe
+    
+    API1 & API2 & APIx -.->|"JWT Validation"| Entra
 ```
 
-## Authentication Flow (Azure Entra ID)
-
-```mermaid
-sequenceDiagram
-    autonumber
-    
-    participant B as 🌐 Browser
-    participant M as 🔐 Azure Entra ID
-    participant A as ⚡ API Server
-    participant DB as 💾 DynamoDB
-
-    rect rgb(50, 40, 50)
-        Note over B,DB: User Login (MSAL Redirect)
-        B->>B: User visits app (not authenticated)
-        B->>M: Redirect to Microsoft login
-        M->>M: User authenticates
-        M-->>B: Redirect with authorization code
-        B->>M: MSAL exchanges code for tokens
-        M-->>B: Access token + ID token
-    end
-
-    rect rgb(40, 50, 50)
-        Note over B,DB: User Info & Provisioning
-        B->>+A: GET /auth/me<br/>Authorization: Bearer {entra_token}
-        A->>M: Fetch JWKS (cached)
-        A->>A: Validate token signature
-        A->>A: Extract claims (oid, email, name)
-        A->>DB: GetItem (Users)
-        alt User exists
-            DB-->>A: User record
-        else User not found
-            A->>DB: PutItem (new user)
-            DB-->>A: Success
-        end
-        A-->>-B: {id, email, displayName}
-    end
-
-    rect rgb(40, 40, 60)
-        Note over B,DB: Token Refresh (automatic)
-        B->>B: MSAL detects token expiring
-        B->>M: acquireTokenSilent
-        M-->>B: New access token
-    end
-```
-
-## Terminal Session Lifecycle
-
-```mermaid
-sequenceDiagram
-    autonumber
-    
-    participant B as 🌐 Browser
-    participant A as ⚡ API Server
-    participant V as 📡 Valkey
-    participant G as 🐍 Gateway
-    participant T as 🖥️ TN3270 Host
-
-    rect rgb(40, 60, 40)
-        Note over B,T: Session Creation
-        B->>+A: WebSocket Connect<br/>/terminal/:sessionId?token=xxx
-        A->>A: Validate JWT
-        A->>-A: Create session record
-
-        B->>+A: session.create message
-        A->>V: PUBLISH gateway.control
-        V->>+G: MESSAGE
-        G->>+T: connect(host, port)
-        G->>G: Subscribe to tn3270.input/:id
-        G->>V: PUBLISH tn3270.output/:id<br/>(session.created)
-        V->>A: MESSAGE
-        A-->>-B: session.created message
-    end
-
-    rect rgb(40, 50, 60)
-        Note over B,T: Data Exchange
-        B->>A: data message (keystroke)
-        A->>V: PUBLISH tn3270.input/:id
-        V->>G: MESSAGE
-        G->>T: send(data)
-        T->>G: receive(output)
-        G->>V: PUBLISH tn3270.output/:id
-        V->>A: MESSAGE
-        A->>B: data message (output)
-    end
-
-    rect rgb(50, 50, 40)
-        Note over B,T: Navigation Away (Session Persists)
-        B->>A: WebSocket Close
-        Note over A,G: Session remains active<br/>No destroy message sent
-        B->>B: Navigate to /history
-    end
-
-    rect rgb(40, 50, 60)
-        Note over B,T: Navigate Back (Reconnect)
-        B->>+A: WebSocket Connect<br/>/terminal/:sessionId?token=xxx
-        A->>A: Validate JWT
-        A->>V: SUBSCRIBE tn3270.output/:id
-        Note over A,G: Reconnect to existing session
-        A-->>-B: Receive buffered output
-    end
-
-    rect rgb(60, 40, 40)
-        Note over B,T: Explicit Session Close (Tab Close)
-        B->>A: session.destroy message
-        A->>V: PUBLISH gateway.control
-        V->>G: MESSAGE
-        G->>T: disconnect
-        deactivate T
-        G->>G: Unsubscribe channels
-        deactivate G
-        G->>V: PUBLISH tn3270.output/:id<br/>(session.destroyed)
-    end
-```
-
-## AST Execution Flow
-
-```mermaid
-sequenceDiagram
-    autonumber
-    
-    participant B as 🌐 Browser
-    participant A as ⚡ API Server
-    participant V as 📡 Valkey
-    participant G as 🐍 Gateway
-    participant T as 🖥️ TN3270 Host
-    participant DB as 💾 DynamoDB
-
-    rect rgb(40, 50, 60)
-        Note over B,DB: AST Execution Start
-        B->>A: ast.run {name: "login", params: {...}}
-        A->>V: PUBLISH tn3270.input/:id
-        V->>G: MESSAGE
-        G->>DB: PutItem (Executions) - status: running
-        G->>V: PUBLISH tn3270.output/:id (ast.status: running)
-        V->>A: MESSAGE
-        A->>B: ast.status {status: running}
-    end
-
-    rect rgb(40, 60, 50)
-        Note over B,DB: Policy Processing Loop
-        loop For each policy
-            G->>T: Execute TN3270 commands
-            T->>G: Response
-            G->>DB: PutItem (Policies)
-            G->>V: PUBLISH tn3270.output/:id (ast.item_result)
-            V->>A: MESSAGE
-            A->>B: ast.item_result {itemId, status}
-            G->>V: PUBLISH tn3270.output/:id (ast.progress)
-            V->>A: MESSAGE
-            A->>B: ast.progress {current, total}
-        end
-    end
-
-    rect rgb(40, 50, 60)
-        Note over B,DB: AST Completion
-        G->>DB: UpdateItem (Executions) - status: success
-        G->>V: PUBLISH tn3270.output/:id (ast.status: success)
-        V->>A: MESSAGE
-        A->>B: ast.status {status: success, duration}
-    end
-```
-
-## Message Flow
+### Detailed Network Flow
 
 ```mermaid
 flowchart LR
-    subgraph Browser["` **Browser** `"]
-        XT["`📺 **xterm.js**`"]
-        AST["`🔧 **AST Panel**`"]
+    subgraph Client["Client"]
+        Browser["🌐 Browser"]
     end
 
-    subgraph API["` **API Server** `"]
+    subgraph LB["Load Balancer"]
         direction TB
-        WSH["`🔌 WebSocket Handler`"]
-        VC1["`Valkey Client`"]
+        HTTP["HTTP/HTTPS Port 443"]
+        WS["WebSocket Port 443"]
     end
 
-    subgraph Valkey["` **Valkey Pub/Sub** `"]
+    subgraph API["API Servers"]
         direction TB
-        GC["`📣 gateway.control`"]
-        PI["`⌨️ tn3270.input.*`"]
-        PO["`📤 tn3270.output.*`"]
-        PC["`🎛️ tn3270.control.*`"]
+        REST["REST Endpoints (/auth, /sessions, /history)"]
+        WSHandler["WebSocket Handler (/terminal/:id)"]
     end
 
-    subgraph Gateway["` **Python Gateway** `"]
+    subgraph Messaging["Message Broker"]
         direction TB
-        VC2["`Valkey Client`"]
-        PM["`🔧 TN3270 Manager`"]
-        AE["`🤖 AST Engine`"]
-        PTY["`🖥️ TN3270 Host`"]
+        ValkeyPub["Publisher"]
+        ValkeySub["Subscriber"]
+        Channels["Channels: tn3270.input.* / tn3270.output.*"]
     end
 
-    XT -->|"`_session.create_
-    _data_
-    _resize_`"| WSH
-    AST -->|"`_ast.run_
-    _ast.control_`"| WSH
-    WSH -->|"`Publish`"| VC1
-    VC1 --> GC & PI & PC
-    
-    GC & PI & PC -->|"`Subscribe`"| VC2
-    
-    VC2 <--> PM & AE
-    PM <--> PTY
-    AE <--> PM
-    PM -->|"`Publish`"| VC2
-    AE -->|"`Publish`"| VC2
-    VC2 --> PO
-    
-    PO -->|"`Subscribe`"| VC1
-    VC1 --> WSH
-    WSH -->|"`_session.created_
-    _data_
-    _ast.status_
-    _ast.progress_`"| XT & AST
-```
-
-## Component Dependencies
-
-```mermaid
-flowchart BT
-    subgraph Packages["` **📦 Packages** `"]
-        Shared["`**@terminal/shared**
-        _Types & Utils_`"]
+    subgraph Gateway["TN3270 Gateway"]
+        direction TB
+        SessionMgr["Session Manager"]
+        TNZLib["tnz Library"]
+        ASTEngine["AST Engine"]
     end
 
-    subgraph Apps["` **🚀 Apps** `"]
-        Web["`**@terminal/web**
-        _React + Zustand_`"]
-        API["`**@terminal/api**
-        _Fastify Backend_`"]
+    subgraph Mainframe["Mainframe"]
+        TN3270["TN3270 Server Port 23"]
     end
 
-    subgraph External["` **🔧 External** `"]
-        Gateway["`**gateway**
-        _Python TN3270_`"]
-        Valkey["`**Valkey**
-        _Docker_`"]
-        DynamoDB["`**DynamoDB**
-        _AWS/Local_`"]
-        Mainframe["`**Mainframe**
-        _TN3270 Host_`"]
-    end
-
-    Web --> Shared
-    API --> Shared
-    API <--> Valkey <--> Gateway
-    API --> DynamoDB
-    Gateway --> DynamoDB
-    Gateway --> Mainframe
-    Web --> API
+    Browser -->|"HTTPS"| HTTP
+    Browser -->|"WSS"| WS
+    HTTP --> REST
+    WS --> WSHandler
+    
+    WSHandler -->|"Publish"| ValkeyPub
+    ValkeyPub --> Channels
+    Channels --> ValkeySub
+    ValkeySub --> SessionMgr
+    
+    SessionMgr --> TNZLib
+    SessionMgr --> ASTEngine
+    TNZLib -->|"TN3270 TCP"| TN3270
 ```
 
-## State Management
+---
 
-```mermaid
-stateDiagram-v2
-    direction LR
-    
-    [*] --> Disconnected
-    
-    Disconnected --> Connecting: connect()
-    Connecting --> Connected: WebSocket open
-    Connecting --> Error: Connection failed
-    
-    Connected --> Disconnected: disconnect()
-    Connected --> Reconnecting: Connection lost
-    Connected --> Error: Fatal error
-    
-    Reconnecting --> Connected: ✅ Reconnect success
-    Reconnecting --> Error: ❌ Max retries exceeded
-    
-    Error --> Connecting: 🔄 Retry
-    Error --> [*]: Give up
+## Low-Level Architecture
 
-    note right of Connected
-        Active terminal session
-        Sending/receiving data
-        Session persists on navigation
-    end note
-
-    note left of Reconnecting
-        Auto-reconnect with
-        exponential backoff
-    end note
-```
-
-## TN3270 Session States
-
-```mermaid
-stateDiagram-v2
-    direction TB
-
-    [*] --> Creating: session.create received
-
-    Creating --> Active: ✅ connect success
-    Creating --> Failed: ❌ connection error
-
-    state Active {
-        direction LR
-        [*] --> Idle
-        Idle --> Running: ast.run
-        Running --> Running: I/O operations
-        Running --> Paused: ast.control(pause)
-        Paused --> Running: ast.control(resume)
-        Running --> Idle: ast complete
-        Idle --> Idle: data I/O
-    }
-
-    Active --> WebSocketDisconnected: WS close (navigation)
-    WebSocketDisconnected --> Active: WS reconnect
-    
-    Active --> Destroying: session.destroy (tab close)
-    WebSocketDisconnected --> Destroying: session.destroy
-
-    Destroying --> Cleanup: disconnect sent
-    Cleanup --> [*]: Resources freed
-
-    Failed --> [*]: Error sent to client
-```
-
-## AWS Deployment Architecture (Production)
+### Frontend Architecture
 
 ```mermaid
 flowchart TB
-    subgraph Users["` **👥 Users** `"]
-        U1["`👤 User 1`"]
-        U2["`👤 User 2`"]
-        UN["`👤 User N`"]
+    subgraph UI["UI Layer"]
+        TerminalPage["Terminal Page"]
+        HistoryPage["History Page"]
+        AuthGuard["Auth Guard"]
     end
 
-    subgraph AWS["` **☁️ AWS Cloud** `"]
-        subgraph VPC["` **VPC** `"]
-            subgraph PublicSubnet["` **Public Subnets** `"]
-                ALB["`**Application Load Balancer**
-                _HTTPS + WebSocket_
-                _Sticky Sessions_`"]
+    subgraph Components["Component Layer"]
+        Terminal["Terminal (xterm.js)"]
+        TabManager["Tab Manager"]
+        ASTPanel["AST Panel"]
+        SessionList["Session List"]
+    end
+
+    subgraph Hooks["Hook Layer"]
+        useTerminal["useTerminal"]
+        useAuth["useAuth"]
+        useAST["useAST"]
+    end
+
+    subgraph State["State Management"]
+        AuthContext["Auth Context (React Context)"]
+        ASTStore["AST Store (Zustand)"]
+        LocalStorage["Local Storage (Session persistence)"]
+    end
+
+    subgraph Services["Service Layer"]
+        WSService["WebSocket Service"]
+        APIClient["REST API Client"]
+        MSALService["MSAL Service"]
+    end
+
+    TerminalPage --> Terminal & TabManager & ASTPanel
+    HistoryPage --> SessionList
+    
+    Terminal --> useTerminal
+    ASTPanel --> useAST
+    AuthGuard --> useAuth
+
+    useTerminal --> WSService
+    useAuth --> MSALService & AuthContext
+    useAST --> ASTStore
+
+    WSService --> LocalStorage
+    APIClient --> LocalStorage
+    MSALService --> LocalStorage
+```
+
+### API Server Architecture
+
+```mermaid
+flowchart TB
+    subgraph HTTP["HTTP Layer"]
+        Fastify["Fastify Server"]
+        CORS["CORS Middleware"]
+        WSPlugin["WebSocket Plugin"]
+    end
+
+    subgraph Routes["Route Layer"]
+        AuthRoutes["/auth/*"]
+        SessionRoutes["/sessions/*"]
+        HistoryRoutes["/history/*"]
+        HealthRoute["/health"]
+    end
+
+    subgraph WS["WebSocket Layer"]
+        WSHandler["WebSocket Handler (/terminal/:sessionId)"]
+        MessageParser["Message Parser"]
+        MessageRouter["Message Router"]
+    end
+
+    subgraph Services["Service Layer"]
+        AuthService["Auth Service (jose JWT)"]
+        SessionService["Session Service"]
+        DynamoService["DynamoDB Service"]
+    end
+
+    subgraph Valkey["Valkey Layer"]
+        ValkeyClient["Valkey Client"]
+        Publisher["Publisher"]
+        Subscriber["Subscriber"]
+    end
+
+    Fastify --> CORS --> WSPlugin
+    WSPlugin --> WSHandler
+    Fastify --> AuthRoutes & SessionRoutes & HistoryRoutes & HealthRoute
+
+    AuthRoutes --> AuthService --> DynamoService
+    SessionRoutes --> SessionService --> DynamoService
+    HistoryRoutes --> DynamoService
+    
+    WSHandler --> MessageParser --> MessageRouter
+    MessageRouter --> ValkeyClient
+    ValkeyClient --> Publisher & Subscriber
+```
+
+### Gateway Architecture
+
+```mermaid
+flowchart TB
+    subgraph Entry["Entry Point"]
+        App["app.py"]
+        CLI["cli.py"]
+    end
+
+    subgraph Valkey["Valkey Client"]
+        ValkeyAsync["Async Valkey Client"]
+        ControlSub["Control Subscriber"]
+        InputSub["Input Subscribers"]
+        OutputPub["Output Publisher"]
+    end
+
+    subgraph TN3270["TN3270 Layer"]
+        Manager["Session Manager"]
+        Sessions["Session Pool"]
+        Host["Host Abstraction"]
+        Renderer["ANSI Renderer"]
+    end
+
+    subgraph TNZ["tnz Library"]
+        TNZCore["tnz.Tnz"]
+        ThreadPool["Thread Pool (10 workers)"]
+    end
+
+    subgraph AST["AST Framework"]
+        ASTBase["AST Base Class"]
+        Executor["Executor (Sequential/Parallel)"]
+        Runner["AST Runner"]
+        Persistence["AST Persistence"]
+    end
+
+    subgraph DB["Database"]
+        DynamoDB["DynamoDB Client"]
+    end
+
+    App --> ValkeyAsync & Manager
+    ValkeyAsync --> ControlSub & InputSub & OutputPub
+    
+    ControlSub -->|"session.create"| Manager
+    InputSub -->|"data, ast.run"| Manager
+    Manager --> Sessions
+    Sessions --> Host --> TNZCore
+    TNZCore --> ThreadPool
+    Host --> Renderer --> OutputPub
+    
+    Manager --> Runner --> Executor --> ASTBase
+    ASTBase --> Host
+    Executor --> Persistence --> DynamoDB
+```
+
+### Message Flow Architecture
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant WS as WebSocket Handler
+    participant V as Valkey
+    participant M as TN3270 Manager
+    participant T as tnz Session
+    participant H as Mainframe
+
+    Note over B,H: Input Flow (Browser → Mainframe)
+    B->>WS: data message {type:data, payload:A}
+    WS->>V: PUBLISH tn3270.input.{sessionId}
+    V->>M: MESSAGE
+    M->>T: handle_input("A")
+    T->>T: translate_key()
+    T->>H: TN3270 keystroke
+
+    Note over B,H: Output Flow (Mainframe → Browser)
+    H->>T: 3270 screen data
+    T->>T: parse screen buffer
+    M->>M: render_to_ansi()
+    M->>M: extract_fields()
+    M->>V: PUBLISH tn3270.output.{sessionId}
+    V->>WS: MESSAGE
+    WS->>B: tn3270.screen message
+```
+
+---
+
+## Component Diagrams
+
+### Web Frontend Components
+
+```mermaid
+flowchart TB
+    subgraph App["Application Shell"]
+        Router["TanStack Router"]
+        AuthProvider["Auth Provider"]
+        ThemeProvider["Theme Provider"]
+    end
+
+    subgraph Pages["Pages"]
+        IndexRoute["/ (Terminal)"]
+        HistoryRoute["/history"]
+    end
+
+    subgraph TerminalComponents["Terminal Page Components"]
+        TabBar["Tab Bar"]
+        TerminalContainer["Terminal Container"]
+        ASTSidebar["AST Sidebar"]
+    end
+
+    subgraph SharedComponents["Shared Components"]
+        NavBar["Navigation Bar"]
+        UserMenu["User Menu"]
+        LoadingSpinner["Loading Spinner"]
+        ErrorBoundary["Error Boundary"]
+    end
+
+    subgraph ASTComponents["AST Components"]
+        ASTForm["AST Form"]
+        ASTProgress["Progress Display"]
+        ASTResults["Results Table"]
+        PolicyInput["Policy Input"]
+    end
+
+    Router --> IndexRoute & HistoryRoute
+    AuthProvider --> Router
+    ThemeProvider --> AuthProvider
+
+    IndexRoute --> TabBar & TerminalContainer & ASTSidebar
+    ASTSidebar --> ASTForm & ASTProgress & ASTResults
+    ASTForm --> PolicyInput
+
+    IndexRoute & HistoryRoute --> NavBar & UserMenu
+```
+
+### API Server Routes
+
+```mermaid
+flowchart LR
+    subgraph Public["Public Endpoints"]
+        Health["GET /health"]
+    end
+
+    subgraph Protected["Protected Endpoints (JWT Required)"]
+        subgraph Auth["Auth"]
+            GetMe["GET /auth/me"]
+            Logout["POST /auth/logout"]
+        end
+
+        subgraph Sessions["Sessions"]
+            ListSessions["GET /sessions"]
+            CreateSession["POST /sessions"]
+            UpdateSession["PUT /sessions/:id"]
+            DeleteSession["DELETE /sessions/:id"]
+        end
+
+        subgraph History["History"]
+            ListHistory["GET /history"]
+            GetPolicies["GET /history/:id/policies"]
+        end
+
+        subgraph WebSocket["WebSocket"]
+            Terminal["WS /terminal/:sessionId"]
+        end
+    end
+
+    Health --> DynamoDB["DynamoDB Check"]
+    GetMe --> EntraValidation["Entra Token Validation"]
+    GetMe --> AutoProvision["Auto-Provision User"]
+    
+    ListSessions & CreateSession & UpdateSession & DeleteSession --> SessionService["Session Service"]
+    SessionService --> DynamoDB
+
+    ListHistory & GetPolicies --> HistoryService["History Service"]
+    HistoryService --> DynamoDB
+
+    Terminal --> JWTValidation["JWT Validation"]
+    Terminal --> ValkeyPubSub["Valkey Pub/Sub"]
+```
+
+### Gateway Services
+
+```mermaid
+flowchart TB
+    subgraph Core["Core Services"]
+        Config["Configuration"]
+        Channels["Channel Definitions"]
+        Errors["Error Handling"]
+    end
+
+    subgraph TN3270Service["TN3270 Service"]
+        Manager["TN3270Manager"]
+        Session["TN3270Session"]
+        Host["Host"]
+        Renderer["TN3270Renderer"]
+    end
+
+    subgraph ASTService["AST Service"]
+        BaseAST["AST Base"]
+        LoginAST["LoginAST"]
+        SeqExecutor["SequentialExecutor"]
+        ParExecutor["ParallelExecutor"]
+    end
+
+    subgraph DataService["Data Services"]
+        ValkeyClient["ValkeyClient"]
+        DynamoClient["DynamoDBClient"]
+    end
+
+    Config --> Manager & ValkeyClient & DynamoClient
+    Channels --> ValkeyClient
+    
+    Manager --> Session --> Host --> Renderer
+    Manager --> BaseAST
+    BaseAST --> LoginAST
+    BaseAST --> SeqExecutor & ParExecutor
+    
+    SeqExecutor & ParExecutor --> DynamoClient
+    Manager --> ValkeyClient
+```
+
+---
+
+## Data Flow Diagrams
+
+### Authentication Data Flow
+
+```mermaid
+flowchart LR
+    subgraph Browser["Browser"]
+        MSAL["MSAL.js"]
+        TokenCache["Token Cache"]
+    end
+
+    subgraph EntraID["Azure Entra ID"]
+        AuthEndpoint["Authorization Endpoint"]
+        TokenEndpoint["Token Endpoint"]
+        JWKS["JWKS Endpoint"]
+    end
+
+    subgraph API["API Server"]
+        JWTValidator["JWT Validator"]
+        UserService["User Service"]
+    end
+
+    subgraph DB["DynamoDB"]
+        UsersTable["Users Table"]
+    end
+
+    MSAL -->|"1. Auth Request"| AuthEndpoint
+    AuthEndpoint -->|"2. Auth Code"| MSAL
+    MSAL -->|"3. Token Request"| TokenEndpoint
+    TokenEndpoint -->|"4. Access Token"| MSAL
+    MSAL --> TokenCache
+
+    TokenCache -->|"5. API Request + Token"| JWTValidator
+    JWTValidator -->|"6. Fetch JWKS"| JWKS
+    JWTValidator -->|"7. Find/Create User"| UserService
+    UserService --> UsersTable
+```
+
+### AST Execution Data Flow
+
+```mermaid
+flowchart TB
+    subgraph Browser["Browser"]
+        ASTForm["AST Form"]
+        ProgressUI["Progress UI"]
+        ResultsUI["Results UI"]
+    end
+
+    subgraph API["API Server"]
+        WSHandler["WebSocket Handler"]
+    end
+
+    subgraph Valkey["Valkey"]
+        InputChannel["tn3270.input.*"]
+        OutputChannel["tn3270.output.*"]
+    end
+
+    subgraph Gateway["Gateway"]
+        ASTRunner["AST Runner"]
+        Executor["Executor"]
+        Host["Host"]
+    end
+
+    subgraph Mainframe["Mainframe"]
+        TN3270["TN3270"]
+    end
+
+    subgraph DB["DynamoDB"]
+        Executions["Executions"]
+        Policies["Policy Results"]
+    end
+
+    ASTForm -->|"1. ast.run"| WSHandler
+    WSHandler -->|"2. Publish"| InputChannel
+    InputChannel -->|"3. Subscribe"| ASTRunner
+    ASTRunner -->|"4. Create Execution"| Executions
+    ASTRunner --> Executor
+    
+    loop For Each Item
+        Executor --> Host
+        Host -->|"5. TN3270 Commands"| TN3270
+        TN3270 -->|"6. Screen Response"| Host
+        Executor -->|"7. Save Result"| Policies
+        Executor -->|"8. ast.progress"| OutputChannel
+        OutputChannel -->|"9. Forward"| WSHandler
+        WSHandler -->|"10. Update"| ProgressUI
+    end
+    
+    Executor -->|"11. ast.status"| OutputChannel
+    OutputChannel -->|"12. Complete"| WSHandler
+    WSHandler -->|"13. Show"| ResultsUI
+```
+
+---
+
+## Deployment Diagrams
+
+### AWS Production Deployment
+
+```mermaid
+flowchart TB
+    subgraph Internet["Internet"]
+        Users["👥 Users"]
+    end
+
+    subgraph AWS["AWS Cloud"]
+        subgraph Edge["Edge Services"]
+            CloudFront["☁️ CloudFront"]
+            Route53["🌐 Route 53"]
+            WAF["🛡️ WAF"]
+        end
+
+        subgraph VPC["VPC (10.0.0.0/16)"]
+            subgraph PublicSubnet["Public Subnets"]
+                ALB["⚖️ Application Load Balancer"]
+                NAT["🔀 NAT Gateway"]
             end
 
-            subgraph PrivateSubnet["` **Private Subnets** `"]
-                subgraph ECSAPI["` **ECS Cluster (API)** `"]
-                    API1["`API Task 1`"]
-                    API2["`API Task 2`"]
+            subgraph PrivateSubnet["Private Subnets"]
+                subgraph ROSA["ROSA Cluster"]
+                    APIService["API Service (OpenShift Pods)"]
                 end
 
-                subgraph EC2Gateway["` **EC2 Auto Scaling** `"]
-                    GW1["`Gateway Instance 1
-                    _(10 sessions)_`"]
-                    GW2["`Gateway Instance 2
-                    _(10 sessions)_`"]
+                subgraph EC2ASG["EC2 Auto Scaling Group"]
+                    Gateway1["TN3270 Gateway"]
+                    Gateway2["TN3270 Gateway"]
                 end
 
-                ElastiCache["`**ElastiCache**
-                _(Valkey/Redis)_`"]
+                ElastiCache["📡 ElastiCache (Redis Mode)"]
             end
         end
 
-        DynamoDB2["`**DynamoDB**
-        _(On-Demand)_`"]
-        
-        S3["`**S3 + CloudFront**
-        _(Static Assets)_`"]
+        subgraph ManagedServices["Managed Services"]
+            DynamoDB["🗄️ DynamoDB"]
+            S3["📦 S3"]
+            SecretsManager["🔐 Secrets Manager"]
+            CloudWatch["📊 CloudWatch"]
+        end
     end
 
-    subgraph OnPrem["` **On-Premises / Direct Connect** `"]
-        Mainframe2["`🖥️ **Mainframe**
-        _(TN3270)_`"]
+    subgraph OnPrem["On-Premises"]
+        DirectConnect["🔗 Direct Connect"]
+        Mainframe["🖥️ Mainframe"]
     end
 
-    U1 & U2 & UN --> S3
+    subgraph Azure["Azure"]
+        EntraID["🔐 Entra ID"]
+    end
+
+    Users --> Route53 --> CloudFront
+    CloudFront --> S3
+    Users --> WAF --> ALB
+    
+    ALB --> APIService
+    APIService --> ElastiCache
+    ElastiCache --> Gateway1 & Gateway2
+    
+    APIService --> DynamoDB
+    Gateway1 & Gateway2 --> DynamoDB
+    
+    Gateway1 & Gateway2 --> NAT --> DirectConnect --> Mainframe
+    
+    APIService & Gateway1 & Gateway2 --> SecretsManager
+    APIService & Gateway1 & Gateway2 --> CloudWatch
+    
+    APIService -.-> EntraID
+```
+
+### Container Architecture
+
+```mermaid
+flowchart TB
+    subgraph APIContainer["API Server Container"]
+        NodeJS["Node.js 22"]
+        Fastify["Fastify 5"]
+        IORedis["ioredis"]
+        AWSSDK["AWS SDK v3"]
+        Jose["jose"]
+    end
+
+    subgraph GatewayContainer["Gateway Container"]
+        Python["Python 3.11"]
+        Asyncio["asyncio"]
+        TNZ["tnz"]
+        RedisPy["redis-py"]
+        Boto3["boto3"]
+    end
+
+    subgraph WebContainer["Web Container (Build Only)"]
+        Node["Node.js"]
+        Vite["Vite 7"]
+        React["React 19"]
+        XtermJS["xterm.js"]
+    end
+
+    subgraph Output["Build Output"]
+        StaticFiles["Static Files (HTML, JS, CSS)"]
+    end
+
+    WebContainer -->|"npm run build"| StaticFiles
+    StaticFiles -->|"Deploy"| S3["S3 Bucket"]
+```
+
+### Local Development Setup
+
+```mermaid
+flowchart TB
+    subgraph LocalMachine["Local Machine"]
+        subgraph Terminal1["Terminal 1"]
+            DevScript["./scripts/dev.sh"]
+        end
+
+        subgraph Docker["Docker Desktop"]
+            Valkey["🐳 Valkey localhost:6379"]
+            DynamoDB["🐳 DynamoDB Local localhost:8042"]
+        end
+
+        subgraph Processes["Application Processes"]
+            WebDev["📦 Web (Vite Dev) localhost:5173"]
+            APIDev["⚡ API (tsx watch) localhost:3000"]
+            GatewayDev["🐍 Gateway (Python)"]
+        end
+
+        subgraph Mainframe["Mainframe Access"]
+            Hercules["💻 Hercules Emulator"]
+            RealMainframe["🖥️ Real Mainframe (VPN Required)"]
+        end
+    end
+
+    DevScript -->|"docker-compose up"| Valkey & DynamoDB
+    DevScript -->|"pnpm dev"| WebDev & APIDev
+    DevScript -->|"python -m src"| GatewayDev
+
+    WebDev -->|"HTTP"| APIDev
+    APIDev -->|"Pub/Sub"| Valkey
+    Valkey -->|"Pub/Sub"| GatewayDev
+    GatewayDev --> Hercules
+    GatewayDev --> RealMainframe
+```
+
+---
+
+## Scaling Diagrams
+
+### Horizontal Scaling Strategy
+
+```mermaid
+flowchart TB
+    subgraph Users["User Traffic"]
+        U1["User 1"]
+        U2["User 2"]
+        UN["User N"]
+    end
+
+    subgraph LB["Load Balancer"]
+        ALB["Application Load Balancer (Sticky Sessions for WS)"]
+    end
+
+    subgraph APITier["API Tier (ROSA - Stateless)"]
+        API1["API Server 1"]
+        API2["API Server 2"]
+        API3["API Server 3"]
+    end
+
+    subgraph Cache["Message Broker"]
+        Valkey["Valkey Cluster (Redis Cluster Mode)"]
+    end
+
+    subgraph GatewayTier["Gateway Tier (Stateful Sessions)"]
+        GW1["Gateway 1 (Sessions: A, B, C)"]
+        GW2["Gateway 2 (Sessions: D, E, F)"]
+        GW3["Gateway 3 (Sessions: G, H, I)"]
+    end
+
+    subgraph Mainframes["Mainframe Pool"]
+        MF1["Mainframe 1"]
+        MF2["Mainframe 2"]
+    end
+
     U1 & U2 & UN --> ALB
-
-    ALB --> API1 & API2
-    API1 & API2 <--> ElastiCache
-    API1 & API2 --> DynamoDB2
+    ALB --> API1 & API2 & API3
     
-    ElastiCache <--> GW1 & GW2
-    GW1 & GW2 --> DynamoDB2
-    GW1 & GW2 -->|"`Direct Connect / VPN`"| Mainframe2
+    API1 & API2 & API3 <-->|"Pub/Sub"| Valkey
+    Valkey <-->|"Pub/Sub"| GW1 & GW2 & GW3
+    
+    GW1 --> MF1
+    GW2 --> MF1 & MF2
+    GW3 --> MF2
 ```
 
-## Development Architecture
+### Auto-Scaling Rules
+
+```mermaid
+flowchart LR
+    subgraph Metrics["CloudWatch Metrics"]
+        CPU["CPU Utilization"]
+        Memory["Memory Usage"]
+        Connections["Active Connections"]
+        Queue["Message Queue Depth"]
+    end
+
+    subgraph Rules["Scaling Rules"]
+        CPURule["CPU > 70% → Scale Out"]
+        ConnRule["Connections > 100/instance → Scale Out"]
+        QueueRule["Queue Depth > 1000 → Scale Out"]
+    end
+
+    subgraph Actions["Scaling Actions"]
+        APIScale["API: Scale ROSA Pods"]
+        GWScale["Gateway: Add EC2 Instances"]
+        CacheScale["Cache: Add Read Replicas"]
+    end
+
+    CPU --> CPURule --> APIScale & GWScale
+    Connections --> ConnRule --> APIScale
+    Queue --> QueueRule --> GWScale
+    Memory --> CacheScale
+```
+
+---
+
+## Security Diagram
+
+### Security Architecture
 
 ```mermaid
 flowchart TB
-    subgraph Dev["` **Development Environment** `"]
-        subgraph Local["` **localhost** `"]
-            WebDev["`**Vite Dev Server**
-            _:5173_`"]
-            APIDev["`**Fastify**
-            _:3001_`"]
-            GatewayDev["`**Python Gateway**
-            _asyncio_`"]
-        end
-
-        subgraph Docker["` **Docker Compose** `"]
-            ValkeyDev["`**Valkey**
-            _:6379_`"]
-            DynamoDBLocal["`**DynamoDB Local**
-            _:8042_`"]
-        end
-
-        subgraph External2["` **External** `"]
-            TK4["`**TK4- Mainframe**
-            _(Hercules)_
-            _:3270_`"]
-        end
+    subgraph Public["Public Zone"]
+        Users["👥 Users"]
+        WAF["🛡️ AWS WAF (Rate Limiting, SQL Injection)"]
     end
 
-    WebDev -->|"`HTTP/WS`"| APIDev
-    APIDev <--> ValkeyDev <--> GatewayDev
-    APIDev --> DynamoDBLocal
-    GatewayDev --> DynamoDBLocal
-    GatewayDev -->|"`TN3270`"| TK4
+    subgraph Auth["Authentication"]
+        EntraID["🔐 Azure Entra ID"]
+        JWKS["📜 JWKS Endpoint"]
+    end
+
+    subgraph Transport["Transport Security"]
+        TLS["🔒 TLS 1.3"]
+        ALB["ALB (HTTPS Only)"]
+    end
+
+    subgraph App["Application Security"]
+        JWTValidation["🎫 JWT Validation"]
+        RBAC["👤 User-Scoped Access"]
+        InputValidation["✅ Input Validation"]
+    end
+
+    subgraph Data["Data Security"]
+        DDBEncryption["🔐 DynamoDB Encryption (At Rest)"]
+        SecretsManager["🔑 AWS Secrets Manager"]
+        IAMRoles["🎭 IAM Roles"]
+    end
+
+    subgraph Network["Network Security"]
+        VPC["🏰 VPC Isolation"]
+        SG["🚧 Security Groups"]
+        PrivateSubnets["🔒 Private Subnets"]
+    end
+
+    Users --> WAF --> TLS --> ALB
+    Users --> EntraID
+    EntraID --> JWKS
+    
+    ALB --> JWTValidation
+    JWTValidation --> JWKS
+    JWTValidation --> RBAC --> InputValidation
+    
+    InputValidation --> VPC
+    VPC --> SG --> PrivateSubnets
+    
+    PrivateSubnets --> DDBEncryption
+    PrivateSubnets --> SecretsManager
+    SecretsManager --> IAMRoles
+```
+
+---
+
+## Monitoring Diagram
+
+### Observability Stack
+
+```mermaid
+flowchart TB
+    subgraph Apps["Applications"]
+        API["API Server"]
+        Gateway["Gateway"]
+        Web["Web App"]
+    end
+
+    subgraph Logging["Logging"]
+        Pino["Pino (API)"]
+        Structlog["structlog (Gateway)"]
+        CloudWatchLogs["CloudWatch Logs"]
+    end
+
+    subgraph Metrics["Metrics"]
+        APIMetrics["API Metrics (Request Rate, Latency)"]
+        GWMetrics["Gateway Metrics (Session Count, AST Duration)"]
+        CloudWatchMetrics["CloudWatch Metrics"]
+    end
+
+    subgraph Tracing["Tracing"]
+        XRay["AWS X-Ray"]
+    end
+
+    subgraph Alerting["Alerting"]
+        CloudWatchAlarms["CloudWatch Alarms"]
+        SNS["SNS Topics"]
+        PagerDuty["PagerDuty/Slack"]
+    end
+
+    subgraph Dashboards["Dashboards"]
+        CloudWatchDashboard["CloudWatch Dashboard"]
+    end
+
+    API --> Pino --> CloudWatchLogs
+    Gateway --> Structlog --> CloudWatchLogs
+    
+    API --> APIMetrics --> CloudWatchMetrics
+    Gateway --> GWMetrics --> CloudWatchMetrics
+    
+    API & Gateway --> XRay
+    
+    CloudWatchMetrics --> CloudWatchAlarms --> SNS --> PagerDuty
+    CloudWatchLogs & CloudWatchMetrics --> CloudWatchDashboard
 ```

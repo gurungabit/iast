@@ -1,498 +1,687 @@
-# Terminal Monorepo Architecture
+# IAST - Interactive Automated Streamlined Terminal
 
-## Overview
+## Executive Summary
 
-This is a full-stack web-based terminal application that provides secure, real-time TN3270 terminal emulation through a browser. The architecture follows a microservices pattern with clear separation of concerns.
+IAST is a web-based TN3270 terminal emulator and automation platform that enables secure browser-based access to IBM mainframe systems. It provides real-time terminal emulation with support for Automated Streamlined Transactions (ASTs) - automated scripts that can perform complex mainframe operations.
 
+## System Overview
+
+```mermaid
+flowchart TB
+    subgraph "Client Layer"
+        Browser["🌐 Browser (React + xterm.js)"]
+    end
+    
+    subgraph "Application Layer"
+        API["⚡ API Server (Node.js + Fastify)"]
+    end
+    
+    subgraph "Message Layer"
+        Valkey["📡 Valkey (Redis-compatible)"]
+    end
+    
+    subgraph "Gateway Layer"
+        Gateway["🐍 TN3270 Gateway (Python + asyncio)"]
+    end
+    
+    subgraph "Data Layer"
+        DynamoDB["🗄️ DynamoDB (Single Table Design)"]
+    end
+    
+    subgraph "External Systems"
+        Mainframe["🖥️ IBM Mainframe (z/OS, TSO)"]
+        EntraID["🔐 Azure Entra ID (Authentication)"]
+    end
+    
+    Browser -->|"HTTPS/WSS"| API
+    API -->|"Pub/Sub"| Valkey
+    Valkey -->|"Pub/Sub"| Gateway
+    Gateway -->|"TN3270 TCP:23"| Mainframe
+    
+    API -->|"HTTP"| DynamoDB
+    Gateway -->|"HTTP"| DynamoDB
+    Browser -->|"OAuth 2.0"| EntraID
+    API -->|"JWT Validation"| EntraID
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              Browser (Client)                                │
-│  ┌─────────────────────────────────────────────────────────────────────────┐ │
-│  │                React 19 + Vite 7 + TanStack Router + Zustand            │ │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────────┐   │ │
-│  │  │   Auth UI    │  │  AST Panel   │  │     Terminal Component       │   │ │
-│  │  │ (Entra SSO)  │  │  (Zustand)   │  │    (xterm.js + WebSocket)    │   │ │
-│  │  └──────────────┘  └──────────────┘  └──────────────────────────────┘   │ │
-│  └─────────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      │ HTTP (REST) + WebSocket
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            API Server (Node.js)                              │
-│  ┌─────────────────────────────────────────────────────────────────────────┐ │
-│  │                      Fastify + @fastify/websocket                       │ │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────────┐   │ │
-│  │  │  Auth Routes │  │  History API │  │    WebSocket Terminal        │   │ │
-│  │  │ (Entra/jose) │  │ (Executions) │  │       Handler                │   │ │
-│  │  └──────────────┘  └──────────────┘  └──────────────────────────────┘   │ │
-│  │                          │                        │                     │ │
-│  │                   ┌──────┴───────┐                │                     │ │
-│  │                   │  DynamoDB    │                │                     │ │
-│  │                   │   Client     │                │                     │ │
-│  │                   └──────────────┘                │                     │ │
-│  └─────────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      │ Pub/Sub (Redis Protocol)
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          Valkey (Redis-compatible)                           │
-│  ┌─────────────────────────────────────────────────────────────────────────┐ │
-│  │                         Pub/Sub Channels                                │ │
-│  │  ┌──────────────────┐  ┌─────────────────┐  ┌──────────────────────┐    │ │
-│  │  │ gateway.control  │  │ tn3270.input.<id>│  │  tn3270.output.<id>  │    │ │
-│  │  │ (session create) │  │ (user keystrokes)│  │  (TN3270 output)     │    │ │
-│  │  └──────────────────┘  └─────────────────┘  └──────────────────────┘    │ │
-│  └─────────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      │ Pub/Sub (Redis Protocol)
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          TN3270 Gateway (Python)                             │
-│  ┌─────────────────────────────────────────────────────────────────────────┐ │
-│  │                    asyncio + redis-py + tn3270 + DynamoDB               │ │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────────┐   │ │
-│  │  │ Valkey Client│  │ AST Engine   │  │      TN3270 Sessions         │   │ │
-│  │  │  (Pub/Sub)   │  │ (Automation) │  │   (TN3270 connections)       │   │ │
-│  │  └──────────────┘  └──────────────┘  └──────────────────────────────┘   │ │
-│  │                          │                                              │ │
-│  │                   ┌──────┴───────┐                                      │ │
-│  │                   │  DynamoDB    │  (Execution history, policies)       │ │
-│  │                   │   Client     │                                      │ │
-│  │                   └──────────────┘                                      │ │
-│  └─────────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      │ TN3270 Protocol (TCP)
-                                      ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Mainframe (TN3270 Host)                            │
-│  ┌─────────────────────────────────────────────────────────────────────────┐ │
-│  │                          IBM z/OS, TSO, etc.                            │ │
-│  └─────────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────────┘
+
+## Technology Stack
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Frontend** | React 19, Vite 7, TypeScript 5.9 | UI Framework |
+| | xterm.js | Terminal emulation |
+| | TanStack Router | Client-side routing |
+| | Zustand | State management |
+| | MSAL.js | Azure AD authentication |
+| | Tailwind CSS v4 | Styling |
+| **API Server** | Node.js, Fastify 5 | HTTP/WebSocket server |
+| | ioredis | Valkey client |
+| | jose | JWT validation |
+| | AWS SDK v3 | DynamoDB client |
+| **Gateway** | Python 3.11+, asyncio | TN3270 protocol handling |
+| | tnz library | 3270 terminal emulation |
+| | redis-py | Valkey client |
+| | boto3 | DynamoDB client |
+| **Message Broker** | Valkey (Redis-compatible) | Pub/Sub messaging |
+| **Database** | AWS DynamoDB | Persistent storage |
+| **Authentication** | Azure Entra ID | Identity provider |
+
+## Architecture Components
+
+### 1. Web Frontend (`apps/web`)
+
+The frontend is a single-page application (SPA) providing:
+
+- **Terminal Emulation**: Full TN3270 terminal rendering using xterm.js with ANSI escape sequence support
+- **Multi-Tab Sessions**: Multiple concurrent terminal sessions with tab management
+- **AST Panel**: Form-based interface for running automated transactions
+- **Execution History**: View and track AST execution history
+- **Authentication**: Azure Entra ID SSO via MSAL.js
+
+**Key Files:**
 ```
+apps/web/src/
+├── components/
+│   └── Terminal.tsx          # xterm.js terminal component
+├── hooks/
+│   ├── useTerminal.ts        # Terminal + WebSocket integration
+│   ├── useAuth.ts            # Authentication state
+│   └── useAST.ts             # AST state management
+├── stores/
+│   └── astStore.ts           # Zustand store for per-tab AST state
+├── services/
+│   └── websocket.ts          # WebSocket client with reconnection
+├── ast/                      # AST panel components
+└── routes/
+    ├── index.tsx             # Terminal page with tabs
+    └── history/route.tsx     # Execution history page
+```
+
+**State Flow:**
+```mermaid
+flowchart LR
+    subgraph "React Components"
+        Terminal["Terminal"]
+        ASTPanel["AST Panel"]
+        History["History"]
+    end
+    
+    subgraph "State"
+        AuthCtx["Auth Context"]
+        ASTStore["Zustand Store"]
+        WS["WebSocket Service"]
+    end
+    
+    Terminal --> WS
+    ASTPanel --> ASTStore
+    ASTPanel --> WS
+    History --> API["REST API"]
+    
+    WS -->|"Messages"| Terminal
+    WS -->|"AST Updates"| ASTStore
+```
+
+### 2. API Server (`apps/api`)
+
+The API server acts as the bridge between the browser and the TN3270 gateway:
+
+- **WebSocket Endpoint**: `/terminal/:sessionId` for real-time terminal communication
+- **REST API**: User info, sessions, and execution history
+- **Authentication**: Azure Entra ID token validation via jose library
+- **Message Routing**: Forwards messages between browser and gateway via Valkey
+
+**Key Files:**
+```
+apps/api/src/
+├── server/
+│   └── app.ts                # Fastify application setup
+├── routes/
+│   ├── auth.ts               # User info (auto-provisions from Entra)
+│   ├── sessions.ts           # Session CRUD
+│   └── history.ts            # Execution history
+├── ws/
+│   └── terminal.ts           # WebSocket handler
+├── services/
+│   ├── auth.ts               # Entra token validation
+│   ├── session.ts            # Session management
+│   └── dynamodb.ts           # Database client
+└── valkey/
+    └── client.ts             # Valkey pub/sub client
+```
+
+**API Endpoints:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/auth/me` | Get current user (auto-provisions) |
+| `GET` | `/sessions` | List user's sessions |
+| `POST` | `/sessions` | Create new session |
+| `PUT` | `/sessions/:id` | Update session |
+| `DELETE` | `/sessions/:id` | Delete session |
+| `GET` | `/history` | List execution history |
+| `GET` | `/history/:id/policies` | Get execution policy results |
+| `WS` | `/terminal/:sessionId?token=xxx` | WebSocket terminal |
+| `GET` | `/health` | Health check with DynamoDB validation |
+
+### 3. TN3270 Gateway (`gateway`)
+
+The gateway handles TN3270 protocol communication with mainframes:
+
+- **Session Management**: Creates/manages TN3270 connections via tnz library
+- **Screen Rendering**: Converts 3270 screen data to ANSI escape sequences
+- **Key Translation**: Maps xterm.js keyboard input to 3270 keys (PF1-24, PA1-3, Enter, etc.)
+- **AST Execution**: Runs automated scripts against mainframe sessions
+- **Field Detection**: Extracts protected/unprotected field positions
+
+**Key Files:**
+```
+gateway/src/
+├── app.py                    # Main application entry
+├── services/
+│   ├── valkey.py             # Async Valkey client
+│   └── tn3270/
+│       ├── manager.py        # Session manager
+│       ├── host.py           # Host interaction abstraction
+│       └── renderer.py       # 3270 → ANSI conversion
+├── ast/
+│   └── login.py              # Example AST implementation
+├── core/
+│   ├── ast/
+│   │   ├── base.py           # AST base class
+│   │   ├── executor.py       # Sequential/Parallel executors
+│   │   ├── persistence.py    # Execution history storage
+│   │   └── runner.py         # AST runner
+│   ├── channels.py           # Pub/sub channel definitions
+│   └── config.py             # Configuration
+├── db/
+│   └── client.py             # DynamoDB single-table client
+└── models/
+    └── *.py                  # Pydantic message models
+```
+
+**3270 Key Mappings:**
+
+| Input | 3270 Key |
+|-------|----------|
+| F1-F12 | PF1-PF12 |
+| Shift+F1-F12 | PF13-PF24 |
+| Ctrl+F1-F3 | PA1-PA3 |
+| Enter | Enter |
+| Tab | Tab |
+| Shift+Tab | Backtab |
+| Insert | Clear |
+| Arrow Keys | Cursor movement |
+
+### 4. Shared Package (`packages/shared`)
+
+TypeScript types and utilities shared between frontend and API:
+
+```typescript
+// Message types (discriminated unions)
+type MessageType = 
+  | 'data'           // Terminal I/O
+  | 'resize'         // Terminal resize
+  | 'ping' | 'pong'  // Heartbeat
+  | 'error'          // Error messages
+  | 'session.create' | 'session.destroy'
+  | 'session.created' | 'session.destroyed'
+  | 'tn3270.screen'  // Screen update with field data
+  | 'ast.run' | 'ast.control'
+  | 'ast.status' | 'ast.paused';
+
+// Channel definitions
+const CHANNELS = {
+  TN3270_INPUT: 'tn3270.input.<sessionId>',   // Browser → Gateway
+  TN3270_OUTPUT: 'tn3270.output.<sessionId>', // Gateway → Browser
+  TN3270_CONTROL: 'tn3270.control',           // Session control
+  GATEWAY_CONTROL: 'gateway.control',          // Gateway commands
+  SESSIONS: 'sessions.events',                 // Session events
+};
+```
+
+## Data Flow
+
+### Terminal Session Lifecycle
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant B as Browser
+    participant A as API Server
+    participant V as Valkey
+    participant G as Gateway
+    participant M as Mainframe
+
+    rect rgb(40, 60, 80)
+        Note over B,M: 1. Connection Establishment
+        B->>A: WebSocket Connect<br/>/terminal/:sessionId?token=xxx
+        A->>A: Validate Entra JWT
+        A->>A: Create session record
+    end
+
+    rect rgb(60, 80, 40)
+        Note over B,M: 2. TN3270 Session Creation
+        B->>A: session.create message
+        A->>V: PUBLISH tn3270.input/:id
+        V->>G: MESSAGE
+        G->>M: TN3270 Connect (TCP)
+        M-->>G: Connection Established
+        G->>V: PUBLISH tn3270.output/:id<br/>(session.created)
+        V->>A: MESSAGE
+        A-->>B: session.created
+    end
+
+    rect rgb(80, 60, 40)
+        Note over B,M: 3. Screen Updates
+        M-->>G: 3270 Screen Data
+        G->>G: Convert to ANSI + Extract Fields
+        G->>V: PUBLISH tn3270.output/:id<br/>(tn3270.screen)
+        V->>A: MESSAGE
+        A-->>B: tn3270.screen + field map
+        B->>B: Render in xterm.js
+    end
+
+    rect rgb(40, 80, 60)
+        Note over B,M: 4. User Input
+        B->>A: data message (keystroke)
+        A->>V: PUBLISH tn3270.input/:id
+        V->>G: MESSAGE
+        G->>G: Translate to 3270 key
+        G->>M: 3270 Key/Data
+    end
+
+    rect rgb(80, 40, 60)
+        Note over B,M: 5. AST Execution
+        B->>A: ast.run message
+        A->>V: PUBLISH tn3270.input/:id
+        V->>G: MESSAGE
+        G->>G: Execute AST
+        loop For each step
+            G->>M: Automated input
+            M-->>G: Screen response
+            G->>V: ast.progress
+            V->>A: MESSAGE
+            A-->>B: Progress update
+        end
+        G->>V: ast.status (completed)
+        V->>A: MESSAGE
+        A-->>B: AST completed
+    end
+```
+
+### Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant E as Azure Entra ID
+    participant A as API Server
+    participant D as DynamoDB
+
+    B->>E: OAuth 2.0 Authorization Request
+    E->>B: Authorization Code
+    B->>E: Token Request
+    E->>B: Access Token (JWT)
+    
+    B->>A: GET /auth/me<br/>Authorization: Bearer token
+    A->>E: Fetch JWKS (cached)
+    A->>A: Validate JWT signature
+    A->>A: Validate audience, issuer
+    A->>D: Find user by oid
+    
+    alt User not found
+        A->>D: Create user (auto-provision)
+    end
+    
+    A-->>B: User profile
+```
+
+## Data Model (DynamoDB Single Table Design)
+
+```mermaid
+erDiagram
+    USER ||--o{ SESSION : has
+    SESSION ||--o{ EXECUTION : contains
+    EXECUTION ||--o{ POLICY_RESULT : produces
+
+    USER {
+        string PK "USER#userId"
+        string SK "PROFILE"
+        string email
+        string displayName
+        datetime createdAt
+    }
+    
+    SESSION {
+        string PK "USER#userId"
+        string SK "SESSION#sessionId"
+        string name
+        datetime createdAt
+        datetime lastActivity
+    }
+    
+    EXECUTION {
+        string PK "SESSION#sessionId"
+        string SK "EXECUTION#execId"
+        string astName
+        string status
+        datetime startedAt
+        datetime completedAt
+        int totalItems
+        int completedItems
+    }
+    
+    POLICY_RESULT {
+        string PK "EXECUTION#execId"
+        string SK "POLICY#policyNum"
+        string status
+        json data
+        datetime processedAt
+    }
+```
+
+**Key Structure:**
+
+| Entity | PK | SK | GSI1PK | GSI2PK |
+|--------|----|----|--------|--------|
+| User Profile | `USER#<userId>` | `PROFILE` | `<email>` | - |
+| Session | `USER#<userId>` | `SESSION#<sessionId>` | - | - |
+| Execution | `SESSION#<sessionId>` | `EXECUTION#<execId>` | - | `USER#<userId>#DATE#<date>` |
+| Policy Result | `EXECUTION#<execId>` | `POLICY#<policyNum>` | - | - |
+
+## Message Protocol
+
+All WebSocket and Pub/Sub messages use a consistent envelope format:
+
+```typescript
+interface MessageEnvelope {
+  type: MessageType;          // Discriminator
+  sessionId: string;          // Session identifier
+  timestamp: number;          // Unix timestamp (ms)
+  encoding: 'utf-8' | 'base64';
+  seq: number;                // Sequence number
+  payload: string;            // Message data
+  meta?: Record<string, unknown>;  // Type-specific metadata
+}
+```
+
+**Key Message Types:**
+
+| Type | Direction | Purpose | Meta Fields |
+|------|-----------|---------|-------------|
+| `data` | Bidirectional | Terminal I/O | - |
+| `tn3270.screen` | Gateway → Browser | Screen update | `fields`, `cursorRow`, `cursorCol`, `rows`, `cols` |
+| `session.create` | Browser → Gateway | Create TN3270 session | `terminalType`, `cols`, `rows` |
+| `ast.run` | Browser → Gateway | Start AST execution | `astName`, `params` |
+| `ast.status` | Gateway → Browser | AST completion | `status`, `result`, `error` |
+| `ast.progress` | Gateway → Browser | AST progress | `current`, `total`, `currentItem` |
+| `error` | Any | Error notification | `code`, `details` |
+
+## AST (Automated Streamlined Transaction) System
+
+ASTs are Python classes that automate mainframe interactions:
+
+```python
+class LoginAST(AST):
+    """Automated login and policy processing."""
+    
+    name = "login"
+    description = "Login to TSO and process policies"
+    supports_parallel = True  # Can run in parallel sessions
+    
+    def login(self, host: Host, username: str, password: str) -> bool:
+        """Authenticate to the mainframe."""
+        host.wait_for_text("USERID")
+        host.fill_field_at_position(row, col, username)
+        host.pf(1)  # Press PF1
+        return host.wait_for_text("READY")
+    
+    def process_single_item(self, host: Host, item: str, 
+                            index: int, total: int) -> tuple[bool, str, dict]:
+        """Process a single policy number."""
+        # Navigate to policy screen
+        # Extract data
+        # Return (success, message, data)
+        pass
+    
+    def logoff(self, host: Host) -> bool:
+        """Sign off from the session."""
+        host.pf(15)  # Exit
+        return host.wait_for_text("SIGNON")
+```
+
+**Execution Modes:**
+- **Sequential**: Single session processes all items
+- **Parallel**: Multiple sessions divide the workload
+
+**Progress Reporting:**
+```mermaid
+flowchart LR
+    A["AST Start"] --> B["Login"]
+    B --> C["Process Items"]
+    C --> D{"More Items?"}
+    D -->|Yes| E["Process Item"]
+    E --> F["Report Progress"]
+    F --> C
+    D -->|No| G["Logoff"]
+    G --> H["Complete"]
+    
+    F -->|"ast.progress"| Browser
+    H -->|"ast.status"| Browser
+```
+
+## Security Architecture
+
+### Authentication & Authorization
+
+1. **Azure Entra ID Integration**
+   - OAuth 2.0 authorization code flow with PKCE
+   - Access tokens validated via JWKS (cached)
+   - User auto-provisioned on first login
+
+2. **Token Validation (jose library)**
+   - Signature verification against Microsoft JWKS
+   - Audience validation (API client ID)
+   - Issuer validation (tenant-specific)
+   - Expiration checking
+
+3. **WebSocket Security**
+   - Token passed via query parameter (`?token=xxx`)
+   - Validated before session creation
+   - Sessions bound to user ID
+
+### Data Protection
+
+- All external communication over TLS
+- Mainframe credentials never stored (passed at runtime)
+- Session IDs are UUIDs
+- DynamoDB encrypted at rest
 
 ## Directory Structure
 
 ```
 terminal/
 ├── apps/
-│   ├── api/                    # Fastify backend server
+│   ├── api/                    # Node.js API server
+│   │   ├── package.json
 │   │   └── src/
-│   │       ├── routes/         # HTTP endpoints (auth, history, sessions)
-│   │       ├── ws/             # WebSocket handlers
-│   │       ├── services/       # Business logic (auth, session, dynamodb)
-│   │       ├── models/         # Data models (user, session)
-│   │       └── valkey/         # Valkey pub/sub client
+│   │       ├── index.ts        # Entry point
+│   │       ├── config/         # Configuration
+│   │       ├── models/         # Data models
+│   │       ├── routes/         # HTTP routes
+│   │       ├── server/         # Fastify setup
+│   │       ├── services/       # Business logic
+│   │       ├── valkey/         # Pub/sub client
+│   │       └── ws/             # WebSocket handlers
 │   │
 │   └── web/                    # React frontend
+│       ├── package.json
 │       └── src/
-│           ├── components/     # UI components (Terminal, History, etc.)
-│           ├── hooks/          # React hooks (useAuth, useTerminal, useAST)
-│           ├── stores/         # Zustand stores (astStore)
-│           ├── services/       # API client, WebSocket service
-│           ├── ast/            # AST panel components and forms
-│           ├── routes/         # TanStack Router pages
-│           └── config/         # Frontend configuration
-│
-├── packages/
-│   └── shared/                 # Shared TypeScript types & utilities
-│       └── src/
-│           ├── messages.ts     # Message envelope types
-│           ├── channels.ts     # Pub/sub channel definitions
-│           ├── errors.ts       # Error codes & types
-│           ├── auth.ts         # Auth-related types
-│           └── utils.ts        # Shared utilities
+│           ├── main.tsx        # Entry point
+│           ├── ast/            # AST panel components
+│           ├── components/     # UI components
+│           ├── config/         # Configuration
+│           ├── context/        # React contexts
+│           ├── hooks/          # React hooks
+│           ├── providers/      # Context providers
+│           ├── routes/         # Page components
+│           ├── services/       # API/WebSocket clients
+│           ├── stores/         # Zustand stores
+│           └── utils/          # Utilities
 │
 ├── gateway/                    # Python TN3270 gateway
+│   ├── pyproject.toml
+│   ├── requirements.txt
 │   └── src/
-│       ├── app.py              # Main entry point
-│       ├── services/           # TN3270 service, Valkey client
-│       ├── ast/                # AST automation scripts
-│       ├── models/             # Pydantic message models
+│       ├── app.py              # Entry point
+│       ├── cli.py              # CLI commands
+│       ├── ast/                # AST implementations
+│       ├── core/               # Core modules
+│       │   ├── ast/            # AST framework
+│       │   ├── channels.py     # Channel definitions
+│       │   ├── config.py       # Configuration
+│       │   └── errors.py       # Error handling
 │       ├── db/                 # DynamoDB client
-│       └── core/               # Config, channels, errors
+│       ├── models/             # Pydantic models
+│       └── services/           # Services
+│           ├── valkey.py       # Valkey client
+│           └── tn3270/         # TN3270 handling
+│
+├── packages/
+│   └── shared/                 # Shared TypeScript types
+│       └── src/
+│           ├── index.ts
+│           ├── messages.ts     # Message types
+│           ├── channels.ts     # Channel constants
+│           ├── config.ts       # Config types
+│           └── errors.ts       # Error codes
 │
 ├── infra/
-│   └── docker-compose.dev.yml  # Valkey + DynamoDB containers
+│   └── docker-compose.dev.yml  # Local infrastructure
 │
 ├── scripts/
-│   └── dev.sh                  # Development startup script
+│   ├── dev.sh                  # Development startup
+│   └── setup-dynamodb.sh       # DynamoDB table creation
 │
 └── docs/
     ├── ARCHITECTURE.md         # This document
-    ├── diagrams.md             # Mermaid architecture diagrams
-    └── AWS_DEPLOYMENT.md       # AWS deployment guide
+    ├── AWS_DEPLOYMENT.md       # Deployment guide
+    └── diagrams.md             # Additional diagrams
 ```
 
-## Components
+## Configuration
 
-### 1. Web Frontend (`apps/web`)
+### Environment Variables
 
-**Technology**: React 19, Vite 7, TypeScript 5.9, TanStack Router, Zustand, Tailwind CSS v4, xterm.js, MSAL
+**API Server (`apps/api/.env`):**
+```env
+PORT=3000
+HOST=0.0.0.0
+LOG_LEVEL=info
 
-**Responsibilities**:
+# Valkey
+VALKEY_HOST=localhost
+VALKEY_PORT=6379
 
-- User authentication via Azure Entra ID (MSAL)
-- Multi-tab terminal sessions with tab management
-- Terminal UI rendering with xterm.js
-- AST (Automated Streamlined Transaction) panel with form inputs
-- Execution history viewing with live updates
-- WebSocket connection management with auto-reconnect
-- Theme switching (light/dark mode)
-- Session persistence via localStorage
+# DynamoDB
+DYNAMODB_ENDPOINT=http://localhost:8042
+DYNAMODB_REGION=us-east-1
+DYNAMODB_TABLE_NAME=terminal
+DYNAMODB_ACCESS_KEY_ID=dummy
+DYNAMODB_SECRET_ACCESS_KEY=dummy
 
-**State Management**:
-
-- **Zustand** for global state (AST panel state per session)
-- **TanStack Router** for route-based navigation
-- **React Context** for auth state
-- **localStorage** for theme and session persistence
-
-**Key Files**:
-
-- `hooks/useTerminal.ts` - xterm.js integration and WebSocket handling
-- `hooks/useAST.ts` - AST state access via Zustand store
-- `hooks/useAuth.ts` - Authentication state management
-- `stores/astStore.ts` - Zustand store for per-tab AST state
-- `services/websocket.ts` - WebSocket client with reconnection logic
-- `components/Terminal.tsx` - Terminal UI component
-- `routes/index.tsx` - Terminal page with tab management
-- `routes/history/route.tsx` - Execution history page
-
-### 2. API Server (`apps/api`)
-
-**Technology**: Fastify 5, TypeScript, ioredis, AWS SDK (DynamoDB), jose
-
-**Responsibilities**:
-
-- REST API for user info (auto-provisioning from Entra tokens)
-- REST API for session management (CRUD)
-- REST API for execution history
-- WebSocket endpoint for terminal connections
-- Azure Entra ID token validation via jose
-- Message routing between browser and TN3270 gateway via Valkey
-
-**Key Files**:
-
-- `routes/auth.ts` - User info endpoint (auto-provisions users)
-- `routes/sessions.ts` - Session management endpoints
-- `routes/history.ts` - Execution history endpoints
-- `ws/terminal.ts` - WebSocket terminal handler
-- `services/auth.ts` - Entra token validation via jose
-- `services/dynamodb.ts` - DynamoDB client
-- `valkey/client.ts` - Valkey pub/sub client
-
-**Endpoints**:
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/auth/me` | Get current user info (auto-provisions from Entra token) |
-| GET | `/sessions` | List user sessions |
-| POST | `/sessions` | Create new session |
-| PUT | `/sessions/:id` | Update session |
-| DELETE | `/sessions/:id` | Delete session |
-| GET | `/history` | List execution history |
-| GET | `/history/:id/policies` | Get policies for execution |
-| WS | `/terminal/:sessionId` | WebSocket terminal connection |
-
-### 3. Shared Package (`packages/shared`)
-
-**Technology**: TypeScript (source-only, no build step)
-
-**Responsibilities**:
-
-- Type definitions shared between frontend and backend
-- Message envelope structure for WebSocket communication
-- Error codes and error handling utilities
-- Channel name conventions for pub/sub
-- Validation utilities
-
-**Key Types**:
-
-```typescript
-// Message types
-type MessageType = 'data' | 'resize' | 'ping' | 'pong' | 'error' 
-                 | 'session.create' | 'session.destroy' 
-                 | 'session.created' | 'session.destroyed'
-                 | 'ast.run' | 'ast.status' | 'ast.progress' 
-                 | 'ast.item_result' | 'ast.control' | 'ast.paused';
-
-// Message envelope structure
-interface MessageEnvelope {
-  type: MessageType;
-  sessionId: string;
-  timestamp: number;
-  encoding: string;
-  seq: number;
-  payload?: string;
-  meta?: Record<string, unknown>;
-}
+# Azure Entra ID
+ENTRA_TENANT_ID=your-tenant-id
+ENTRA_CLIENT_ID=your-api-client-id
+ENTRA_AUDIENCE=api://your-api-client-id
 ```
 
-### 4. TN3270 Gateway (`gateway`)
+**Web Frontend (`apps/web/.env`):**
+```env
+VITE_API_URL=http://localhost:3000
+VITE_WS_URL=ws://localhost:3000
 
-**Technology**: Python 3.12+, asyncio, Pydantic v2, redis-py, boto3, structlog
-
-**Responsibilities**:
-
-- Establish and manage TN3270 connections to mainframe systems
-- Handle TN3270 protocol communication
-- Execute AST automation scripts
-- Record execution history to DynamoDB
-- Handle terminal resize events
-- Stream I/O between TN3270 and Valkey pub/sub
-
-**Key Files**:
-
-- `app.py` - Main entry point with signal handling
-- `services/tn3270/manager.py` - TN3270 session lifecycle management
-- `services/tn3270/client.py` - TN3270 protocol client
-- `services/valkey.py` - Async Valkey client for pub/sub
-- `ast/` - AST automation scripts (login, etc.)
-- `db/client.py` - DynamoDB client for execution history
-- `models/` - Pydantic models matching TypeScript types
-
-### 5. Valkey (`infra`)
-
-**Technology**: Valkey (Redis-compatible), Docker
-
-**Responsibilities**:
-
-- Message broker between API and Gateway
-- Pub/sub channels for real-time communication
-- Decouples API from Gateway for scalability
-
-**Channels**:
-
-| Channel | Direction | Purpose |
-|---------|-----------|---------|
-| `gateway.control` | API → Gateway | Session create/destroy commands |
-| `tn3270.input.<sessionId>` | API → Gateway | User keystrokes |
-| `tn3270.output.<sessionId>` | Gateway → API | TN3270 output |
-| `tn3270.control.<sessionId>` | API → Gateway | Resize, AST control events |
-
-### 6. DynamoDB
-
-**Technology**: AWS DynamoDB (or DynamoDB Local for development)
-
-**Tables**:
-
-| Table | Purpose |
-|-------|---------|
-| `Users` | User accounts and credentials |
-| `Sessions` | Terminal session metadata |
-| `Executions` | AST execution history |
-| `Policies` | Policy results from AST executions |
-
-## Data Flow
-
-### 1. Authentication Flow (Azure Entra ID)
-
-```
-Browser                    Azure Entra ID              API Server              DynamoDB
-   │                            │                          │                      │
-   │  User visits app           │                          │                      │
-   │  (not authenticated)       │                          │                      │
-   │────────────────────────────>                          │                      │
-   │                            │                          │                      │
-   │  Redirect to Microsoft     │                          │                      │
-   │  login page                │                          │                      │
-   │<───────────────────────────│                          │                      │
-   │                            │                          │                      │
-   │  User authenticates        │                          │                      │
-   │──────────────────────────>│                          │                      │
-   │                            │                          │                      │
-   │  Redirect back with        │                          │                      │
-   │  authorization code        │                          │                      │
-   │<───────────────────────────│                          │                      │
-   │                            │                          │                      │
-   │  MSAL exchanges code       │                          │                      │
-   │  for access token          │                          │                      │
-   │──────────────────────────>│                          │                      │
-   │<───────────────────────────│                          │                      │
-   │                            │                          │                      │
-   │  GET /auth/me              │                          │                      │
-   │  Authorization: Bearer <token>                        │                      │
-   │──────────────────────────────────────────────────────>│                      │
-   │                            │                          │  Validate token      │
-   │                            │                          │  against JWKS        │
-   │                            │                          │  Query/Create user   │
-   │                            │                          │─────────────────────>│
-   │                            │                          │<─────────────────────│
-   │  {id, email, displayName}  │                          │                      │
-   │<──────────────────────────────────────────────────────│                      │
-```
-
-### 2. Terminal Session Flow
-
-```
-Browser              API Server              Valkey              Gateway
-   │                     │                     │                    │
-   │ WS Connect          │                     │                    │
-   │ /terminal/:id       │                     │                    │
-   │────────────────────>│                     │                    │
-   │                     │                     │                    │
-   │ session.create      │                     │                    │
-   │────────────────────>│ PUBLISH             │                    │
-   │                     │ gateway.control     │                    │
-   │                     │────────────────────>│                    │
-   │                     │                     │ MESSAGE            │
-   │                     │                     │───────────────────>│
-   │                     │                     │ connect TN3270     │
-   │                     │                     │ PUBLISH            │
-   │                     │                     │ tn3270.output.<id> │
-   │                     │<────────────────────│<───────────────────│
-   │ session.created     │                     │                    │
-   │<────────────────────│                     │                    │
-   │                     │                     │                    │
-   │ data (keystroke)    │ PUBLISH             │                    │
-   │────────────────────>│ tn3270.input.<id>   │                    │
-   │                     │────────────────────>│ MESSAGE            │
-   │                     │                     │───────────────────>│
-   │                     │                     │                    │ send to TN3270
-   │                     │                     │                    │
-   │                     │                     │ PUBLISH            │ receive from TN3270
-   │                     │                     │ tn3270.output.<id> │
-   │ data (output)       │<────────────────────│<───────────────────│
-   │<────────────────────│                     │                    │
-```
-
-### 3. AST Execution Flow
-
-```
-Browser              API Server              Valkey              Gateway            DynamoDB
-   │                     │                     │                    │                   │
-   │ ast.run             │                     │                    │                   │
-   │ {name, params}      │                     │                    │                   │
-   │────────────────────>│ PUBLISH             │                    │                   │
-   │                     │ tn3270.input.<id>   │                    │                   │
-   │                     │────────────────────>│ MESSAGE            │                   │
-   │                     │                     │───────────────────>│                   │
-   │                     │                     │                    │ Create execution  │
-   │                     │                     │                    │──────────────────>│
-   │                     │                     │                    │                   │
-   │                     │                     │ PUBLISH            │ Execute AST       │
-   │ ast.progress        │                     │ tn3270.output.<id> │ (loop)            │
-   │<────────────────────│<────────────────────│<───────────────────│                   │
-   │                     │                     │                    │ Record policy     │
-   │ ast.item_result     │                     │ PUBLISH            │──────────────────>│
-   │<────────────────────│<────────────────────│<───────────────────│                   │
-   │                     │                     │                    │                   │
-   │ ast.status          │                     │ PUBLISH            │ Update execution  │
-   │ {complete}          │                     │ tn3270.output.<id> │──────────────────>│
-   │<────────────────────│<────────────────────│<───────────────────│                   │
-```
-
-## Security
-
-### Authentication
-
-- Azure Entra ID (Microsoft Identity Platform) for single sign-on
-- MSAL library handles token acquisition, caching, and refresh
-- Backend validates tokens using jose against Azure JWKS endpoint
-- Users auto-provisioned on first login from Entra token claims
-
-### WebSocket Security
-
-- Entra access token required in query parameter for WebSocket connections
-- Token validated against Azure JWKS before establishing connection
-- Invalid tokens result in immediate connection close (code 1008)
-- Token refresh handled automatically by MSAL
-
-### TN3270 Security
-
-- Each session establishes secure TN3270 connections
-- Sessions tied to authenticated users
-- Graceful cleanup on disconnect
-- WebSocket disconnect does NOT destroy TN3270 session (allows navigation)
-- Explicit session destruction only on tab close
-
-## Development
-
-### Prerequisites
-
-- Node.js 24+
-- pnpm 10+
-- Python 3.12+
-- uv (Python package manager)
-- Docker (for Valkey and DynamoDB Local)
-
-### Quick Start
-
-```bash
-# Install dependencies
-pnpm install
-cd gateway && uv sync && cd ..
-
-# Start infrastructure (Valkey + DynamoDB)
-docker compose -f infra/docker-compose.dev.yml up -d
-
-# Setup DynamoDB tables
-./scripts/setup-dynamodb.sh
-
-# Start all services
-pnpm dev
-
-# Services will be available at:
-# - Web:      http://localhost:5173
-# - API:      http://localhost:3001
-# - Valkey:   localhost:6379
-# - DynamoDB: localhost:8042
-```
-
-### Demo User
-
-Users are authenticated via Azure Entra ID. No local demo user is created.
-Configure your Entra ID tenant and application registration with the following environment variables:
-
-**Frontend (.env)**:
-
-```
-VITE_ENTRA_CLIENT_ID=your-client-id
+# Azure Entra ID (SPA)
+VITE_ENTRA_CLIENT_ID=your-spa-client-id
 VITE_ENTRA_TENANT_ID=your-tenant-id
 VITE_ENTRA_REDIRECT_URI=http://localhost:5173
-VITE_ENTRA_API_SCOPE=api://your-client-id/access_as_user
+VITE_ENTRA_API_SCOPE=api://your-api-client-id/.default
 ```
 
-**Backend (.env)**:
+**Gateway (`gateway/.env`):**
+```env
+# Valkey
+VALKEY_HOST=localhost
+VALKEY_PORT=6379
 
+# TN3270
+TN3270_HOST=mainframe.example.com
+TN3270_PORT=23
+TN3270_MAX_SESSIONS=10
+
+# DynamoDB
+DYNAMODB_ENDPOINT=http://localhost:8042
+DYNAMODB_REGION=us-east-1
+DYNAMODB_TABLE_NAME=terminal
+DYNAMODB_ACCESS_KEY_ID=dummy
+DYNAMODB_SECRET_ACCESS_KEY=dummy
 ```
-ENTRA_TENANT_ID=your-tenant-id
-ENTRA_CLIENT_ID=your-client-id
-ENTRA_API_AUDIENCE=api://your-client-id
+
+## Error Handling
+
+The system uses typed error codes throughout:
+
+```typescript
+const ERROR_CODES = {
+  // Authentication
+  AUTH_REQUIRED: 'AUTH_001',
+  AUTH_INVALID_TOKEN: 'AUTH_002',
+  AUTH_TOKEN_EXPIRED: 'AUTH_003',
+  
+  // Session
+  SESSION_NOT_FOUND: 'SESSION_001',
+  SESSION_LIMIT_REACHED: 'SESSION_002',
+  
+  // Terminal
+  TERMINAL_CONNECTION_FAILED: 'TERMINAL_001',
+  TERMINAL_DISCONNECTED: 'TERMINAL_002',
+  
+  // AST
+  AST_NOT_FOUND: 'AST_001',
+  AST_EXECUTION_FAILED: 'AST_002',
+  AST_ALREADY_RUNNING: 'AST_003',
+  
+  // WebSocket
+  WS_MESSAGE_INVALID: 'WS_001',
+  
+  // Internal
+  INTERNAL_ERROR: 'INTERNAL_001',
+};
 ```
 
-## Scaling Considerations
+## Performance Considerations
 
-### Horizontal Scaling
+1. **WebSocket Connection Management**
+   - Automatic reconnection with exponential backoff
+   - Heartbeat ping/pong every 30 seconds
+   - Maximum 5 reconnection attempts
 
-- **API Servers**: Stateless, can run multiple instances behind load balancer
-- **Gateways**: Each gateway handles multiple TN3270 sessions; add more for capacity
-- **Valkey**: Single instance sufficient for moderate load; cluster for high availability
-- **DynamoDB**: Managed service with auto-scaling
+2. **Message Handling**
+   - Messages serialized as JSON (UTF-8)
+   - Large payloads use base64 encoding
+   - Sequence numbers for ordering
 
-### Session Affinity
+3. **Caching**
+   - JWKS cached for 1 hour
+   - Session state in memory (API server)
+   - TN3270 sessions pooled (gateway)
 
-- WebSocket connections are long-lived
-- Use sticky sessions or connection draining for graceful updates
-- TN3270 sessions persist across WebSocket reconnections
+4. **Database**
+   - DynamoDB on-demand capacity
+   - Single table design for efficient queries
+   - GSIs for common access patterns
 
-### Gateway Considerations
+## Related Documentation
 
-- TN3270 Gateway requires direct TCP access to mainframe
-- Cannot run in serverless environments (Fargate, Lambda)
-- Use EC2 or ECS on EC2 for gateway deployment
-- See `docs/AWS_DEPLOYMENT.md` for detailed deployment guide
-
-### Future Improvements
-
-- [ ] Redis cluster support for Valkey
-- [ ] Session persistence across gateway restarts
-- [ ] Rate limiting on API endpoints
-- [ ] Audit logging for terminal commands
-- [ ] Multi-tenant support with user isolation
-- [ ] Gateway health checks and auto-recovery
+- [AWS Deployment Guide](./AWS_DEPLOYMENT.md) - Production deployment
+- [Diagrams](./diagrams.md) - Additional architecture diagrams
