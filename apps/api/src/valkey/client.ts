@@ -50,7 +50,7 @@ export class ValkeyClient {
         const sessionId = parts.slice(2).join('.');
         const handlers = this.sessionSubscribers.get(sessionId);
         if (handlers) {
-          console.log('[Valkey] Found', handlers.size, 'handler(s) for session:', sessionId);
+          // console.log('[Valkey] Found', handlers.size, 'handler(s) for session:', sessionId);
           // Call ALL handlers for this session
           for (const handler of handlers) {
             handler(message);
