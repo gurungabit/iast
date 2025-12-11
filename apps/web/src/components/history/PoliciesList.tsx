@@ -51,7 +51,7 @@ export function PoliciesList({
   // Infinite scroll observer for policies
   useEffect(() => {
     if (!onLoadMore || isLive) return // Don't use infinite scroll during live updates
-    
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0]?.isIntersecting && hasMore && !isLoading) {
@@ -277,10 +277,10 @@ export function PoliciesList({
                 </div>
               </button>
             ))}
-            
+
             {/* Infinite scroll trigger */}
             {!isLive && <div ref={observerTarget} className="h-2" />}
-            
+
             {/* Loading indicator for more policies */}
             {isLoading && allPolicies.length > 0 && (
               <div className="flex justify-center py-4">

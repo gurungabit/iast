@@ -5,11 +5,12 @@
 Execution strategies for AST (Automated Streamlined Transaction) scripts.
 
 Provides:
-- SequentialExecutor: Process items one at a time using existing host session
-- ParallelExecutor: Process items in parallel using ATI sessions (up to N concurrent)
+- SequentialExecutor: Login once, process all items sequentially, logoff once
+- ParallelExecutor: Create N sessions, each logs in, processes batch, logs off
 """
 
 import concurrent.futures
+import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -196,7 +197,7 @@ class ASTExecutor(ABC):
             message=message,
         )
 
-    def _process_single_item(
+    def _process_single_item_no_auth(
         self,
         host: "Host",
         context: ExecutionContext,
@@ -204,7 +205,7 @@ class ASTExecutor(ABC):
         index: int,
         total: int,
     ) -> ItemResult:
-        """Process a single item through authenticate -> process -> logoff cycle."""
+        """Process a single item (assumes already authenticated)."""
         ast = context.ast
         item_id = ast.get_item_id(item)
         item_start = datetime.now()
@@ -213,26 +214,6 @@ class ASTExecutor(ABC):
         ast.clear_screenshots()
 
         try:
-            # Authenticate
-            ast.report_progress(
-                current=index,
-                total=total,
-                current_item=item_id,
-                item_status="running",
-                message=f"Item {index}/{total}: Logging in",
-            )
-
-            success, error = ast.authenticate(
-                host,
-                user=context.username,
-                password=context.password,
-                expected_keywords_after_login=ast.auth_expected_keywords,
-                application=ast.auth_application,
-                group=ast.auth_group,
-            )
-            if not success:
-                raise Exception(f"Login failed: {error}")
-
             # Process
             ast.report_progress(
                 current=index,
@@ -254,19 +235,6 @@ class ASTExecutor(ABC):
             screenshots = ast.get_screenshots()
             if screenshots:
                 item_data["screenshots"] = screenshots
-
-            # Logoff
-            ast.report_progress(
-                current=index,
-                total=total,
-                current_item=item_id,
-                item_status="running",
-                message=f"Item {index}/{total}: Logging off",
-            )
-
-            success, error = ast.logoff(host)
-            if not success:
-                log.warning("Logoff failed", error=error)
 
             return self._create_item_result(
                 item_id=item_id,
@@ -292,12 +260,6 @@ class ASTExecutor(ABC):
                 error_item_data["screenshots"] = screenshots
             if error_screen:
                 error_item_data["errorScreen"] = error_screen
-
-            # Try recovery logoff
-            try:
-                ast.logoff(host)
-            except Exception:
-                pass
 
             return self._create_item_result(
                 item_id=item_id,
@@ -392,6 +354,8 @@ class ASTExecutor(ABC):
 class SequentialExecutor(ASTExecutor):
     """
     Execute AST items sequentially using an existing host session.
+
+    Auth flow: Login once → Process all items → Logoff once
     """
 
     @property
@@ -411,42 +375,88 @@ class SequentialExecutor(ASTExecutor):
         context: ExecutionContext,
         total: int,
     ) -> list[ItemResult]:
-        """Process items sequentially using the existing host session."""
+        """Process items sequentially: login once, process all, logoff once."""
         if host is None:
             raise ValueError("Host session required for sequential execution")
 
         ast = context.ast
         item_results: list[ItemResult] = []
 
-        for idx, item in enumerate(context.items):
-            # Check for pause/cancel
-            if not ast.wait_if_paused():
-                log.info("AST cancelled by user")
-                break
+        # ===== LOGIN ONCE =====
+        log.info("Authenticating for sequential batch processing")
+        ast.report_progress(
+            current=0,
+            total=total,
+            current_item=None,
+            item_status="running",
+            message="Logging in...",
+        )
 
-            item_id = ast.get_item_id(item)
+        success, error = ast.authenticate(
+            host,
+            user=context.username,
+            password=context.password,
+            expected_keywords_after_login=ast.auth_expected_keywords,
+            application=ast.auth_application,
+            group=ast.auth_group,
+        )
+        if not success:
+            raise Exception(f"Login failed: {error}")
 
-            # Validate item
-            if not ast.validate_item(item):
-                item_result = self._create_item_result(
-                    item_id=item_id,
-                    status="skipped",
-                    item_start=datetime.now(),
-                    error="Invalid item",
+        log.info("Authentication successful, processing items")
+
+        try:
+            # ===== PROCESS ALL ITEMS =====
+            for idx, item in enumerate(context.items):
+                # Check for pause/cancel
+                if not ast.wait_if_paused():
+                    log.info("AST cancelled by user")
+                    break
+
+                item_id = ast.get_item_id(item)
+
+                # Validate item
+                if not ast.validate_item(item):
+                    item_result = self._create_item_result(
+                        item_id=item_id,
+                        status="skipped",
+                        item_start=datetime.now(),
+                        error="Invalid item",
+                    )
+                    item_results.append(item_result)
+                    self._record_item_result(context, item_result, idx + 1, total)
+                    continue
+
+                # Process item (no auth/logoff per item)
+                item_result = self._process_single_item_no_auth(
+                    host, context, item, idx + 1, total
                 )
                 item_results.append(item_result)
                 self._record_item_result(context, item_result, idx + 1, total)
-                continue
 
-            # Process item
-            item_result = self._process_single_item(host, context, item, idx + 1, total)
-            item_results.append(item_result)
-            self._record_item_result(context, item_result, idx + 1, total)
+                if item_result.status == "success":
+                    log.info(
+                        "Item completed",
+                        item=item_id,
+                        duration_ms=item_result.duration_ms,
+                    )
 
-            if item_result.status == "success":
-                log.info(
-                    "Item completed", item=item_id, duration_ms=item_result.duration_ms
-                )
+        finally:
+            # ===== LOGOFF ONCE =====
+            log.info("Logging off after batch processing")
+            ast.report_progress(
+                current=total,
+                total=total,
+                current_item=None,
+                item_status="running",
+                message="Logging off...",
+            )
+            try:
+                success, error = ast.logoff(host)
+                if not success:
+                    log.warning("Logoff failed", error=error)
+            except Exception as e:
+                log.warning("Exception during logoff", error=str(e))
 
         return item_results
 
@@ -454,27 +464,27 @@ class SequentialExecutor(ASTExecutor):
 class ParallelExecutor(ASTExecutor):
     """
     Execute AST items in parallel using independent ATI sessions.
+
+    Creates N sessions (default 5), divides items evenly among them.
+    Each session: Login once → Process batch → Logoff once
     """
 
     def __init__(
         self,
-        max_concurrent: int = 10,
+        max_sessions: int = 5,
         host: str = "localhost",
         port: int = 3270,
         secure: bool = False,
         maxwait: int = 120,
         waitsleep: float = 1,
     ) -> None:
-        self.max_concurrent = max_concurrent
+        self.max_sessions = max_sessions
         self.host_address = host
         self.port = port
         self.secure = secure
         self.maxwait = maxwait
         self.waitsleep = waitsleep
-        self._thread_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=max_concurrent,
-            thread_name_prefix="ati-parallel",
-        )
+        self._results_lock = threading.Lock()
 
     @property
     def _mode_name(self) -> str:
@@ -485,7 +495,7 @@ class ParallelExecutor(ASTExecutor):
             "username": context.username,
             "policyCount": len(context.items),
             "mode": "parallel",
-            "maxConcurrent": self.max_concurrent,
+            "maxSessions": self.max_sessions,
         }
 
     def _create_ati_session(self, session_name: str) -> Ati:
@@ -525,23 +535,32 @@ class ParallelExecutor(ASTExecutor):
 
         return ati
 
-    def _process_item_in_session(
+    def _process_batch_in_session(
         self,
+        session_id: int,
         context: ExecutionContext,
-        item: Any,
-        index: int,
+        items_with_indices: list[tuple[Any, int]],
         total: int,
-    ) -> ItemResult:
-        """Process a single item in its own ATI session."""
+        results_collector: list[ItemResult],
+        completed_counter: list[int],
+    ) -> None:
+        """Process a batch of items in a single ATI session.
+
+        Each session: Login once → Process all items in batch → Logoff once
+        """
         from ...services.tn3270.host import Host
 
         ast = context.ast
-        item_id = ast.get_item_id(item)
-        item_start = datetime.now()
-        session_name = f"SES_{context.execution_id[:8]}_{index}"
+        session_name = f"SES_{context.execution_id[:8]}_{session_id}"
         ati = None
 
         try:
+            # ===== CREATE SESSION =====
+            log.info(
+                "Creating ATI session for batch",
+                session=session_name,
+                items=len(items_with_indices),
+            )
             ati = self._create_ati_session(session_name)
             tnz = ati.get_tnz()
 
@@ -549,28 +568,89 @@ class ParallelExecutor(ASTExecutor):
                 raise Exception(f"Failed to establish session {session_name}")
 
             host = Host(tnz, mode="ati")
-            item_result = self._process_single_item(host, context, item, index, total)
 
-            ati.drop("SESSION")
-            return item_result
+            # ===== LOGIN ONCE =====
+            log.info("Authenticating session", session=session_name)
+            success, error = ast.authenticate(
+                host,
+                user=context.username,
+                password=context.password,
+                expected_keywords_after_login=ast.auth_expected_keywords,
+                application=ast.auth_application,
+                group=ast.auth_group,
+            )
+            if not success:
+                raise Exception(f"Login failed for session {session_name}: {error}")
 
-        except Exception as e:
-            log.warning(
-                "Parallel item failed", item=item_id, session=session_name, error=str(e)
+            log.info(
+                "Session authenticated, processing batch",
+                session=session_name,
+                items=len(items_with_indices),
             )
 
+            # ===== PROCESS ALL ITEMS IN BATCH =====
+            for item, original_index in items_with_indices:
+                if ast.is_cancelled:
+                    log.info("AST cancelled, stopping batch", session=session_name)
+                    break
+
+                # Reuse the shared processing logic
+                item_result = self._process_single_item_no_auth(
+                    host, context, item, original_index, total
+                )
+
+                # Record result thread-safely
+                with self._results_lock:
+                    results_collector.append(item_result)
+                    completed_counter[0] += 1
+                    self._record_item_result(
+                        context, item_result, completed_counter[0], total
+                    )
+
+            # ===== LOGOFF ONCE =====
+            log.info("Logging off session after batch", session=session_name)
+            try:
+                success, error = ast.logoff(host)
+                if not success:
+                    log.warning("Logoff failed", session=session_name, error=error)
+            except Exception as e:
+                log.warning(
+                    "Exception during logoff", session=session_name, error=str(e)
+                )
+
+        except Exception as e:
+            log.error(
+                "Session batch failed",
+                session=session_name,
+                error=str(e),
+            )
+            # Mark all remaining items in this batch as failed
+            for item, original_index in items_with_indices:
+                item_id = ast.get_item_id(item)
+                # Check if already processed
+                with self._results_lock:
+                    already_processed = any(
+                        r.item_id == item_id for r in results_collector
+                    )
+                    if not already_processed:
+                        item_result = self._create_item_result(
+                            item_id=item_id,
+                            status="failed",
+                            item_start=datetime.now(),
+                            error=f"Session failed: {str(e)}",
+                        )
+                        results_collector.append(item_result)
+                        completed_counter[0] += 1
+                        self._record_item_result(
+                            context, item_result, completed_counter[0], total
+                        )
+
+        finally:
             if ati is not None:
                 try:
                     ati.drop("SESSION")
                 except Exception:
                     pass
-
-            return self._create_item_result(
-                item_id=item_id,
-                status="failed",
-                item_start=item_start,
-                error=str(e),
-            )
 
     def _process_items(
         self,
@@ -578,12 +658,13 @@ class ParallelExecutor(ASTExecutor):
         context: ExecutionContext,
         total: int,
     ) -> list[ItemResult]:
-        """Process items in parallel using thread pool."""
+        """Process items in parallel across N sessions with even distribution."""
         ast = context.ast
         item_results: list[ItemResult] = []
+        completed_counter = [0]  # Use list to allow mutation in threads
 
         # Filter valid items and track skipped
-        valid_tasks: list[tuple[Any, int]] = []
+        valid_items: list[tuple[Any, int]] = []
         for idx, item in enumerate(context.items):
             if not ast.validate_item(item):
                 item_result = self._create_item_result(
@@ -593,44 +674,59 @@ class ParallelExecutor(ASTExecutor):
                     error="Invalid item",
                 )
                 item_results.append(item_result)
-            else:
-                valid_tasks.append((item, idx + 1))
-
-        # Submit valid items to thread pool
-        futures = {
-            self._thread_pool.submit(
-                self._process_item_in_session, context, item, index, total
-            ): (item, index)
-            for item, index in valid_tasks
-        }
-
-        # Collect results
-        completed = 0
-        for future in concurrent.futures.as_completed(futures):
-            if ast.is_cancelled:
-                for f in futures:
-                    f.cancel()
-                break
-
-            item, index = futures[future]
-            try:
-                item_result = future.result()
-                item_results.append(item_result)
-                self._record_item_result(context, item_result, completed + 1, total)
-                completed += 1
-
-            except Exception as e:
-                log.exception("Failed to get result", item=ast.get_item_id(item))
-                item_result = self._create_item_result(
-                    item_id=ast.get_item_id(item),
-                    status="failed",
-                    item_start=datetime.now(),
-                    error=str(e),
+                completed_counter[0] += 1
+                self._record_item_result(
+                    context, item_result, completed_counter[0], total
                 )
-                item_results.append(item_result)
+            else:
+                valid_items.append((item, idx + 1))
+
+        if not valid_items:
+            return item_results
+
+        # Determine number of sessions (max 5, but not more than items)
+        num_sessions = min(self.max_sessions, len(valid_items))
+
+        # Distribute items evenly across sessions
+        batches: list[list[tuple[Any, int]]] = [[] for _ in range(num_sessions)]
+        for i, item_with_index in enumerate(valid_items):
+            batches[i % num_sessions].append(item_with_index)
+
+        log.info(
+            "Distributing items across sessions",
+            total_items=len(valid_items),
+            num_sessions=num_sessions,
+            items_per_session=[len(b) for b in batches],
+        )
+
+        # Process batches in parallel using thread pool
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=num_sessions,
+            thread_name_prefix="ati-batch",
+        ) as executor:
+            futures = []
+            for session_id, batch in enumerate(batches):
+                if batch:  # Only create threads for non-empty batches
+                    future = executor.submit(
+                        self._process_batch_in_session,
+                        session_id,
+                        context,
+                        batch,
+                        total,
+                        item_results,
+                        completed_counter,
+                    )
+                    futures.append(future)
+
+            # Wait for all batches to complete
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    future.result()  # Raises exception if batch failed
+                except Exception as e:
+                    log.exception("Batch processing failed", error=str(e))
 
         return item_results
 
     def shutdown(self) -> None:
-        """Shutdown the thread pool executor."""
-        self._thread_pool.shutdown(wait=True)
+        """No-op for compatibility (thread pool is created per-execution now)."""
+        pass

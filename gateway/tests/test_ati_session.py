@@ -4,11 +4,22 @@ Test ATI session creation and SIGNON screen detection.
 
 Run with: python -m pytest tests/test_ati_session.py -v -s
 Or directly: python tests/test_ati_session.py
+
+NOTE: These are integration tests that require a running TN3270 server.
+They are skipped by default. Run with --run-integration to include them.
 """
 
 import uuid
 
+import pytest
 from tnz.ati import Ati
+
+
+# Skip all tests in this module unless --run-integration is passed
+pytestmark = pytest.mark.skipif(
+    "not config.getoption('--run-integration', default=False)",
+    reason="Integration tests require --run-integration flag",
+)
 
 
 def create_ati_session(

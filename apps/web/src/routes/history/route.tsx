@@ -180,7 +180,7 @@ function HistoryPage() {
   // Fetch policies for selected execution (via api service)
   const fetchPolicies = useCallback(async (executionId: string, reset = false) => {
     if (isLoadingPolicies && !reset) return
-    
+
     setIsLoadingPolicies(true)
     if (reset) {
       setPolicies([])

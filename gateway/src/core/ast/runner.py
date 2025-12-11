@@ -51,7 +51,7 @@ def run_ast(
             - policyNumbers or items: List of items to process
             - userId: App user ID (default: anonymous)
             - sessionId: Session ID for persistence
-            - maxConcurrent: Max concurrent sessions for parallel (default: 10)
+            - maxSessions: Max ATI sessions for parallel (default: 5)
             - hostAddress: TN3270 host for parallel mode
             - hostPort: TN3270 port for parallel mode
             - secure: Use TLS for parallel mode (default: False)
@@ -145,7 +145,7 @@ def _run_parallel(
         execution_id=ast._execution_id,
     )
 
-    max_concurrent = kwargs.get("maxConcurrent", 10)
+    max_sessions = kwargs.get("maxSessions", 5)
     host_address = kwargs.get("hostAddress", "localhost")
     host_port = kwargs.get("hostPort", 3270)
     secure = kwargs.get("secure", False)
@@ -154,7 +154,7 @@ def _run_parallel(
         f"Starting AST (parallel): {ast.name}",
         ast=ast.name,
         execution_id=ast._execution_id,
-        max_concurrent=max_concurrent,
+        max_sessions=max_sessions,
         host=host_address,
     )
 
@@ -191,7 +191,7 @@ def _run_parallel(
     )
 
     executor = ParallelExecutor(
-        max_concurrent=max_concurrent,
+        max_sessions=max_sessions,
         host=host_address,
         port=host_port,
         secure=secure,
