@@ -548,7 +548,7 @@ class ParallelExecutor(ASTExecutor):
             if not tnz:
                 raise Exception(f"Failed to establish session {session_name}")
 
-            host = Host(tnz)
+            host = Host(tnz, mode="ati")
             item_result = self._process_single_item(host, context, item, index, total)
 
             ati.drop("SESSION")

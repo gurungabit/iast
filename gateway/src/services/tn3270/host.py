@@ -17,7 +17,7 @@ This service wraps tnz operations for use in automation scripts.
 import re
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import structlog
 
@@ -77,14 +77,16 @@ class Host:
         host.wait()
     """
 
-    def __init__(self, tnz: "Tnz") -> None:
+    def __init__(self, tnz: "Tnz", mode: Literal["tnz", "ati"] = "tnz") -> None:
         """
         Initialize Host with a tnz session.
 
         Args:
             tnz: An active tnz.Tnz session object
+            mode: Session mode - "tnz" (default) or "ati" for parallel execution
         """
         self._tnz = tnz
+        self._mode = mode
 
     # =========================================================================
     # Screen Properties
@@ -820,7 +822,10 @@ class Host:
         while time.time() - start < timeout:
             if self.screen_contains(text, case_sensitive):
                 return True
-            time.sleep(0.5)
+            if self._mode == "ati":
+                self.wait(timeout=0.1)
+            else:
+                time.sleep(0.1)
 
         return False
 
