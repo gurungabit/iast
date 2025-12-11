@@ -22,7 +22,7 @@ structlog.configure(
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
-        structlog.dev.ConsoleRenderer(pad_event=0),
+        structlog.dev.ConsoleRenderer(pad_event=0, pad_level=False),
     ],
     wrapper_class=structlog.BoundLogger,
     context_class=dict,

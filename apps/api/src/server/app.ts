@@ -23,10 +23,27 @@ export async function buildApp(): Promise<FastifyInstance> {
                 singleLine: true,
                 translateTime: 'HH:MM:ss.l',
                 ignore: 'pid,hostname',
-                messageFormat: '{req.method} {req.url} {res.statusCode} ({responseTime}ms)',
               },
             }
           : undefined,
+      serializers: {
+        req(request) {
+          // Redact token from URL in logs
+          let url = request.url;
+          if (url.includes('token=')) {
+            url = url.replace(/token=[^&]+/, 'token=***');
+          }
+          return {
+            method: request.method,
+            url,
+          };
+        },
+        res(reply) {
+          return {
+            statusCode: reply.statusCode,
+          };
+        },
+      },
     },
   });
 
