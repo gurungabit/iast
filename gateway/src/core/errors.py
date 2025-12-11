@@ -49,6 +49,15 @@ class TerminalError(Exception):
         self.code = str(code)
         self.message = message
 
+
+class ASTError(Exception):
+    """Error during AST execution (prepare, process, etc.)."""
+
+    def __init__(self, message: str, recoverable: bool = False) -> None:
+        super().__init__(message)
+        self.message = message
+        self.recoverable = recoverable  # If True, AST may retry or continue
+
     def __repr__(self) -> str:
         return f"TerminalError({self.code!r}, {self.message!r})"
 

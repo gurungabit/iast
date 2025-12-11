@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import structlog
 
 from ..core.ast import AST
+from ..core.errors import ASTError
 
 if TYPE_CHECKING:
     from ..services.tn3270.host import Host
@@ -82,15 +83,25 @@ class LoginAST(AST):
         """Prepare policy numbers to process.
 
         Override to fetch from external sources with progress reporting.
+        Raise ASTError for fatal errors, return [] for graceful empty result.
         """
         self.report_status("Preparing policy list...")
 
         # Get policies from kwargs (default behavior)
         policies: list[Any] = kwargs.get("policyNumbers") or kwargs.get("items") or []
 
-        # Example: If you need to fetch from an API
-        # self.report_status("Fetching data from PolicyAPI...")
-        # policies = await fetch_from_api()
+        # Example: Fetching from database with error handling
+        # try:
+        #     self.report_status("Fetching policies from database...")
+        #     policies = db.get_policies(user_id=kwargs.get("userId"))
+        # except DatabaseConnectionError as e:
+        #     # Fatal error - raise to fail the AST
+        #     raise ASTError(f"Database connection failed: {e}") from e
+        # except DatabaseQueryError as e:
+        #     # Non-fatal - log and return empty (AST completes with "No items")
+        #     log.warning("Query failed, continuing with empty list", error=str(e))
+        #     self.report_status(f"⚠️ Could not fetch policies: {e}")
+        #     return []
 
         if policies:
             self.report_status(f"Found {len(policies)} policies to process")
