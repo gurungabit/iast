@@ -60,7 +60,9 @@ class LoginAST(AST):
         """Sign off from TSO system."""
         log.info("🔒 Signing off from terminal session...")
         max_backoff_count = 20
-        while not host.wait_for_text("Exit Menu", timeout=0.8) and max_backoff_count > 0:
+        while (
+            not host.wait_for_text("Exit Menu", timeout=0.8) and max_backoff_count > 0
+        ):
             host.pf(15)
             max_backoff_count -= 1
 
@@ -82,9 +84,9 @@ class LoginAST(AST):
     def process_single_item(
         self, host: "Host", item: Any, index: int, total: int
     ) -> tuple[bool, str, dict[str, Any]]:
-        self.capture_screenshot(host, f"policy_{index}_start")
         log.info("Starting policy processing", policy_number=item)
         policy_number = str(item)
+        self.capture_screenshot(host, f"{policy_number}_start")
         policy_data = {
             "policyNumber": policy_number,
             "status": "active",

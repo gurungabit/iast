@@ -97,7 +97,9 @@ class ASTExecutor(ABC):
             result = self._finalize_result(context, result, item_results, total)
 
         except Exception as e:
-            result = self._handle_execution_error(context, result, item_results, e, host)
+            result = self._handle_execution_error(
+                context, result, item_results, e, host
+            )
 
         finally:
             result.completed_at = datetime.now()
@@ -221,7 +223,9 @@ class ASTExecutor(ABC):
                 message=f"Item {index}/{total}: Processing",
             )
 
-            success, error, item_data = ast.process_single_item(host, item, index, total)
+            success, error, item_data = ast.process_single_item(
+                host, item, index, total
+            )
             if not success:
                 raise Exception(f"Process failed: {error}")
 
@@ -245,7 +249,7 @@ class ASTExecutor(ABC):
             # Capture the screen at time of error
             error_screen = None
             try:
-                error_screen = host.get_formatted_screen(show_row_numbers=False)
+                error_screen = host.show_screen("Current screen at error")
             except Exception:
                 pass
 
@@ -424,7 +428,9 @@ class SequentialExecutor(ASTExecutor):
                     continue
 
                 # Process item (no auth/logoff per item)
-                item_result = self._process_single_item_no_auth(host, context, item, idx + 1, total)
+                item_result = self._process_single_item_no_auth(
+                    host, context, item, idx + 1, total
+                )
                 item_results.append(item_result)
                 self._record_item_result(context, item_result, idx + 1, total)
 
@@ -596,7 +602,9 @@ class ParallelExecutor(ASTExecutor):
                 with self._results_lock:
                     results_collector.append(item_result)
                     completed_counter[0] += 1
-                    self._record_item_result(context, item_result, completed_counter[0], total)
+                    self._record_item_result(
+                        context, item_result, completed_counter[0], total
+                    )
 
             # ===== LOGOFF ONCE =====
             log.info("Logging off session after batch", session=session_name)
@@ -605,7 +613,9 @@ class ParallelExecutor(ASTExecutor):
                 if not success:
                     log.warning("Logoff failed", session=session_name, error=error)
             except Exception as e:
-                log.warning("Exception during logoff", session=session_name, error=str(e))
+                log.warning(
+                    "Exception during logoff", session=session_name, error=str(e)
+                )
 
         except Exception as e:
             log.error(
@@ -618,7 +628,9 @@ class ParallelExecutor(ASTExecutor):
                 item_id = ast.get_item_id(item)
                 # Check if already processed
                 with self._results_lock:
-                    already_processed = any(r.item_id == item_id for r in results_collector)
+                    already_processed = any(
+                        r.item_id == item_id for r in results_collector
+                    )
                     if not already_processed:
                         item_result = self._create_item_result(
                             item_id=item_id,
@@ -628,7 +640,9 @@ class ParallelExecutor(ASTExecutor):
                         )
                         results_collector.append(item_result)
                         completed_counter[0] += 1
-                        self._record_item_result(context, item_result, completed_counter[0], total)
+                        self._record_item_result(
+                            context, item_result, completed_counter[0], total
+                        )
 
         finally:
             if ati is not None:
@@ -660,7 +674,9 @@ class ParallelExecutor(ASTExecutor):
                 )
                 item_results.append(item_result)
                 completed_counter[0] += 1
-                self._record_item_result(context, item_result, completed_counter[0], total)
+                self._record_item_result(
+                    context, item_result, completed_counter[0], total
+                )
             else:
                 valid_items.append((item, idx + 1))
 
