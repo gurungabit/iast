@@ -279,21 +279,29 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
               <span className={`text-xs mr-1 flex items-center gap-1 ${isPaused ? 'text-yellow-400' : 'text-yellow-400 animate-pulse'}`}>
                 {isPaused ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />} {runningAST}
               </span>
-              <Tooltip content={isPaused ? 'Resume AST execution' : 'Pause after current item completes or fails'} position="bottom">
-                <button
-                  onClick={() => {
-                    if (isPaused) {
-                      resumeAST();
-                    } else {
-                      pauseAST();
-                    }
-                  }}
-                  className="px-3 py-1.5 text-xs rounded border cursor-pointer transition-colors
-                    bg-yellow-600 text-white border-yellow-600 hover:bg-yellow-700"
-                >
-                  {isPaused ? 'Resume' : 'Pause'}
-                </button>
-              </Tooltip>
+              {isPaused ? (
+                <Tooltip content="Resume AST execution" position="bottom">
+                  <button
+                    onClick={() => resumeAST()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded border cursor-pointer transition-colors
+                      bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700"
+                  >
+                    <Play className="w-3.5 h-3.5" fill="currentColor" />
+                    Resume
+                  </button>
+                </Tooltip>
+              ) : (
+                <Tooltip content="Pause after current item completes or fails" position="bottom">
+                  <button
+                    onClick={() => pauseAST()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded border cursor-pointer transition-colors
+                      bg-yellow-600 text-white border-yellow-600 hover:bg-yellow-700"
+                  >
+                    <Pause className="w-3.5 h-3.5" />
+                    Pause
+                  </button>
+                </Tooltip>
+              )}
               <Tooltip content="Stop after current item completes or fails" position="bottom">
                 <button
                   onClick={() => cancelAST()}
