@@ -51,6 +51,8 @@ function HistoryPage() {
   // Policies state
   const [policies, setPolicies] = useState<PolicyRecord[]>([])
   const [isLoadingPolicies, setIsLoadingPolicies] = useState(false)
+  const [policiesCursor, setPoliciesCursor] = useState<string | undefined>()
+  const [hasMorePolicies, setHasMorePolicies] = useState(false)
 
   const observerTarget = useRef<HTMLDivElement>(null)
 
@@ -176,19 +178,27 @@ function HistoryPage() {
   }, [selectedDate, activeTab, cursor, isLoadingExecutions, api])
 
   // Fetch policies for selected execution (via api service)
-  const fetchPolicies = useCallback(async (executionId: string) => {
+  const fetchPolicies = useCallback(async (executionId: string, reset = false) => {
+    if (isLoadingPolicies && !reset) return
+    
     setIsLoadingPolicies(true)
-    setPolicies([])
+    if (reset) {
+      setPolicies([])
+      setPoliciesCursor(undefined)
+      setHasMorePolicies(false)
+    }
 
     try {
-      const data = await api.getPolicies(executionId)
-      setPolicies(data.policies)
+      const data = await api.getPolicies(executionId, 100, reset ? undefined : policiesCursor)
+      setPolicies(prev => reset ? data.policies : [...prev, ...data.policies])
+      setPoliciesCursor(data.nextCursor)
+      setHasMorePolicies(data.hasMore)
     } catch (err) {
       console.error('Failed to fetch policies:', err)
     } finally {
       setIsLoadingPolicies(false)
     }
-  }, [api])
+  }, [api, policiesCursor, isLoadingPolicies])
 
   // Reset and fetch when date or tab changes
   useEffect(() => {
@@ -206,9 +216,18 @@ function HistoryPage() {
   useEffect(() => {
     if (selectedExecutionId) {
       setSelectedPolicy(null)
+      setPoliciesCursor(undefined)
+      setHasMorePolicies(false)
+      void fetchPolicies(selectedExecutionId, true)
+    }
+  }, [selectedExecutionId])
+
+  // Load more policies for infinite scroll
+  const loadMorePolicies = useCallback(() => {
+    if (selectedExecutionId && hasMorePolicies && !isLoadingPolicies) {
       void fetchPolicies(selectedExecutionId)
     }
-  }, [selectedExecutionId, fetchPolicies])
+  }, [selectedExecutionId, hasMorePolicies, isLoadingPolicies, fetchPolicies])
 
   // Infinite scroll observer
   useEffect(() => {
@@ -307,6 +326,8 @@ function HistoryPage() {
             onPause={pauseExecution}
             onResume={resumeExecution}
             onCancel={cancelExecution}
+            hasMore={hasMorePolicies}
+            onLoadMore={loadMorePolicies}
           />
         ) : (
           <EmptyPanel message="Select an execution to view policies" />

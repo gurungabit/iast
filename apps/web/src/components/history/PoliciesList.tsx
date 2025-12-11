@@ -2,7 +2,7 @@
 // Policies List Component
 // ============================================================================
 
-import { useMemo } from 'react'
+import { useMemo, useRef, useEffect } from 'react'
 import { Check, X, Circle, Pause } from 'lucide-react'
 import { Breadcrumb } from './Breadcrumb'
 import { StatusIcon } from './StatusIcon'
@@ -24,6 +24,8 @@ interface PoliciesListProps {
   onPause: () => void
   onResume: () => void
   onCancel: () => void
+  hasMore?: boolean
+  onLoadMore?: () => void
 }
 
 export function PoliciesList({
@@ -41,7 +43,28 @@ export function PoliciesList({
   onPause,
   onResume,
   onCancel,
+  hasMore = false,
+  onLoadMore,
 }: PoliciesListProps) {
+  const observerTarget = useRef<HTMLDivElement>(null)
+
+  // Infinite scroll observer for policies
+  useEffect(() => {
+    if (!onLoadMore || isLive) return // Don't use infinite scroll during live updates
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasMore && !isLoading) {
+          onLoadMore()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    if (observerTarget.current) observer.observe(observerTarget.current)
+    return () => observer.disconnect()
+  }, [hasMore, isLoading, onLoadMore, isLive])
+
   // Merge fetched policies with live updates
   const allPolicies = useMemo(() => {
     const policyMap = new Map<string, PolicyRecord>()
@@ -227,32 +250,44 @@ export function PoliciesList({
             {isLive ? 'Waiting for policies...' : 'No policies found'}
           </div>
         ) : (
-          allPolicies.map((policy) => (
-            <button
-              key={policy.policy_number}
-              onClick={() => onSelectPolicy(policy)}
-              className={`
-                cursor-pointer w-full text-left p-3 rounded-lg transition-all duration-150 border
-                ${selectedPolicy?.policy_number === policy.policy_number
-                  ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 ring-1 ring-blue-300 dark:ring-blue-700'
-                  : 'bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 border-gray-200 dark:border-zinc-800'
-                }
-              `}
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-sm text-gray-900 dark:text-zinc-100">
-                  {policy.policy_number}
-                </span>
-                <span className={`px-2 py-0.5 text-xs font-medium rounded-full flex items-center gap-1 ${STATUS_COLORS[policy.status]}`}>
-                  <StatusIcon status={policy.status} /> {policy.status}
-                </span>
+          <>
+            {allPolicies.map((policy) => (
+              <button
+                key={policy.policy_number}
+                onClick={() => onSelectPolicy(policy)}
+                className={`
+                  cursor-pointer w-full text-left p-3 rounded-lg transition-all duration-150 border
+                  ${selectedPolicy?.policy_number === policy.policy_number
+                    ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 ring-1 ring-blue-300 dark:ring-blue-700'
+                    : 'bg-white dark:bg-zinc-900 hover:bg-gray-50 dark:hover:bg-zinc-800 border-gray-200 dark:border-zinc-800'
+                  }
+                `}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-sm text-gray-900 dark:text-zinc-100">
+                    {policy.policy_number}
+                  </span>
+                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full flex items-center gap-1 ${STATUS_COLORS[policy.status]}`}>
+                    <StatusIcon status={policy.status} /> {policy.status}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center gap-3 text-xs text-gray-500 dark:text-zinc-500">
+                  <span>{(policy.duration_ms / 1000).toFixed(1)}s</span>
+                  {policy.error && <span className="text-red-500 truncate max-w-[200px]">{policy.error}</span>}
+                </div>
+              </button>
+            ))}
+            
+            {/* Infinite scroll trigger */}
+            {!isLive && <div ref={observerTarget} className="h-2" />}
+            
+            {/* Loading indicator for more policies */}
+            {isLoading && allPolicies.length > 0 && (
+              <div className="flex justify-center py-4">
+                <div className="w-5 h-5 border-2 border-gray-200 dark:border-zinc-700 border-t-blue-500 rounded-full animate-spin" />
               </div>
-              <div className="mt-1 flex items-center gap-3 text-xs text-gray-500 dark:text-zinc-500">
-                <span>{(policy.duration_ms / 1000).toFixed(1)}s</span>
-                {policy.error && <span className="text-red-500 truncate max-w-[200px]">{policy.error}</span>}
-              </div>
-            </button>
-          ))
+            )}
+          </>
         )}
       </div>
     </div>

@@ -28,8 +28,11 @@ export async function getExecutions(date: string, status: string | undefined, li
   return data.data
 }
 
-export async function getPolicies(executionId: string) {
-  const url = getApiUrl(`/history/${executionId}/policies`)
+export async function getPolicies(executionId: string, limit = 100, cursor?: string) {
+  const params = new URLSearchParams({ limit: String(limit) })
+  if (cursor) params.set('cursor', cursor)
+  
+  const url = getApiUrl(`/history/${executionId}/policies?${params.toString()}`)
   const data = await fetchJson<{ success: boolean; data: PoliciesResponse }>(url)
   if (!data.success) throw new Error('Failed to fetch policies')
   return data.data
