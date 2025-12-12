@@ -57,12 +57,37 @@ class TN3270Config:
 
 
 @dataclass(frozen=True)
+class DB2Config:
+    """DB2 database connection configuration."""
+
+    database: str = field(default_factory=lambda: os.getenv("DB2_DATABASE", ""))
+    hostname: str = field(default_factory=lambda: os.getenv("DB2_HOSTNAME", ""))
+    port: str = field(default_factory=lambda: os.getenv("DB2_PORT", "446"))
+    protocol: str = field(default_factory=lambda: os.getenv("DB2_PROTOCOL", "TCPIP"))
+    uid: str = field(default_factory=lambda: os.getenv("DB2_UID", ""))
+    pwd: str = field(default_factory=lambda: os.getenv("DB2_PWD", ""))
+    schema: str = field(default_factory=lambda: os.getenv("DB2_SCHEMA", "RU99"))
+
+
+@dataclass(frozen=True)
+class SMBConfig:
+    """SMB/Network storage connection configuration."""
+
+    server: str = field(default_factory=lambda: os.getenv("SMB_SERVER", ""))
+    username: str = field(default_factory=lambda: os.getenv("SMB_USERNAME", ""))
+    password: str = field(default_factory=lambda: os.getenv("SMB_PASSWORD", ""))
+    base_path: str = field(default_factory=lambda: os.getenv("SMB_BASE_PATH", ""))
+
+
+@dataclass(frozen=True)
 class Config:
     """Application configuration."""
 
     valkey: ValkeyConfig = field(default_factory=ValkeyConfig)
     tn3270: TN3270Config = field(default_factory=TN3270Config)
     dynamodb: DynamoDBConfig = field(default_factory=DynamoDBConfig)
+    db2: DB2Config = field(default_factory=DB2Config)
+    smb: SMBConfig = field(default_factory=SMBConfig)
 
 
 _config: Config | None = None

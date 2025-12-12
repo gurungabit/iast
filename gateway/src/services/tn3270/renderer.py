@@ -217,26 +217,24 @@ class TN3270Renderer:
                     # Reset underscore counter at field boundaries
                     underscore_positions = 0
 
-                    # Clear highlighting for field attribute positions - don't show underline/blink/reverse
+                    # Clear highlighting for field attribute positions
+                    # don't show underline/blink/reverse
                     eh = 0
 
                     # Determine field color based on attributes
                     if field_protected:
-                        if field_intensified:
-                            field_fg = 0xF7  # White - intensified protected
-                        else:
-                            field_fg = 0xF1  # Blue - protected
+                        # White (intensified) or Blue (normal) for protected
+                        field_fg = 0xF7 if field_intensified else 0xF1
                     else:
-                        if field_intensified:
-                            field_fg = 0xF7  # White - intensified input
-                        else:
-                            field_fg = 0xF4  # Green - normal input
+                        # White (intensified) or Green (normal) for input
+                        field_fg = 0xF7 if field_intensified else 0xF4
                 else:
                     # Regular character
                     # Decode EBCDIC to displayable character
                     char = self._decode_char(dc, cs, tnz)
 
-                    # Check if we should show underscore indicator (but not for hidden/password fields)
+                    # Check if we should show underscore indicator
+                    # (but not for hidden/password fields)
                     if (
                         prev_was_unprotected_field and not in_hidden_field and dc in (0x00, 0x40)
                     ):  # NULL or SPACE
@@ -268,15 +266,8 @@ class TN3270Renderer:
 
                 # Determine colors
                 # If explicit color set, use it; otherwise use field default
-                if fg != 0:
-                    cell_fg = COLOR_MAP.get(fg, 7)
-                else:
-                    cell_fg = COLOR_MAP.get(field_fg, 2)  # Default green
-
-                if bg != 0:
-                    cell_bg = COLOR_MAP.get(bg, 0)
-                else:
-                    cell_bg = 0  # Default black background
+                cell_fg = COLOR_MAP.get(fg, 7) if fg != 0 else COLOR_MAP.get(field_fg, 2)
+                cell_bg = COLOR_MAP.get(bg, 0) if bg != 0 else 0
 
                 # Build escape sequence if attributes changed
                 if cell_fg != current_fg or cell_bg != current_bg or eh != current_highlight:

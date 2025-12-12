@@ -4,19 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from types import SimpleNamespace
 import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from src.ast import ASTResult, ASTStatus
-from src.core import TN3270Config, TerminalError
+from src.core import TerminalError, TN3270Config
 from src.models import (
     ASTControlMessage,
     ASTControlMeta,
     DataMessage,
     SessionCreateMessage,
     SessionDestroyMessage,
-    serialize_message,
 )
 from src.services.tn3270.manager import KEY_MAPPINGS, TN3270Manager, TN3270Session
 
@@ -259,22 +258,31 @@ class ManagerExtendedTests(unittest.IsolatedAsyncioTestCase):
             def __init__(self) -> None:
                 self.callbacks: dict[str, tuple] = {}
 
-            def set_callbacks(self, on_progress=None, on_item_result=None, on_pause_state=None):
+            def set_callbacks(
+                self,
+                on_progress: object = None,
+                on_item_result: object = None,
+                on_pause_state: object = None,
+            ) -> None:
                 self.callbacks = {
                     "on_progress": on_progress,
                     "on_item_result": on_item_result,
                     "on_pause_state": on_pause_state,
                 }
 
-            def run(self, host, execution_id: str, **kwargs):
+            def run(
+                self, host: object, execution_id: str, **kwargs: object
+            ) -> ASTResult:
                 if self.callbacks["on_progress"]:
-                    self.callbacks["on_progress"](1, 2, "item", "running", "msg")
+                    self.callbacks["on_progress"](1, 2, "item", "running", "msg")  # type: ignore[operator]
                 if self.callbacks["on_item_result"]:
-                    self.callbacks["on_item_result"]("item", "success", 10, None, {})
+                    self.callbacks["on_item_result"]("item", "success", 10, None, {})  # type: ignore[operator]
                 return ASTResult(status=ASTStatus.SUCCESS, message="ok")
 
         class FakeLoop:
-            async def run_in_executor(self, executor, func, *args, **kwargs):
+            async def run_in_executor(
+                self, executor: object, func: callable, *args: object, **kwargs: object
+            ) -> object:
                 return func(*args, **kwargs)
 
         session = TN3270Session(

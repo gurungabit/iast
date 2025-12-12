@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-import sys
 import importlib
+import sys
+import types
 import unittest
 
-import src.models as models_package
 import src.models.types as types_module
 
 
-class _fresh_module:
+class FreshModule:
     """Context manager to import a module fresh and restore the original afterwards."""
 
     def __init__(self, name: str) -> None:
@@ -20,15 +20,21 @@ class _fresh_module:
         self.parent_name = parent_name or None
         self.child = child or None
         self.parent_module = sys.modules.get(parent_name) if parent_name else None
+        self.new_module: types.ModuleType | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> types.ModuleType:
         if self.original is not None:
             sys.modules.pop(self.name, None)
         module = importlib.import_module(self.name)
         self.new_module = module
         return module
 
-    def __exit__(self, exc_type, exc, tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: types.TracebackType | None,
+    ) -> bool:
         sys.modules.pop(self.name, None)
         if self.original is not None:
             sys.modules[self.name] = self.original
@@ -44,7 +50,7 @@ class ModelsSimpleModuleTests(unittest.TestCase):
     """Exercise modules that otherwise only define data structures."""
 
     def test_data_message_factory(self) -> None:
-        with _fresh_module("src.models.data") as module:
+        with FreshModule("src.models.data") as module:
             msg = module.create_data_message("sess-data", "payload")
             self.assertEqual(msg.session_id, "sess-data")
             self.assertEqual(msg.payload, "payload")
@@ -53,14 +59,14 @@ class ModelsSimpleModuleTests(unittest.TestCase):
             self.assertEqual(dumped["sessionId"], "sess-data")
 
     def test_error_message_factory_and_meta(self) -> None:
-        with _fresh_module("src.models.error") as module:
+        with FreshModule("src.models.error") as module:
             msg = module.create_error_message("sess-err", "E42", "boom")
             self.assertEqual(msg.meta.code, "E42")
             self.assertEqual(msg.payload, "boom")
             self.assertIsNone(msg.meta.details)
 
     def test_ping_and_pong_messages_have_meta(self) -> None:
-        with _fresh_module("src.models.ping") as module:
+        with FreshModule("src.models.ping") as module:
             ping = module.PingMessage(sessionId="sess-ping")
             pong = module.PongMessage(sessionId="sess-pong")
             self.assertEqual(ping.type, types_module.MessageType.PING)
@@ -69,7 +75,7 @@ class ModelsSimpleModuleTests(unittest.TestCase):
             self.assertIsNone(pong.meta)
 
     def test_session_message_factories_and_aliases(self) -> None:
-        with _fresh_module("src.models.session") as module:
+        with FreshModule("src.models.session") as module:
             create_meta = module.SessionCreateMeta(shell="tn3270", cols=80, rows=24)
             create_msg = module.SessionCreateMessage(sessionId="sess-create", meta=create_meta)
             self.assertEqual(create_msg.meta.cols, 80)
@@ -85,7 +91,7 @@ class ModelsSimpleModuleTests(unittest.TestCase):
             self.assertEqual(created_msg.meta.pid, 1234)
 
     def test_message_type_enum_and_envelope(self) -> None:
-        with _fresh_module("src.models.types") as module:
+        with FreshModule("src.models.types") as module:
             enum_values = {member.value for member in module.MessageType}
             expected = {
                 "data",
@@ -108,7 +114,7 @@ class ModelsSimpleModuleTests(unittest.TestCase):
             self.assertIn("TN3270ScreenMessage", module.MessageEnvelope)
 
     def test_models_package_exports(self) -> None:
-        with _fresh_module("src.models") as module:
+        with FreshModule("src.models") as module:
             exports = set(module.__all__)
             for name in [
                 "BaseMessage",

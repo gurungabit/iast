@@ -17,8 +17,8 @@ from .core import (
     TN3270_CONTROL_CHANNEL,
     Config,
     ErrorCodes,
-    TN3270Config,
     TerminalError,
+    TN3270Config,
     ValkeyConfig,
     get_config,
     get_tn3270_input_channel,
@@ -44,8 +44,8 @@ from .models import (
 )
 from .services import (
     TN3270Manager,
-    TN3270Session,
     TN3270Renderer,
+    TN3270Session,
     ValkeyClient,
     close_valkey_client,
     get_tn3270_manager,

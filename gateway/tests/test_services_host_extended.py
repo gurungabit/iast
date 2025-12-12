@@ -16,7 +16,7 @@ from src.services.tn3270.host import (
 
 
 class DummyCodec:
-    def decode(self, data: bytes):
+    def decode(self, data: bytes) -> tuple[str, int]:
         return (data.decode("ascii"), len(data))
 
 
@@ -62,14 +62,14 @@ class FakeTnz:
             self.plane_dc[pointer] = ord(ch)
             pointer = (pointer + 1) % (self.maxrow * self.maxcol)
 
-    def _make_pf(self, number: int):
-        def _pf():
+    def _make_pf(self, number: int) -> callable:
+        def _pf() -> None:
             self.pf_pressed = number
 
         return _pf
 
-    def _make_pa(self, number: int):
-        def _pa():
+    def _make_pa(self, number: int) -> callable:
+        def _pa() -> None:
             self.pa_pressed = number
 
         return _pa
@@ -108,7 +108,7 @@ class FakeTnz:
             self.curadd = (self.curadd + 1) % (self.maxrow * self.maxcol)
         self.commands.append(("data", value))
 
-    def key_eraseinput(self, _arg) -> None:
+    def key_eraseinput(self, _arg: object) -> None:
         self.plane_dc = [ord(" ")] * (self.maxrow * self.maxcol)
         self.commands.append(("eraseinput", None))
 
@@ -158,13 +158,13 @@ class HostExtendedTests(unittest.TestCase):
             self.messages: list[str] = []
             self.warn_messages: list[str] = []
 
-        def info(self, message: str, **kwargs) -> None:  # type: ignore[override]
+        def info(self, message: str, **kwargs: object) -> None:  # type: ignore[override]
             self.messages.append(message)
 
-        def warning(self, message: str, **kwargs) -> None:  # type: ignore[override]
+        def warning(self, message: str, **kwargs: object) -> None:  # type: ignore[override]
             self.warn_messages.append(message)
 
-        def error(self, message: str, **kwargs) -> None:  # type: ignore[override]
+        def error(self, message: str, **kwargs: object) -> None:  # type: ignore[override]
             self.messages.append(message)
 
     def test_screen_helpers(self) -> None:
@@ -304,7 +304,7 @@ class HostExtendedTests(unittest.TestCase):
         self.assertTrue(self.host.wait(timeout=0.01))
         self.tnz.pwait = 1
 
-        def unlock():
+        def unlock() -> None:
             time.sleep(0.05)
             self.tnz.pwait = 0
 

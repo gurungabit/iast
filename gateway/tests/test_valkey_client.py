@@ -31,7 +31,9 @@ class _FakePubSub:
         self.unsubscribe = AsyncMock()
         self.close = AsyncMock()
 
-    async def get_message(self, ignore_subscribe_messages: bool = True, timeout: float = 0.1):
+    async def get_message(
+        self, ignore_subscribe_messages: bool = True, timeout: float = 0.1
+    ) -> dict[str, object] | None:
         if self._messages:
             return self._messages.pop(0)
         await asyncio.sleep(0)

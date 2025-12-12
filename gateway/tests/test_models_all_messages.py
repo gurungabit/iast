@@ -8,11 +8,9 @@ from src.models.data import DataMessage, create_data_message
 from src.models.error import ErrorMessage, ErrorMeta, create_error_message
 from src.models.ping import PingMessage, PongMessage
 from src.models.session import (
+    SessionCreatedMeta,
     SessionCreateMessage,
     SessionCreateMeta,
-    SessionCreatedMessage,
-    SessionCreatedMeta,
-    SessionDestroyedMessage,
     SessionDestroyedMeta,
     SessionDestroyMessage,
     create_session_created_message,
@@ -20,9 +18,7 @@ from src.models.session import (
 )
 from src.models.tn3270 import (
     TN3270CursorMeta,
-    TN3270CursorMessage,
     TN3270Field,
-    TN3270ScreenMessage,
     TN3270ScreenMeta,
     create_tn3270_cursor_message,
     create_tn3270_screen_message,

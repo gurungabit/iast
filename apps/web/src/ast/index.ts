@@ -15,4 +15,8 @@ export * from './registry';
 export * from './components';
 
 // AST Modules (these register themselves on import)
+// Fire category
 export * from './login';
+
+// Auto category
+export * from './bi-renew';

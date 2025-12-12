@@ -8,19 +8,15 @@
 export interface Credentials {
   username: string;
   password: string;
-  rememberMe: boolean;
 }
-
-/**
- * Storage key for persisted credentials
- */
-export const CREDENTIALS_STORAGE_KEY = 'ast.credentials';
 
 /**
  * Default credentials (for development)
  */
 export const DEFAULT_CREDENTIALS: Credentials = {
-  username: 'herc01',
-  password: 'CUL8TR',
-  rememberMe: false,
+  username: '',
+  password: '',
 };
+
+// Legacy export - kept for backwards compatibility but no longer used
+export const CREDENTIALS_STORAGE_KEY = 'ast.credentials';

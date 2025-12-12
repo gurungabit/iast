@@ -14,14 +14,14 @@ from uuid import uuid4
 
 import structlog
 
+from ...db import get_dynamodb_client
 from .base import ASTResult, ASTStatus
 from .executor import ExecutionContext, ParallelExecutor, SequentialExecutor
 from .persistence import ASTPersistence
-from ...db import get_dynamodb_client
 
 if TYPE_CHECKING:
-    from .base import AST
     from ...services.tn3270.host import Host
+    from .base import AST
 
 log = structlog.get_logger()
 

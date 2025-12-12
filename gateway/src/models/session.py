@@ -9,7 +9,6 @@ from pydantic import BaseModel, Field
 from .base import BaseMessage
 from .types import MessageType
 
-
 # ----------------------------------------------------------------------------
 # Session Create
 # ----------------------------------------------------------------------------

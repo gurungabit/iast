@@ -14,7 +14,6 @@ import uuid
 import pytest
 from tnz.ati import Ati
 
-
 # Skip all tests in this module unless --run-integration is passed
 pytestmark = pytest.mark.skipif(
     "not config.getoption('--run-integration', default=False)",
@@ -84,7 +83,7 @@ def create_ati_session(
         return None, "", error
 
 
-def test_ati_session_creation():
+def test_ati_session_creation() -> None:
     """Test that we can create an ATI session and see SIGNON screen."""
     ati, session_name, error = create_ati_session(
         host="localhost",
@@ -118,7 +117,7 @@ def test_ati_session_creation():
             print(f"   Warning: Failed to drop session: {e}")
 
 
-def test_multiple_parallel_sessions():
+def test_multiple_parallel_sessions() -> None:
     """Test creating multiple ATI sessions in parallel."""
     import concurrent.futures
 

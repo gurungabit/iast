@@ -7,14 +7,15 @@ import type { ComponentType } from 'react';
 /**
  * AST category for grouping in the UI
  */
-export type ASTCategory =
-  | 'authentication'
-  | 'navigation'
-  | 'data-entry'
-  | 'reporting'
-  | 'utilities'
-  | 'admin'
-  | 'custom';
+export type ASTCategory = 'auto' | 'fire';
+
+/**
+ * Auth group mapping for each category
+ */
+export const CATEGORY_AUTH_GROUP: Record<ASTCategory, string> = {
+  auto: '@OOAUTO',
+  fire: '@OOFIRE',
+};
 
 /**
  * AST configuration - defines metadata for an AST
@@ -47,11 +48,8 @@ export interface ASTConfig {
   /** Author or team that maintains this AST */
   author?: string;
   
-  /** Whether this AST requires specific permissions */
-  requiresAuth?: boolean;
-  
-  /** Minimum required role (for future RBAC) */
-  minRole?: string;
+  /** Whether this AST supports parallel execution */
+  supportsParallel?: boolean;
   
   /** The React component that renders this AST's form */
   component: ComponentType;
@@ -102,39 +100,14 @@ export interface CategoryInfo {
  * All category metadata
  */
 export const CATEGORY_INFO: Record<ASTCategory, CategoryInfo> = {
-  authentication: {
-    id: 'authentication',
-    name: 'Authentication',
-    description: 'Login, logout, and session management',
+  auto: {
+    id: 'auto',
+    name: 'Auto',
+    description: 'Auto insurance automation scripts',
   },
-  navigation: {
-    id: 'navigation',
-    name: 'Navigation',
-    description: 'Screen navigation and menu selection',
-  },
-  'data-entry': {
-    id: 'data-entry',
-    name: 'Data Entry',
-    description: 'Form filling and data submission',
-  },
-  reporting: {
-    id: 'reporting',
-    name: 'Reporting',
-    description: 'Report generation and data extraction',
-  },
-  utilities: {
-    id: 'utilities',
-    name: 'Utilities',
-    description: 'Helper scripts and tools',
-  },
-  admin: {
-    id: 'admin',
-    name: 'Administration',
-    description: 'System administration tasks',
-  },
-  custom: {
-    id: 'custom',
-    name: 'Custom',
-    description: 'User-defined automation scripts',
+  fire: {
+    id: 'fire',
+    name: 'Fire',
+    description: 'Fire/property insurance automation scripts',
   },
 };

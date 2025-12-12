@@ -3,12 +3,13 @@
 # ============================================================================
 
 import asyncio
+import contextlib
 from collections.abc import Callable, Coroutine
 from typing import Any
 
 import redis.asyncio as redis
-from redis.asyncio.client import PubSub
 import structlog
+from redis.asyncio.client import PubSub
 
 from ..core import (
     TN3270_CONTROL_CHANNEL,
@@ -51,10 +52,8 @@ class ValkeyClient:
         self._running = False
         if self._listen_task:
             self._listen_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._listen_task
-            except asyncio.CancelledError:
-                pass
 
         if self._pubsub:
             await self._pubsub.close()

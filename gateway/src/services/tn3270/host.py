@@ -196,12 +196,12 @@ class Host:
             title_text = f" {title} "
             title_line = title_text.center(80, "=")
             # structlog doesn't accept printf-style positional args; format first
-            log.info("\n%s\n%s\n%s" % (seperator, title_line, seperator))
-            log.info("\n%s" % screen_content)
-            log.info("\n%s" % seperator)
+            log.info(f"\n{seperator}\n{title_line}\n{seperator}")
+            log.info(f"\n{screen_content}")
+            log.info(f"\n{seperator}")
         else:
             # format the separator into a single string
-            log.info("\n%s" % seperator)
+            log.info(f"\n{seperator}")
         return screen_content
 
     def get_text(self, row: int, col: int, length: int) -> str:
@@ -305,12 +305,10 @@ class Host:
             # Field starts after the attribute byte
             field_start = (fa_addr + 1) % buffer_size
 
-            # Field ends at the next field attribute (exclusive)
-            if i + 1 < len(field_starts):
-                field_end = field_starts[i + 1][0]
-            else:
-                # Wrap around to first field
-                field_end = field_starts[0][0]
+            # Field ends at the next field attribute (or wraps to first)
+            field_end = (
+                field_starts[i + 1][0] if i + 1 < len(field_starts) else field_starts[0][0]
+            )
 
             # Calculate length
             if field_end > field_start:
@@ -562,7 +560,7 @@ class Host:
         for field in fields:
             # Check if cursor is within this field
             field_end = field.address + field.length
-            buffer_size = self.rows * self.cols
+            self.rows * self.cols
 
             if field_end > field.address:
                 # Normal case
@@ -874,4 +872,7 @@ class Host:
         }
 
     def __repr__(self) -> str:
-        return f"Host(rows={self.rows}, cols={self.cols}, cursor=({self.cursor_row}, {self.cursor_col}))"
+        return (
+            f"Host(rows={self.rows}, cols={self.cols}, "
+            f"cursor=({self.cursor_row}, {self.cursor_col}))"
+        )

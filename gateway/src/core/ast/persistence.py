@@ -36,8 +36,8 @@ class ASTPersistence:
         duration_ms: int,
         started_at: datetime,
         completed_at: datetime,
-        error: Optional[str] = None,
-        item_data: Optional[dict] = None,
+        error: str | None = None,
+        item_data: dict | None = None,
     ) -> None:
         """Save an item result to DynamoDB."""
         if not self._db:
@@ -107,7 +107,7 @@ class ASTPersistence:
         status: str,
         message: str,
         item_results: list[ItemResult],
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> None:
         """Update execution record with final status."""
         if not self._db:

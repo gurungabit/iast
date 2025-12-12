@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import gc
-from types import SimpleNamespace
 import unittest
+from collections.abc import Coroutine
+from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import src.app as app_module
@@ -68,7 +70,7 @@ class AppAsyncTests(unittest.IsolatedAsyncioTestCase):
         app_module._shutdown_event = None
 
     def test_main_runs_async_main(self) -> None:
-        def fake_run(coro):
+        def fake_run(coro: Coroutine[Any, Any, None]) -> None:
             # Properly close the coroutine to avoid "never awaited" warning
             coro.close()
 
@@ -81,24 +83,24 @@ class AppAsyncTests(unittest.IsolatedAsyncioTestCase):
         shutdown_called = False
         main_called = False
 
-        async def fake_async_main():
+        async def fake_async_main() -> None:
             nonlocal main_called
             main_called = True
             # Simulate the function running but being interrupted
 
-        async def fake_shutdown():
+        async def fake_shutdown() -> None:
             nonlocal shutdown_called
             shutdown_called = True
 
         original_run = asyncio.run
 
-        def fake_run(coro):
+        def fake_run(coro: Coroutine[Any, Any, None]) -> Any:
             if not hasattr(fake_run, "times"):
                 fake_run.times = 0  # type: ignore[attr-defined]
             fake_run.times += 1  # type: ignore[attr-defined]
             if fake_run.times == 1:
                 # First call: run the coroutine then raise KeyboardInterrupt
-                result = original_run(coro)
+                original_run(coro)
                 raise KeyboardInterrupt
             # Second call: run shutdown normally
             return original_run(coro)

@@ -8,7 +8,6 @@ from typing import Final
 
 import pytest
 
-
 PROJECT_ROOT: Final = Path(__file__).resolve().parents[1]
 TESTS_DIR: Final = PROJECT_ROOT / "tests"
 SRC_DIR: Final = PROJECT_ROOT / "src"
@@ -35,7 +34,14 @@ def run_coverage() -> None:
 
 
 def run_format() -> None:
-    """Format all Python files using black."""
+    """Format all Python files using ruff."""
     import subprocess
 
-    sys.exit(subprocess.call(["black", str(PROJECT_ROOT)]))
+    sys.exit(subprocess.call(["ruff", "format", str(PROJECT_ROOT)]))
+
+
+def run_lint() -> None:
+    """Lint all Python files using ruff."""
+    import subprocess
+
+    sys.exit(subprocess.call(["ruff", "check", str(PROJECT_ROOT)]))

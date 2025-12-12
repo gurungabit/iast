@@ -4,20 +4,28 @@ from __future__ import annotations
 
 import importlib
 import sys
+import types
 import unittest
 
 
-class _fresh_module:
+class FreshModule:
+    """Context manager to import a module fresh and restore afterwards."""
+
     def __init__(self, name: str) -> None:
         self.name = name
         self.original = sys.modules.get(name)
 
-    def __enter__(self):
+    def __enter__(self) -> types.ModuleType:
         if self.original is not None:
             sys.modules.pop(self.name, None)
         return importlib.import_module(self.name)
 
-    def __exit__(self, exc_type, exc, tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: types.TracebackType | None,
+    ) -> bool:
         sys.modules.pop(self.name, None)
         if self.original is not None:
             sys.modules[self.name] = self.original
@@ -26,7 +34,7 @@ class _fresh_module:
 
 class CoreInitTests(unittest.TestCase):
     def test_core_exports(self) -> None:
-        with _fresh_module("src.core") as module:
+        with FreshModule("src.core") as module:
             expected = {
                 "get_tn3270_input_channel",
                 "get_tn3270_output_channel",

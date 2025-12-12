@@ -11,3 +11,5 @@ export { StatusBadge } from './StatusBadge';
 export { ProgressBar } from './ProgressBar';
 export { ItemResultList } from './ItemResultList';
 export { Tooltip } from './Tooltip';
+export { DatePicker } from './DatePicker';
+export { Toggle } from './Toggle';

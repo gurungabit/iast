@@ -49,6 +49,13 @@ class TerminalError(Exception):
         self.code = str(code)
         self.message = message
 
+    def to_dict(self) -> dict[str, str]:
+        """Return error as dictionary for JSON serialization."""
+        return {"code": self.code, "message": self.message}
+
+    def __repr__(self) -> str:
+        return f"TerminalError({self.code!r}, {self.message!r})"
+
 
 class ASTError(Exception):
     """Error during AST execution (prepare, process, etc.)."""

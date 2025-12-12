@@ -37,7 +37,6 @@ from ...models import (
     create_ast_paused_message,
     create_ast_progress_message,
     create_ast_status_message,
-    create_data_message,
     create_error_message,
     create_session_created_message,
     create_session_destroyed_message,
@@ -50,6 +49,8 @@ from .renderer import TN3270Renderer
 
 if TYPE_CHECKING:
     from ..valkey import ValkeyClient
+
+import contextlib
 
 from tnz import tnz as tnz_module
 
@@ -300,20 +301,16 @@ class TN3270Manager:
         session._stop_event.set()
         if session._update_task:
             session._update_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await session._update_task
-            except asyncio.CancelledError:
-                pass
 
         # Unsubscribe from channels
         await self._valkey.unsubscribe_tn3270_session(session_id)
 
         # Close tnz connection in thread
         loop = asyncio.get_running_loop()
-        try:
+        with contextlib.suppress(Exception):
             await loop.run_in_executor(_executor, session.tnz.close)
-        except Exception:
-            pass
 
         log.info("Destroyed TN3270 session", session_id=session_id, reason=reason)
 
@@ -330,7 +327,6 @@ class TN3270Manager:
     async def _update_loop(self, session: TN3270Session) -> None:
         """Poll for screen updates and send them to the client."""
         tnz = session.tnz
-        last_screen = ""
         loop = asyncio.get_running_loop()
 
         while not session._stop_event.is_set():
@@ -425,7 +421,10 @@ class TN3270Manager:
                 session.session_id,
                 ast_name,
                 "failed",
-                error="Another AST is already running. Please wait for it to complete, cancel it, or go to the History page to view its status.",
+                error=(
+                    "Another AST is already running. Please wait for it to complete, "
+                    "cancel it, or go to the History page to view its status."
+                ),
             )
             await self._valkey.publish_tn3270_output(
                 session.session_id, serialize_message(status_msg)
@@ -470,7 +469,7 @@ class TN3270Manager:
                 message,
             )
 
-            async def send():
+            async def send() -> None:
                 await self._valkey.publish_tn3270_output(
                     session.session_id, serialize_message(progress_msg)
                 )
@@ -496,7 +495,7 @@ class TN3270Manager:
                 data,
             )
 
-            async def send():
+            async def send() -> None:
                 await self._valkey.publish_tn3270_output(
                     session.session_id, serialize_message(result_msg)
                 )
@@ -518,7 +517,7 @@ class TN3270Manager:
                 message,
             )
 
-            async def send():
+            async def send() -> None:
                 await self._valkey.publish_tn3270_output(
                     session.session_id, serialize_message(paused_msg)
                 )
@@ -715,10 +714,8 @@ class TN3270Manager:
                 if meta and meta.shell:
                     if ":" in meta.shell:
                         host, port_str = meta.shell.rsplit(":", 1)
-                        try:
+                        with contextlib.suppress(ValueError):
                             port = int(port_str)
-                        except ValueError:
-                            pass
                     else:
                         host = meta.shell
 

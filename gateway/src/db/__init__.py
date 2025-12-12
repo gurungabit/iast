@@ -5,13 +5,13 @@
 DynamoDB client and repositories for persistent storage.
 """
 
-from .client import get_dynamodb_client, DynamoDBClient
+from .client import DynamoDBClient, get_dynamodb_client
 from .models import (
-    User,
-    Session,
     ASTExecution,
-    PolicyResult,
     ExecutionStatus,
+    PolicyResult,
+    Session,
+    User,
 )
 
 __all__ = [

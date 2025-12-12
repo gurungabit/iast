@@ -5,9 +5,9 @@ from __future__ import annotations
 import unittest
 
 from src.models.session import (
+    SessionCreatedMessage,
     SessionCreateMessage,
     SessionCreateMeta,
-    SessionCreatedMessage,
     SessionDestroyedMessage,
     SessionDestroyedMeta,
     SessionDestroyMessage,

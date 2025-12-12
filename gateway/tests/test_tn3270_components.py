@@ -119,7 +119,7 @@ class TN3270RendererTests(unittest.TestCase):
 
     def test_decode_char_and_attr_sequences(self) -> None:
         class _Codec:
-            def decode(self, data: bytes):
+            def decode(self, data: bytes) -> tuple[str, int]:
                 return ("@", len(data))
 
         class _DecodeStub:

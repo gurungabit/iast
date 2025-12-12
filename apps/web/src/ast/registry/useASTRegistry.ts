@@ -56,13 +56,8 @@ export function useASTRegistry(): UseASTRegistryReturn {
 
   const groupedASTs = useMemo(() => {
     const groups: Record<ASTCategory, ASTConfig[]> = {
-      authentication: [],
-      navigation: [],
-      'data-entry': [],
-      reporting: [],
-      utilities: [],
-      admin: [],
-      custom: [],
+      auto: [],
+      fire: [],
     };
 
     for (const ast of allASTs) {

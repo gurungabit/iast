@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import threading
-import time
 import unittest
-from unittest.mock import MagicMock, patch
-
 from datetime import datetime, timedelta
+from unittest.mock import patch
 
 from src.ast import AST, ASTResult, ASTStatus, ItemResult, run_ast
 
@@ -15,10 +13,10 @@ from src.ast import AST, ASTResult, ASTStatus, ItemResult, run_ast
 class DummyHost:
     """Minimal host stub."""
 
-    def get_formatted_screen(self, show_row_numbers=True):
+    def get_formatted_screen(self, show_row_numbers: bool = True) -> str:
         return "dummy screen"
 
-    def show_screen(self, title):
+    def show_screen(self, title: str) -> str:
         return f"screenshot:{title}"
 
 
@@ -31,10 +29,14 @@ class SampleAST(AST):
         self.should_fail = False
         self.executed_with: dict | None = None
 
-    def logoff(self, host, target_screen_keywords=None):
+    def logoff(
+        self, host: object, target_screen_keywords: list[str] | None = None
+    ) -> tuple[bool, str]:
         return True, ""
 
-    def process_single_item(self, host, item, index: int, total: int):
+    def process_single_item(
+        self, host: object, item: object, index: int, total: int
+    ) -> tuple[bool, str, dict[str, object]]:
         if self.should_timeout:
             raise TimeoutError("took too long")
         if self.should_fail:
@@ -43,13 +45,13 @@ class SampleAST(AST):
 
     def authenticate(
         self,
-        host,
-        user,
-        password,
-        expected_keywords_after_login,
-        application="",
-        group="",
-    ):
+        host: object,
+        user: str,
+        password: str,
+        expected_keywords_after_login: list[str],
+        application: str = "",
+        group: str = "",
+    ) -> tuple[bool, str]:
         # Skip authentication for tests
         return True, ""
 
@@ -91,8 +93,8 @@ class ASTBaseTests(unittest.TestCase):
         self.assertFalse(self.ast.wait_if_paused(timeout=0.01))
 
     @patch("src.core.ast.runner.get_dynamodb_client")
-    def test_run_success_sets_result(self, mock_db) -> None:
-        mock_db.return_value = None  # No persistence for tests
+    def test_run_success_sets_result(self, mock_db: object) -> None:
+        mock_db.return_value = None  # type: ignore[attr-defined]
         result = run_ast(
             self.ast,
             self.host,
@@ -107,8 +109,8 @@ class ASTBaseTests(unittest.TestCase):
         self.assertTrue(self.item_calls)
 
     @patch("src.core.ast.runner.get_dynamodb_client")
-    def test_run_handles_timeout(self, mock_db) -> None:
-        mock_db.return_value = None
+    def test_run_handles_timeout(self, mock_db: object) -> None:
+        mock_db.return_value = None  # type: ignore[attr-defined]
         self.ast.should_timeout = True
         result = run_ast(
             self.ast,
@@ -124,8 +126,8 @@ class ASTBaseTests(unittest.TestCase):
         self.assertIn("took too long", result.item_results[0].error or "")
 
     @patch("src.core.ast.runner.get_dynamodb_client")
-    def test_run_handles_generic_error(self, mock_db) -> None:
-        mock_db.return_value = None
+    def test_run_handles_generic_error(self, mock_db: object) -> None:
+        mock_db.return_value = None  # type: ignore[attr-defined]
         self.ast.should_fail = True
         result = run_ast(
             self.ast,

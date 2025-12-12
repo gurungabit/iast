@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import importlib
 import sys
+import types
 import unittest
 
 
-class _fresh_module:
+class FreshModule:
     """Load a module fresh for coverage and restore the original afterwards."""
 
     def __init__(self, name: str) -> None:
@@ -16,14 +17,20 @@ class _fresh_module:
         parent_name, _, child = name.rpartition(".")
         self.parent = sys.modules.get(parent_name) if parent_name else None
         self.parent_attr = child or None
+        self.module: types.ModuleType | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> types.ModuleType:
         if self.original is not None:
             sys.modules.pop(self.name, None)
         self.module = importlib.import_module(self.name)
         return self.module
 
-    def __exit__(self, exc_type, exc, tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: types.TracebackType | None,
+    ) -> bool:
         sys.modules.pop(self.name, None)
         if self.original is not None:
             sys.modules[self.name] = self.original
@@ -37,7 +44,7 @@ class _fresh_module:
 
 class ServicesTN3270InitTests(unittest.TestCase):
     def test_exports(self) -> None:
-        with _fresh_module("src.services.tn3270") as module:
+        with FreshModule("src.services.tn3270") as module:
             expected = [
                 "Host",
                 "ScreenField",

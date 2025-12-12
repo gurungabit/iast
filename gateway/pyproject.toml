@@ -10,6 +10,7 @@ dependencies = [
     "pydantic>=2.12.5",
     "python-dotenv>=1.2.1",
     "redis>=7.1.0",
+    "ruff>=0.14.0",
     "structlog>=25.5.0",
     "tnz>=0.6.3",
     "pytest>=9.0.2",
@@ -21,6 +22,7 @@ gateway = "src.app:main"
 gateway-tests = "src.cli:run_tests"
 gateway-coverage = "src.cli:run_coverage"
 gateway-format = "src.cli:run_format"
+gateway-lint = "src.cli:run_lint"
 
 [build-system]
 requires = ["hatchling"]
@@ -39,7 +41,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "ANN", "B", "C4", "SIM"]
-ignore = ["ANN401"]
+ignore = ["ANN401", "N815"]  # N815: Allow mixedCase in Pydantic models for JSON serialization
 
 [tool.pyright]
 pythonVersion = "3.12"

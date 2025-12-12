@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 import importlib
 import sys
+import types
 import unittest
+from datetime import datetime
 
 
-class _fresh_module:
+class FreshModule:
     """Context manager to import a module fresh and restore afterwards."""
 
     def __init__(self, name: str) -> None:
@@ -18,12 +19,17 @@ class _fresh_module:
         self.parent = sys.modules.get(parent_name) if parent_name else None
         self.parent_attr = child or None
 
-    def __enter__(self):
+    def __enter__(self) -> types.ModuleType:
         if self.original is not None:
             sys.modules.pop(self.name, None)
         return importlib.import_module(self.name)
 
-    def __exit__(self, exc_type, exc, tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: types.TracebackType | None,
+    ) -> bool:
         sys.modules.pop(self.name, None)
         if self.original is not None:
             sys.modules[self.name] = self.original
@@ -39,7 +45,7 @@ class DbModelTests(unittest.TestCase):
     """Round-trip key helpers into DynamoDB friendly payloads."""
 
     def test_user_to_and_from_dynamodb(self) -> None:
-        with _fresh_module("src.db.models") as db_models:
+        with FreshModule("src.db.models") as db_models:
             user = db_models.User(user_id="u1", email="user@example.com")
             item = user.to_dynamodb()
             self.assertEqual(item["PK"], f"{db_models.KeyPrefix.USER}u1")
@@ -52,7 +58,7 @@ class DbModelTests(unittest.TestCase):
             self.assertEqual(restored.email, "user@example.com")
 
     def test_session_round_trip(self) -> None:
-        with _fresh_module("src.db.models") as db_models:
+        with FreshModule("src.db.models") as db_models:
             session = db_models.Session(session_id="s1", user_id="u1")
             item = session.to_dynamodb()
             restored = db_models.Session.from_dynamodb(
@@ -64,7 +70,7 @@ class DbModelTests(unittest.TestCase):
             self.assertEqual(restored.status, "active")
 
     def test_ast_execution_round_trip(self) -> None:
-        with _fresh_module("src.db.models") as db_models:
+        with FreshModule("src.db.models") as db_models:
             execution = db_models.ASTExecution(
                 execution_id="e1",
                 session_id="s1",
@@ -85,7 +91,7 @@ class DbModelTests(unittest.TestCase):
             self.assertEqual(restored.params["foo"], "bar")
 
     def test_policy_result_round_trip(self) -> None:
-        with _fresh_module("src.db.models") as db_models:
+        with FreshModule("src.db.models") as db_models:
             policy = db_models.PolicyResult(
                 execution_id="e1",
                 policy_number="123456789",

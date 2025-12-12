@@ -1,0 +1,2859 @@
+{
+    "ZoneList": {
+        "Zone": [
+            {
+                "id": "00",
+                "name": "Corporate Headquarters",
+                "ftpName": "CORPORATE_HEADQUARTERS",
+                "States": "",
+                "Office": {
+                    "code": "00",
+                    "name": "Corporate Headquarters",
+                    "fullOC": "Corporate"
+                }
+            },
+            {
+                "id": "01",
+                "name": "California",
+                "ftpName": "CALIFORNIA",
+                "States": "05,55,75",
+                "Office": [
+                    {
+                        "code": "02",
+                        "name": "North Coast",
+                        "identifier": "ROSA02",
+                        "fullOC": "02 North Coast",
+                        "reportLabel": "NORTH COAST OFFICE",
+                        "commercialIdentifier": "Rohnert Park - 02",
+                        "mailbox": "HOME AUTO-CALIFORNIAAST",
+                        "mailboxAlias": "330n00",
+                        "State": {
+                            "code": "05",
+                            "name": "California NC",
+                            "postalCode": "CA",
+                            "multiCar": "false",
+                            "Division": [
+                                {
+                                    "code": "1",
+                                    "alphaStateDiv": "A",
+                                    "name": "N Gate"
+                                },
+                                {
+                                    "code": "3",
+                                    "alphaStateDiv": "B",
+                                    "name": "S Gate"
+                                }
+                            ]
+                        },
+                        "Unit": [
+                            {
+                                "id": "05",
+                                "state": "California",
+                                "division": "1",
+                                "geoStateCode": "05"
+                            },
+                            {
+                                "id": "57",
+                                "state": "California",
+                                "division": "2",
+                                "geoStateCode": "05"
+                            },
+                            {
+                                "id": "97",
+                                "state": "California",
+                                "division": "6",
+                                "geoStateCode": "05"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "12",
+                        "name": "Greater California",
+                        "identifier": "MESA12",
+                        "fullOC": "12 Greater California",
+                        "reportLabel": "GREATER CALIFORNIA OFFICE",
+                        "commercialIdentifier": "Bakersfield - 12",
+                        "mailbox": "HOME AUTO-CALIFORNIAAST",
+                        "mailboxAlias": "330n00",
+                        "State": {
+                            "code": "55",
+                            "name": "Great California",
+                            "postalCode": "CA",
+                            "multiCar": "false",
+                            "Division": [
+                                {
+                                    "code": "3",
+                                    "alphaStateDiv": "B",
+                                    "name": "Mission"
+                                },
+                                {
+                                    "code": "4",
+                                    "alphaStateDiv": "C",
+                                    "name": "Sequoia"
+                                },
+                                {
+                                    "code": "5",
+                                    "alphaStateDiv": "A",
+                                    "name": "Capital"
+                                },
+                                {
+                                    "code": "7",
+                                    "alphaStateDiv": "D",
+                                    "name": "Spec Risk"
+                                }
+                            ]
+                        },
+                        "Unit": [
+                            {
+                                "id": "77",
+                                "state": "California",
+                                "division": "3",
+                                "geoStateCode": "55"
+                            },
+                            {
+                                "id": "87",
+                                "state": "California",
+                                "division": "4",
+                                "geoStateCode": "55"
+                            },
+                            {
+                                "id": "55",
+                                "state": "California",
+                                "division": "5",
+                                "geoStateCode": "55"
+                            },
+                            {
+                                "id": "90",
+                                "state": "California",
+                                "division": "6",
+                                "geoStateCode": "55"
+                            },
+                            {
+                                "id": "92",
+                                "state": "California",
+                                "division": "6",
+                                "geoStateCode": "55"
+                            },
+                            {
+                                "id": "97",
+                                "state": "California",
+                                "division": "6",
+                                "geoStateCode": "55"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "23",
+                        "name": "South Coast",
+                        "identifier": "WEST23",
+                        "fullOC": "23 South Coast",
+                        "reportLabel": "SOUTH COAST OFFICE",
+                        "commercialIdentifier": "Westlake Village - 23",
+                        "mailbox": "HOME AUTO-CALIFORNIAAST",
+                        "mailboxAlias": "330n00",
+                        "State": {
+                            "code": "75",
+                            "name": "California SC",
+                            "postalCode": "CA",
+                            "multiCar": "false",
+                            "Division": [
+                                {
+                                    "code": "1",
+                                    "alphaStateDiv": "A",
+                                    "name": "LA Valley"
+                                },
+                                {
+                                    "code": "4",
+                                    "alphaStateDiv": "B",
+                                    "name": "Tricounty"
+                                }
+                            ]
+                        },
+                        "Unit": [
+                            {
+                                "id": "75",
+                                "state": "California",
+                                "division": "1",
+                                "geoStateCode": "75"
+                            },
+                            {
+                                "id": "71",
+                                "state": "California",
+                                "division": "2",
+                                "geoStateCode": "75"
+                            },
+                            {
+                                "id": "90",
+                                "state": "California",
+                                "division": "6",
+                                "geoStateCode": "75"
+                            },
+                            {
+                                "id": "92",
+                                "state": "California",
+                                "division": "6",
+                                "geoStateCode": "75"
+                            }
+                        ]
+                    }
+                ],
+                "PrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "NCST",
+                            "text": "North Coast"
+                        },
+                        {
+                            "name": "GCAL",
+                            "text": "Greater California"
+                        },
+                        {
+                            "name": "MESA",
+                            "text": "Costa Mesa"
+                        },
+                        {
+                            "name": "SCST",
+                            "text": "South Coast"
+                        },
+                        {
+                            "name": "WEST",
+                            "text": "Westlake"
+                        },
+                        {
+                            "name": "ILLI",
+                            "text": "Illinois"
+                        },
+                        {
+                            "name": "NTEX",
+                            "text": "North Texas"
+                        },
+                        {
+                            "name": "DUPT",
+                            "text": "Dupont Pacific Northwest"
+                        },
+                        {
+                            "name": "GEOR",
+                            "text": "Georgia-South Carolina"
+                        }
+                    ]
+                },
+                "AutoPrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "ROHN",
+                            "text": "Rohnert Park"
+                        },
+                        {
+                            "name": "BFLD",
+                            "text": "Bakersfield"
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "02",
+                "name": "Canada",
+                "ftpName": "CANADA",
+                "States": "60,61,64",
+                "Office": {
+                    "code": "03",
+                    "name": "Canadian",
+                    "identifier": "TRNT03",
+                    "fullOC": "03 Canadian",
+                    "reportLabel": "CANADIAN OFFICE",
+                    "commercialIdentifier": "",
+                    "mailbox": "HOME AUTO-CANADAAST",
+                    "mailboxAlias": "",
+                    "State": [
+                        {
+                            "code": "60",
+                            "name": "Ontario",
+                            "postalCode": "ON",
+                            "multiCar": "false",
+                            "Division": [
+                                {
+                                    "code": "1",
+                                    "alphaStateDiv": "A",
+                                    "name": "Canada"
+                                },
+                                {
+                                    "code": "7",
+                                    "alphaStateDiv": "B",
+                                    "name": "Canada FA"
+                                }
+                            ]
+                        },
+                        {
+                            "code": "61",
+                            "name": "Alberta",
+                            "postalCode": "AB",
+                            "multiCar": "false",
+                            "Division": {
+                                "code": "1",
+                                "alphaStateDiv": "C",
+                                "name": "Canada"
+                            }
+                        },
+                        {
+                            "code": "64",
+                            "name": "New Brunswick",
+                            "postalCode": "NB",
+                            "multiCar": "false",
+                            "Division": {
+                                "code": "1",
+                                "alphaStateDiv": "E",
+                                "name": "Canada"
+                            }
+                        }
+                    ],
+                    "Unit": [
+                        {
+                            "id": "60",
+                            "state": "Ontario",
+                            "division": "1",
+                            "geoStateCode": "60"
+                        },
+                        {
+                            "id": "61",
+                            "state": "Alberta",
+                            "division": "1",
+                            "geoStateCode": "61"
+                        },
+                        {
+                            "id": "62",
+                            "state": "British Columbia",
+                            "division": "1",
+                            "geoStateCode": "62"
+                        },
+                        {
+                            "id": "63",
+                            "state": "Manitoba",
+                            "division": "1",
+                            "geoStateCode": "63"
+                        },
+                        {
+                            "id": "64",
+                            "state": "New Brunswick",
+                            "division": "1",
+                            "geoStateCode": "64"
+                        },
+                        {
+                            "id": "65",
+                            "state": "Newfoundland",
+                            "division": "1",
+                            "geoStateCode": "65"
+                        },
+                        {
+                            "id": "66",
+                            "state": "Nova Scotia",
+                            "division": "1",
+                            "geoStateCode": "66"
+                        },
+                        {
+                            "id": "67",
+                            "state": "Prince Edward Island",
+                            "division": "1",
+                            "geoStateCode": "67"
+                        },
+                        {
+                            "id": "68",
+                            "state": "Quebec",
+                            "division": "1",
+                            "geoStateCode": "68"
+                        },
+                        {
+                            "id": "69",
+                            "state": "Saskatchewan",
+                            "division": "1",
+                            "geoStateCode": "69"
+                        },
+                        {
+                            "id": "90",
+                            "state": "Ontario",
+                            "division": "6",
+                            "geoStateCode": "60"
+                        },
+                        {
+                            "id": "91",
+                            "state": "Alberta",
+                            "division": "6",
+                            "geoStateCode": "61"
+                        },
+                        {
+                            "id": "92",
+                            "state": "British Columbia",
+                            "division": "6",
+                            "geoStateCode": "62"
+                        },
+                        {
+                            "id": "93",
+                            "state": "Manitoba",
+                            "division": "6",
+                            "geoStateCode": "63"
+                        },
+                        {
+                            "id": "94",
+                            "state": "New Brunswick",
+                            "division": "6",
+                            "geoStateCode": "64"
+                        },
+                        {
+                            "id": "95",
+                            "state": "Newfoundland",
+                            "division": "6",
+                            "geoStateCode": "65"
+                        },
+                        {
+                            "id": "96",
+                            "state": "Nova Scotia",
+                            "division": "6",
+                            "geoStateCode": "66"
+                        },
+                        {
+                            "id": "97",
+                            "state": "Prince Edward Island",
+                            "division": "6",
+                            "geoStateCode": "67"
+                        },
+                        {
+                            "id": "98",
+                            "state": "Quebec",
+                            "division": "6",
+                            "geoStateCode": "68"
+                        },
+                        {
+                            "id": "99",
+                            "state": "Saskatchewan",
+                            "division": "6",
+                            "geoStateCode": "69"
+                        }
+                    ]
+                },
+                "PrintDestinations": {
+                    "PrintDestination": {
+                        "name": "CANA",
+                        "text": "Canada"
+                    }
+                },
+                "AutoPrintDestinations": {
+                    "PrintDestination": {
+                        "name": "CANA",
+                        "text": "Scarborough"
+                    }
+                }
+            },
+            {
+                "id": "03",
+                "name": "Central",
+                "ftpName": "CENTRAL",
+                "States": "25,04,18,16,36",
+                "Office": [
+                    {
+                        "code": "14",
+                        "name": "Missouri",
+                        "identifier": "COLM14",
+                        "fullOC": "14 Missouri",
+                        "reportLabel": "MISSOURI OFFICE",
+                        "commercialIdentifier": "Columbia - 14",
+                        "mailbox": "HOME AUTO-CENTRALAST",
+                        "mailboxAlias": "304n00",
+                        "State": {
+                            "code": "25",
+                            "name": "Missouri",
+                            "postalCode": "MO",
+                            "multiCar": "false",
+                            "Division": [
+                                {
+                                    "code": "1",
+                                    "alphaStateDiv": "B",
+                                    "name": "West Mo."
+                                },
+                                {
+                                    "code": "2",
+                                    "alphaStateDiv": "C",
+                                    "name": "Gateway"
+                                },
+                                {
+                                    "code": "7",
+                                    "alphaStateDiv": "E",
+                                    "name": "Spec Risk"
+                                }
+                            ]
+                        },
+                        "Unit": [
+                            {
+                                "id": "25",
+                                "state": "Missouri",
+                                "division": "1",
+                                "geoStateCode": "25"
+                            },
+                            {
+                                "id": "95",
+                                "state": "Missouri",
+                                "division": "6",
+                                "geoStateCode": "25"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "22",
+                        "name": "Mid-South",
+                        "identifier": "MNRO22",
+                        "fullOC": "22 Mid-South",
+                        "reportLabel": "MID-SOUTH OFFICE",
+                        "commercialIdentifier": "Monroe - 22",
+                        "mailbox": "HOME AUTO-CENTRALAST",
+                        "mailboxAlias": "304n00",
+                        "State": [
+                            {
+                                "code": "04",
+                                "name": "Arkansas",
+                                "postalCode": "AR",
+                                "multiCar": "false",
+                                "Division": {
+                                    "code": "1",
+                                    "alphaStateDiv": "A",
+                                    "name": "Arkansas"
+                                }
+                            },
+                            {
+                                "code": "18",
+                                "name": "Louisiana",
+                                "postalCode": "LA",
+                                "multiCar": "false",
+                                "Division": [
+                                    {
+                                        "code": "4",
+                                        "alphaStateDiv": "D",
+                                        "name": "Bayou"
+                                    },
+                                    {
+                                        "code": "5",
+                                        "alphaStateDiv": "E",
+                                        "name": "Pelican"
+                                    },
+                                    {
+                                        "code": "7",
+                                        "alphaStateDiv": "F",
+                                        "name": "Spec Risk"
+                                    }
+                                ]
+                            }
+                        ],
+                        "Unit": [
+                            {
+                                "id": "04",
+                                "state": "Arkansas",
+                                "division": "1",
+                                "geoStateCode": "04"
+                            },
+                            {
+                                "id": "18",
+                                "state": "Louisiana",
+                                "division": "2",
+                                "geoStateCode": "18"
+                            },
+                            {
+                                "id": "94",
+                                "state": "Arkansas",
+                                "division": "6",
+                                "geoStateCode": "04"
+                            },
+                            {
+                                "id": "98",
+                                "state": "Louisiana",
+                                "division": "6",
+                                "geoStateCode": "18"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "26",
+                        "name": "Oklahoma-Kansas",
+                        "identifier": "TULS26",
+                        "fullOC": "26 Oklahoma-Kansas",
+                        "reportLabel": "OKLAHOMA-KANSAS OFFICE",
+                        "commercialIdentifier": "Tulsa - 26",
+                        "mailbox": "HOME AUTO-CENTRALAST",
+                        "mailboxAlias": "304n00",
+                        "State": [
+                            {
+                                "code": "16",
+                                "name": "Kansas",
+                                "postalCode": "KS",
+                                "multiCar": "false",
+                                "Division": [
+                                    {
+                                        "code": "3",
+                                        "alphaStateDiv": "B",
+                                        "name": "Kansas"
+                                    },
+                                    {
+                                        "code": "7",
+                                        "alphaStateDiv": "D",
+                                        "name": "Spec Risk"
+                                    }
+                                ]
+                            },
+                            {
+                                "code": "36",
+                                "name": "Oklahoma",
+                                "postalCode": "OK",
+                                "multiCar": "false",
+                                "Division": [
+                                    {
+                                        "code": "2",
+                                        "alphaStateDiv": "A",
+                                        "name": "Oklahoma"
+                                    },
+                                    {
+                                        "code": "7",
+                                        "alphaStateDiv": "C",
+                                        "name": "Spec Risk"
+                                    }
+                                ]
+                            }
+                        ],
+                        "Unit": [
+                            {
+                                "id": "36",
+                                "state": "Oklahoma",
+                                "division": "1",
+                                "geoStateCode": "36"
+                            },
+                            {
+                                "id": "16",
+                                "state": "Kansas",
+                                "division": "2",
+                                "geoStateCode": "16"
+                            },
+                            {
+                                "id": "91",
+                                "state": "Kansas",
+                                "division": "6",
+                                "geoStateCode": "16"
+                            },
+                            {
+                                "id": "92",
+                                "state": "Kansas",
+                                "division": "6",
+                                "geoStateCode": "16"
+                            },
+                            {
+                                "id": "96",
+                                "state": "Oklahoma",
+                                "division": "6",
+                                "geoStateCode": "36"
+                            }
+                        ]
+                    }
+                ],
+                "PrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "MIDS",
+                            "text": "Columbia"
+                        },
+                        {
+                            "name": "MSRI",
+                            "text": "Missouri"
+                        },
+                        {
+                            "name": "MNRO",
+                            "text": "Mid-South"
+                        },
+                        {
+                            "name": "OKAN",
+                            "text": "Oklahoma-Kansas"
+                        },
+                        {
+                            "name": "ILLI",
+                            "text": "Illinois"
+                        },
+                        {
+                            "name": "GEOR",
+                            "text": "Georgia-South Carolina"
+                        },
+                        {
+                            "name": "NTEX",
+                            "text": "North Texas"
+                        }
+                    ]
+                },
+                "AutoPrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "COLM",
+                            "text": "Columbia"
+                        },
+                        {
+                            "name": "TLSA",
+                            "text": "Tulsa"
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "04",
+                "name": "Florida",
+                "ftpName": "FLORIDA",
+                "States": "59",
+                "Office": {
+                    "code": "19",
+                    "name": "Florida",
+                    "identifier": "WINT19",
+                    "fullOC": "19 Florida",
+                    "reportLabel": "FLORIDA OFFICE",
+                    "commercialIdentifier": "Winter Haven - 19",
+                    "mailbox": "HOME AUTO-FLORIDAAST",
+                    "mailboxAlias": "338n00",
+                    "State": {
+                        "code": "59",
+                        "name": "Florida",
+                        "postalCode": "FL",
+                        "multiCar": "false",
+                        "Division": [
+                            {
+                                "code": "1",
+                                "alphaStateDiv": "A",
+                                "name": "Fl Crown"
+                            },
+                            {
+                                "code": "2",
+                                "alphaStateDiv": "B",
+                                "name": "Atlantic"
+                            },
+                            {
+                                "code": "3",
+                                "alphaStateDiv": "G",
+                                "name": "Gulf"
+                            },
+                            {
+                                "code": "4",
+                                "alphaStateDiv": "C",
+                                "name": "East Fla."
+                            },
+                            {
+                                "code": "5",
+                                "alphaStateDiv": "E",
+                                "name": "South Fla"
+                            },
+                            {
+                                "code": "6",
+                                "alphaStateDiv": "D",
+                                "name": "West Fla."
+                            },
+                            {
+                                "code": "7",
+                                "alphaStateDiv": "F",
+                                "name": "Spec Risk"
+                            }
+                        ]
+                    },
+                    "Unit": [
+                        {
+                            "id": "59",
+                            "state": "Florida",
+                            "division": "1",
+                            "geoStateCode": "59"
+                        },
+                        {
+                            "id": "79",
+                            "state": "Florida",
+                            "division": "2",
+                            "geoStateCode": "59"
+                        },
+                        {
+                            "id": "80",
+                            "state": "Florida",
+                            "division": "3",
+                            "geoStateCode": "59"
+                        },
+                        {
+                            "id": "90",
+                            "state": "Florida",
+                            "division": "6",
+                            "geoStateCode": "59"
+                        },
+                        {
+                            "id": "98",
+                            "state": "Florida",
+                            "division": "6",
+                            "geoStateCode": "59"
+                        },
+                        {
+                            "id": "89",
+                            "state": "Florida",
+                            "division": "7",
+                            "geoStateCode": "59"
+                        }
+                    ]
+                },
+                "PrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "FLOR",
+                            "text": "Winter Haven"
+                        },
+                        {
+                            "name": "WINT",
+                            "text": "Florida"
+                        },
+                        {
+                            "name": "GEOR",
+                            "text": "Georgia-South Carolina"
+                        },
+                        {
+                            "name": "ILLI",
+                            "text": "Illinois"
+                        },
+                        {
+                            "name": "NTEX",
+                            "text": "North Texas"
+                        }
+                    ]
+                },
+                "AutoPrintDestinations": {
+                    "PrintDestination": {
+                        "name": "FLOR",
+                        "text": "Winter Haven"
+                    }
+                }
+            },
+            {
+                "id": "05",
+                "name": "Great Lakes",
+                "ftpName": "GREAT_LAKES",
+                "States": "13,14,22",
+                "Office": [
+                    {
+                        "code": "01",
+                        "name": "Illinois",
+                        "identifier": "ILIO01",
+                        "fullOC": "01 Illinois",
+                        "reportLabel": "ILLINOIS OFFICE",
+                        "commercialIdentifier": "Illinois - 01",
+                        "mailbox": "HOME AUTO-GREATLAKESAST",
+                        "mailboxAlias": "328n00",
+                        "State": {
+                            "code": "13",
+                            "name": "Illinois",
+                            "postalCode": "IL",
+                            "multiCar": "false",
+                            "Division": [
+                                {
+                                    "code": "1",
+                                    "alphaStateDiv": "A",
+                                    "name": "Northern"
+                                },
+                                {
+                                    "code": "3",
+                                    "alphaStateDiv": "D",
+                                    "name": "Lakes"
+                                },
+                                {
+                                    "code": "4",
+                                    "alphaStateDiv": "E",
+                                    "name": "Fox"
+                                },
+                                {
+                                    "code": "5",
+                                    "alphaStateDiv": "F",
+                                    "name": "Calumet"
+                                },
+                                {
+                                    "code": "6",
+                                    "alphaStateDiv": "C",
+                                    "name": "Southern"
+                                },
+                                {
+                                    "code": "7",
+                                    "alphaStateDiv": "B",
+                                    "name": "Spec Risk"
+                                }
+                            ]
+                        },
+                        "Unit": [
+                            {
+                                "id": "13",
+                                "state": "Illinois",
+                                "division": "1",
+                                "geoStateCode": "13"
+                            },
+                            {
+                                "id": "73",
+                                "state": "Illinois",
+                                "division": "2",
+                                "geoStateCode": "13"
+                            },
+                            {
+                                "id": "93",
+                                "state": "Illinois",
+                                "division": "6",
+                                "geoStateCode": "13"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "04",
+                        "name": "Michigan",
+                        "identifier": "MRSH04",
+                        "fullOC": "04 Michigan",
+                        "reportLabel": "MICHIGAN OFFICE",
+                        "commercialIdentifier": "Michigan - 04",
+                        "mailbox": "HOME AUTO-GREATLAKESAST",
+                        "mailboxAlias": "328n00",
+                        "State": {
+                            "code": "22",
+                            "name": "Michigan",
+                            "postalCode": "MI",
+                            "multiCar": "false",
+                            "Division": [
+                                {
+                                    "code": "2",
+                                    "alphaStateDiv": "A",
+                                    "name": "Metro"
+                                },
+                                {
+                                    "code": "5",
+                                    "alphaStateDiv": "B",
+                                    "name": "Southern"
+                                },
+                                {
+                                    "code": "6",
+                                    "alphaStateDiv": "C",
+                                    "name": "Northern"
+                                },
+                                {
+                                    "code": "7",
+                                    "alphaStateDiv": "D",
+                                    "name": "Spec Risk"
+                                }
+                            ]
+                        },
+                        "Unit": [
+                            {
+                                "id": "22",
+                                "state": "Michigan",
+                                "division": "1",
+                                "geoStateCode": "22"
+                            },
+                            {
+                                "id": "82",
+                                "state": "Michigan",
+                                "division": "2",
+                                "geoStateCode": "22"
+                            },
+                            {
+                                "id": "92",
+                                "state": "Michigan",
+                                "division": "6",
+                                "geoStateCode": "22"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "18",
+                        "name": "Indiana",
+                        "identifier": "INDI18",
+                        "fullOC": "18 Indiana",
+                        "reportLabel": "INDIANA OFFICE",
+                        "commercialIdentifier": "Indiana - 18",
+                        "mailbox": "HOME AUTO-GREATLAKESAST",
+                        "mailboxAlias": "328n00",
+                        "State": {
+                            "code": "14",
+                            "name": "Indiana",
+                            "postalCode": "IN",
+                            "multiCar": "false",
+                            "Division": [
+                                {
+                                    "code": "2",
+                                    "alphaStateDiv": "A",
+                                    "name": "Northern"
+                                },
+                                {
+                                    "code": "5",
+                                    "alphaStateDiv": "B",
+                                    "name": "North II"
+                                },
+                                {
+                                    "code": "6",
+                                    "alphaStateDiv": "C",
+                                    "name": "Southern"
+                                }
+                            ]
+                        },
+                        "Unit": [
+                            {
+                                "id": "14",
+                                "state": "Indiana",
+                                "division": "1",
+                                "geoStateCode": "14"
+                            },
+                            {
+                                "id": "94",
+                                "state": "Indiana",
+                                "division": "6",
+                                "geoStateCode": "14"
+                            }
+                        ]
+                    }
+                ],
+                "PrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "ILLI",
+                            "text": "Illinois"
+                        },
+                        {
+                            "name": "MICH",
+                            "text": "Michigan"
+                        },
+                        {
+                            "name": "INDI",
+                            "text": "Indiana"
+                        },
+                        {
+                            "name": "GEOR",
+                            "text": "Georgia-South Carolina"
+                        },
+                        {
+                            "name": "NTEX",
+                            "text": "North Texas"
+                        }
+                    ]
+                },
+                "AutoPrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "ILLI",
+                            "text": "Illinois"
+                        },
+                        {
+                            "name": "MICH",
+                            "text": "Michigan"
+                        },
+                        {
+                            "name": "INDI",
+                            "text": "Indiana"
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "06",
+                "name": "Great Western",
+                "ftpName": "GREAT_WESTERN",
+                "States": "06,44,50,03,28,31",
+                "Office": [
+                    {
+                        "code": "20",
+                        "name": "Mountain States",
+                        "identifier": "GRLY20",
+                        "fullOC": "20 Mountain States",
+                        "reportLabel": "MOUNTAIN STATES OFFICE",
+                        "commercialIdentifier": "Greeley - 20",
+                        "mailbox": "HOME AUTO-GREATWESTERNAST",
+                        "mailboxAlias": "342n00",
+                        "State": [
+                            {
+                                "code": "06",
+                                "name": "Colorado",
+                                "postalCode": "CO",
+                                "multiCar": "false",
+                                "Division": [
+                                    {
+                                        "code": "1",
+                                        "alphaStateDiv": "A",
+                                        "name": "Mile High"
+                                    },
+                                    {
+                                        "code": "2",
+                                        "alphaStateDiv": "D",
+                                        "name": "Frontier"
+                                    }
+                                ]
+                            },
+                            {
+                                "code": "44",
+                                "name": "Utah",
+                                "postalCode": "UT",
+                                "multiCar": "false",
+                                "Division": {
+                                    "code": "3",
+                                    "alphaStateDiv": "B",
+                                    "name": "Utah"
+                                }
+                            },
+                            {
+                                "code": "50",
+                                "name": "Wyoming",
+                                "postalCode": "WY",
+                                "multiCar": "false",
+                                "Division": {
+                                    "code": "2",
+                                    "alphaStateDiv": "C",
+                                    "name": "Frontier"
+                                }
+                            }
+                        ],
+                        "Unit": [
+                            {
+                                "id": "06",
+                                "state": "Colorado",
+                                "division": "1",
+                                "geoStateCode": "06"
+                            },
+                            {
+                                "id": "50",
+                                "state": "Wyoming",
+                                "division": "2",
+                                "geoStateCode": "50"
+                            },
+                            {
+                                "id": "86",
+                                "state": "Colorado",
+                                "division": "3",
+                                "geoStateCode": "06"
+                            },
+                            {
+                                "id": "44",
+                                "state": "Utah",
+                                "division": "3",
+                                "geoStateCode": "44"
+                            },
+                            {
+                                "id": "90",
+                                "state": "Wyoming",
+                                "division": "6",
+                                "geoStateCode": "50"
+                            },
+                            {
+                                "id": "94",
+                                "state": "Utah",
+                                "division": "6",
+                                "geoStateCode": "44"
+                            },
+                            {
+                                "id": "96",
+                                "state": "Colorado",
+                                "division": "6",
+                                "geoStateCode": "06"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "24",
+                        "name": "Sunland",
+                        "identifier": "TEMP24",
+                        "fullOC": "24 Sunland",
+                        "reportLabel": "SUNLAND OFFICE",
+                        "commercialIdentifier": "Tempe - 24",
+                        "mailbox": "HOME AUTO-GREATWESTERNAST",
+                        "mailboxAlias": "342n00",
+                        "State": [
+                            {
+                                "code": "03",
+                                "name": "Arizona",
+                                "postalCode": "AZ",
+                                "multiCar": "false",
+                                "Division": {
+                                    "code": "1",
+                                    "alphaStateDiv": "A",
+                                    "name": "Arizona"
+                                }
+                            },
+                            {
+                                "code": "28",
+                                "name": "Nevada",
+                                "postalCode": "NV",
+                                "multiCar": "false",
+                                "Division": {
+                                    "code": "2",
+                                    "alphaStateDiv": "B",
+                                    "name": "Nev/N. Mex"
+                                }
+                            },
+                            {
+                                "code": "31",
+                                "name": "New Mexico",
+                                "postalCode": "NM",
+                                "multiCar": "false",
+                                "Division": {
+                                    "code": "2",
+                                    "alphaStateDiv": "C",
+                                    "name": "Nev/N. Mex"
+                                }
+                            }
+                        ],
+                        "Unit": [
+                            {
+                                "id": "03",
+                                "state": "Arizona",
+                                "division": "1",
+                                "geoStateCode": "03"
+                            },
+                            {
+                                "id": "28",
+                                "state": "Nevada",
+                                "division": "1",
+                                "geoStateCode": "28"
+                            },
+                            {
+                                "id": "31",
+                                "state": "New Mexico",
+                                "division": "1",
+                                "geoStateCode": "31"
+                            },
+                            {
+                                "id": "91",
+                                "state": "New Mexico",
+                                "division": "6",
+                                "geoStateCode": "31"
+                            },
+                            {
+                                "id": "93",
+                                "state": "Arizona",
+                                "division": "6",
+                                "geoStateCode": "03"
+                            },
+                            {
+                                "id": "98",
+                                "state": "Nevada",
+                                "division": "6",
+                                "geoStateCode": "28"
+                            }
+                        ]
+                    }
+                ],
+                "PrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "MTST",
+                            "text": "Mountain States"
+                        },
+                        {
+                            "name": "SUNL",
+                            "text": "Sunland"
+                        },
+                        {
+                            "name": "ILLI",
+                            "text": "Illinois"
+                        },
+                        {
+                            "name": "GEOR",
+                            "text": "Georgia-South Carolina"
+                        },
+                        {
+                            "name": "NTEX",
+                            "text": "North Texas"
+                        }
+                    ]
+                },
+                "AutoPrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "GRLY",
+                            "text": "Greeley"
+                        },
+                        {
+                            "name": "TMPE",
+                            "text": "Tempe"
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "07",
+                "name": "Heartland",
+                "ftpName": "HEARTLAND",
+                "States": "23,49,15,27,34,41",
+                "Office": [
+                    {
+                        "code": "05",
+                        "name": "North Central",
+                        "identifier": "STPL05",
+                        "fullOC": "05 North Central",
+                        "reportLabel": "NORTH CENTRAL OFFICE",
+                        "commercialIdentifier": "Woodbury - 05",
+                        "mailbox": "HOME AUTO-HEARTLANDAST",
+                        "mailboxAlias": "332n00",
+                        "State": [
+                            {
+                                "code": "23",
+                                "name": "Minnesota",
+                                "postalCode": "MN",
+                                "multiCar": "false",
+                                "Division": [
+                                    {
+                                        "code": "5",
+                                        "alphaStateDiv": "A",
+                                        "name": "Metro."
+                                    },
+                                    {
+                                        "code": "6",
+                                        "alphaStateDiv": "B",
+                                        "name": "Rural"
+                                    }
+                                ]
+                            },
+                            {
+                                "code": "49",
+                                "name": "Wisconsin",
+                                "postalCode": "WI",
+                                "multiCar": "false",
+                                "Division": {
+                                    "code": "4",
+                                    "alphaStateDiv": "C",
+                                    "name": "Wisconsin"
+                                }
+                            }
+                        ],
+                        "Unit": [
+                            {
+                                "id": "23",
+                                "state": "Minnesota",
+                                "division": "1",
+                                "geoStateCode": "23"
+                            },
+                            {
+                                "id": "49",
+                                "state": "Wisconsin",
+                                "division": "2",
+                                "geoStateCode": "49"
+                            },
+                            {
+                                "id": "93",
+                                "state": "Minnesota",
+                                "division": "6",
+                                "geoStateCode": "23"
+                            },
+                            {
+                                "id": "99",
+                                "state": "Wisconsin",
+                                "division": "6",
+                                "geoStateCode": "49"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "06",
+                        "name": "West Central",
+                        "identifier": "LINC06",
+                        "fullOC": "06 West Central",
+                        "reportLabel": "WEST CENTRAL OFFICE",
+                        "commercialIdentifier": "Lincoln - 06",
+                        "mailbox": "HOME AUTO-HEARTLANDAST",
+                        "mailboxAlias": "332n00",
+                        "State": [
+                            {
+                                "code": "15",
+                                "name": "Iowa",
+                                "postalCode": "IA",
+                                "multiCar": "false",
+                                "Division": {
+                                    "code": "4",
+                                    "alphaStateDiv": "A",
+                                    "name": "Iowa"
+                                }
+                            },
+                            {
+                                "code": "27",
+                                "name": "Nebraska",
+                                "postalCode": "NE",
+                                "multiCar": "false",
+                                "Division": {
+                                    "code": "2",
+                                    "alphaStateDiv": "B",
+                                    "name": "Nebr/Daks"
+                                }
+                            },
+                            {
+                                "code": "34",
+                                "name": "North Dakota",
+                                "postalCode": "ND",
+                                "multiCar": "false",
+                                "Division": {
+                                    "code": "2",
+                                    "alphaStateDiv": "C",
+                                    "name": "Nebr/Daks"
+                                }
+                            },
+                            {
+                                "code": "41",
+                                "name": "South Dakota",
+                                "postalCode": "SD",
+                                "multiCar": "false",
+                                "Division": {
+                                    "code": "2",
+                                    "alphaStateDiv": "D",
+                                    "name": "Nebr/Daks"
+                                }
+                            }
+                        ],
+                        "Unit": [
+                            {
+                                "id": "15",
+                                "state": "Iowa",
+                                "division": "1",
+                                "geoStateCode": "15"
+                            },
+                            {
+                                "id": "27",
+                                "state": "Nebraska",
+                                "division": "1",
+                                "geoStateCode": "27"
+                            },
+                            {
+                                "id": "34",
+                                "state": "North Dakota",
+                                "division": "1",
+                                "geoStateCode": "34"
+                            },
+                            {
+                                "id": "41",
+                                "state": "South Dakota",
+                                "division": "1",
+                                "geoStateCode": "41"
+                            },
+                            {
+                                "id": "91",
+                                "state": "South Dakota",
+                                "division": "6",
+                                "geoStateCode": "41"
+                            },
+                            {
+                                "id": "94",
+                                "state": "North Dakota",
+                                "division": "6",
+                                "geoStateCode": "34"
+                            },
+                            {
+                                "id": "95",
+                                "state": "Iowa",
+                                "division": "6",
+                                "geoStateCode": "15"
+                            },
+                            {
+                                "id": "97",
+                                "state": "Nebraska",
+                                "division": "6",
+                                "geoStateCode": "27"
+                            }
+                        ]
+                    }
+                ],
+                "PrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "NCEN",
+                            "text": "North Central"
+                        },
+                        {
+                            "name": "WCEN",
+                            "text": "West Central"
+                        },
+                        {
+                            "name": "ILLI",
+                            "text": "Illinois"
+                        },
+                        {
+                            "name": "GEOR",
+                            "text": "Georgia-South Carolina"
+                        },
+                        {
+                            "name": "NTEX",
+                            "text": "North Texas"
+                        }
+                    ]
+                },
+                "AutoPrintDestinations": {
+                    "PrintDestination": {
+                        "name": "LINC",
+                        "text": "Lincoln"
+                    }
+                }
+            },
+            {
+                "id": "08",
+                "name": "Mid-Atlantic",
+                "ftpName": "MID_ATLANTIC",
+                "States": "33,46,08,09,20,48",
+                "Office": [
+                    {
+                        "code": "07",
+                        "name": "Eastern",
+                        "identifier": "CHVL07",
+                        "fullOC": "07 Eastern",
+                        "reportLabel": "EASTERN OFFICE",
+                        "commercialIdentifier": "Charlottesville - 07",
+                        "mailbox": "HOME AUTO-MIDATLANTICAST",
+                        "mailboxAlias": "333n00",
+                        "State": [
+                            {
+                                "code": "33",
+                                "name": "North Carolina",
+                                "postalCode": "NC",
+                                "multiCar": "true",
+                                "Division": {
+                                    "code": "5",
+                                    "alphaStateDiv": "A",
+                                    "name": "N. Car."
+                                }
+                            },
+                            {
+                                "code": "46",
+                                "name": "Virginia",
+                                "postalCode": "VA",
+                                "multiCar": "true",
+                                "Division": [
+                                    {
+                                        "code": "2",
+                                        "alphaStateDiv": "B",
+                                        "name": "Tidewater"
+                                    },
+                                    {
+                                        "code": "4",
+                                        "alphaStateDiv": "C",
+                                        "name": "Inland"
+                                    },
+                                    {
+                                        "code": "7",
+                                        "alphaStateDiv": "D",
+                                        "name": "Spec Risk"
+                                    }
+                                ]
+                            }
+                        ],
+                        "Unit": [
+                            {
+                                "id": "33",
+                                "state": "North Carolina",
+                                "division": "1",
+                                "geoStateCode": "33"
+                            },
+                            {
+                                "id": "46",
+                                "state": "Virginia",
+                                "division": "1",
+                                "geoStateCode": "46"
+                            },
+                            {
+                                "id": "93",
+                                "state": "North Carolina",
+                                "division": "6",
+                                "geoStateCode": "33"
+                            },
+                            {
+                                "id": "96",
+                                "state": "Virginia",
+                                "division": "6",
+                                "geoStateCode": "46"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "21",
+                        "name": "Seaboard",
+                        "identifier": "FRED21",
+                        "fullOC": "21 Seaboard",
+                        "reportLabel": "SEABOARD OFFICE",
+                        "commercialIdentifier": "Fredrick - 21",
+                        "mailbox": "HOME AUTO-MIDATLANTICAST",
+                        "mailboxAlias": "333n00",
+                        "State": [
+                            {
+                                "code": "08",
+                                "name": "Delaware",
+                                "postalCode": "DE",
+                                "multiCar": "false",
+                                "Division": {
+                                    "code": "3",
+                                    "alphaStateDiv": "A",
+                                    "name": "Seaboard"
+                                }
+                            },
+                            {
+                                "code": "09",
+                                "name": "Dist. Columbia",
+                                "postalCode": "DC",
+                                "multiCar": "false",
+                                "Division": {
+                                    "code": "2",
+                                    "alphaStateDiv": "B",
+                                    "name": "Capital"
+                                }
+                            },
+                            {
+                                "code": "20",
+                                "name": "Maryland",
+                                "postalCode": "MD",
+                                "multiCar": "false",
+                                "Division": [
+                                    {
+                                        "code": "2",
+                                        "alphaStateDiv": "C",
+                                        "name": "Capital"
+                                    },
+                                    {
+                                        "code": "3",
+                                        "alphaStateDiv": "D",
+                                        "name": "Seaboard"
+                                    }
+                                ]
+                            },
+                            {
+                                "code": "48",
+                                "name": "West Virginia",
+                                "postalCode": "WV",
+                                "multiCar": "false",
+                                "Division": {
+                                    "code": "4",
+                                    "alphaStateDiv": "E",
+                                    "name": "West Va."
+                                }
+                            }
+                        ],
+                        "Unit": [
+                            {
+                                "id": "08",
+                                "state": "Delaware",
+                                "division": "1",
+                                "geoStateCode": "08"
+                            },
+                            {
+                                "id": "09",
+                                "state": "District of Columbia",
+                                "division": "1",
+                                "geoStateCode": "09"
+                            },
+                            {
+                                "id": "20",
+                                "state": "Maryland",
+                                "division": "1",
+                                "geoStateCode": "20"
+                            },
+                            {
+                                "id": "48",
+                                "state": "West Virginia",
+                                "division": "1",
+                                "geoStateCode": "48"
+                            },
+                            {
+                                "id": "90",
+                                "state": "Maryland",
+                                "division": "6",
+                                "geoStateCode": "20"
+                            },
+                            {
+                                "id": "97",
+                                "state": "West Virginia",
+                                "division": "6",
+                                "geoStateCode": "48"
+                            },
+                            {
+                                "id": "98",
+                                "state": "Delaware",
+                                "division": "6",
+                                "geoStateCode": "08"
+                            },
+                            {
+                                "id": "99",
+                                "state": "District of Columbia",
+                                "division": "6",
+                                "geoStateCode": "09"
+                            }
+                        ]
+                    }
+                ],
+                "PrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "EAST",
+                            "text": "Eastern"
+                        },
+                        {
+                            "name": "SBRD",
+                            "text": "Seaboard"
+                        },
+                        {
+                            "name": "ILLI",
+                            "text": "Illinois"
+                        },
+                        {
+                            "name": "GEOR",
+                            "text": "Georgia-South Carolina"
+                        },
+                        {
+                            "name": "NTEX",
+                            "text": "North Texas"
+                        }
+                    ]
+                },
+                "AutoPrintDestinations": {
+                    "PrintDestination": {
+                        "name": "CHAR",
+                        "text": "Charlottesville"
+                    }
+                }
+            },
+            {
+                "id": "09",
+                "name": "Mid-America",
+                "ftpName": "MID_AMERICA",
+                "States": "17,42,35",
+                "Office": [
+                    {
+                        "code": "11",
+                        "name": "South Central",
+                        "identifier": "MURF11",
+                        "fullOC": "11 South Central",
+                        "reportLabel": "SOUTH CENTRAL OFFICE",
+                        "commercialIdentifier": "Murfreesboro - 11",
+                        "mailbox": "HOME AUTO-MIDAMERICAAST",
+                        "mailboxAlias": "335n00",
+                        "State": [
+                            {
+                                "code": "17",
+                                "name": "Kentucky",
+                                "postalCode": "KY",
+                                "multiCar": "false",
+                                "Division": [
+                                    {
+                                        "code": "2",
+                                        "alphaStateDiv": "D",
+                                        "name": "East Ky"
+                                    },
+                                    {
+                                        "code": "5",
+                                        "alphaStateDiv": "A",
+                                        "name": "West Ky"
+                                    }
+                                ]
+                            },
+                            {
+                                "code": "42",
+                                "name": "Tennessee",
+                                "postalCode": "TN",
+                                "multiCar": "false",
+                                "Division": [
+                                    {
+                                        "code": "3",
+                                        "alphaStateDiv": "B",
+                                        "name": "West Tenn"
+                                    },
+                                    {
+                                        "code": "4",
+                                        "alphaStateDiv": "C",
+                                        "name": "East Tenn"
+                                    }
+                                ]
+                            }
+                        ],
+                        "Unit": [
+                            {
+                                "id": "17",
+                                "state": "Kentucky",
+                                "division": "1",
+                                "geoStateCode": "17"
+                            },
+                            {
+                                "id": "42",
+                                "state": "Tennessee",
+                                "division": "2",
+                                "geoStateCode": "42"
+                            },
+                            {
+                                "id": "92",
+                                "state": "Tennessee",
+                                "division": "6",
+                                "geoStateCode": "42"
+                            },
+                            {
+                                "id": "97",
+                                "state": "Kentucky",
+                                "division": "6",
+                                "geoStateCode": "17"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "16",
+                        "name": "Ohio",
+                        "identifier": "NEWK16",
+                        "fullOC": "16 Ohio",
+                        "reportLabel": "OHIO OFFICE",
+                        "commercialIdentifier": "Newark - 16",
+                        "mailbox": "HOME AUTO-MIDAMERICAAST",
+                        "mailboxAlias": "335n00",
+                        "State": {
+                            "code": "35",
+                            "name": "Ohio",
+                            "postalCode": "OH",
+                            "multiCar": "false",
+                            "Division": [
+                                {
+                                    "code": "2",
+                                    "alphaStateDiv": "A",
+                                    "name": "Scioto"
+                                },
+                                {
+                                    "code": "5",
+                                    "alphaStateDiv": "B",
+                                    "name": "Buckeye"
+                                },
+                                {
+                                    "code": "6",
+                                    "alphaStateDiv": "C",
+                                    "name": "Erie"
+                                }
+                            ]
+                        },
+                        "Unit": [
+                            {
+                                "id": "35",
+                                "state": "Ohio",
+                                "division": "1",
+                                "geoStateCode": "35"
+                            },
+                            {
+                                "id": "70",
+                                "state": "Ohio",
+                                "division": "2",
+                                "geoStateCode": "35"
+                            },
+                            {
+                                "id": "95",
+                                "state": "Ohio",
+                                "division": "6",
+                                "geoStateCode": "35"
+                            }
+                        ]
+                    }
+                ],
+                "PrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "SCEN",
+                            "text": "South Central"
+                        },
+                        {
+                            "name": "OHIO",
+                            "text": "Ohio"
+                        },
+                        {
+                            "name": "ILLI",
+                            "text": "Illinois"
+                        },
+                        {
+                            "name": "GEOR",
+                            "text": "Georgia-South Carolina"
+                        },
+                        {
+                            "name": "NTEX",
+                            "text": "North Texas"
+                        }
+                    ]
+                },
+                "AutoPrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "MURF",
+                            "text": "Murfreesboro"
+                        },
+                        {
+                            "name": "NWRK",
+                            "text": "Newark"
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "10",
+                "name": "Northeast",
+                "ftpName": "NORTHEAST",
+                "States": "38,30,32,07,19,21,29,39,45,52",
+                "Office": [
+                    {
+                        "code": "13",
+                        "name": "Pennsylvania",
+                        "identifier": "SPFD13",
+                        "fullOC": "13 Pennsylvania",
+                        "reportLabel": "PENNSYLVANIA OFFICE",
+                        "commercialIdentifier": "Concordville - 13",
+                        "mailbox": "HOME AUTO-NORTHEASTAST",
+                        "mailboxAlias": "336n00",
+                        "State": {
+                            "code": "38",
+                            "name": "Pennsylvania",
+                            "postalCode": "PA",
+                            "multiCar": "true",
+                            "Division": [
+                                {
+                                    "code": "1",
+                                    "alphaStateDiv": "A",
+                                    "name": "Western"
+                                },
+                                {
+                                    "code": "2",
+                                    "alphaStateDiv": "B",
+                                    "name": "Eastern"
+                                },
+                                {
+                                    "code": "5",
+                                    "alphaStateDiv": "C",
+                                    "name": "Central"
+                                },
+                                {
+                                    "code": "7",
+                                    "alphaStateDiv": "D",
+                                    "name": "Spec Risk"
+                                }
+                            ]
+                        },
+                        "Unit": [
+                            {
+                                "id": "38",
+                                "state": "Pennsylvania",
+                                "division": "1",
+                                "geoStateCode": "38"
+                            },
+                            {
+                                "id": "78",
+                                "state": "Pennsylvania",
+                                "division": "2",
+                                "geoStateCode": "38"
+                            },
+                            {
+                                "id": "98",
+                                "state": "Pennsylvania",
+                                "division": "6",
+                                "geoStateCode": "38"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "17",
+                        "name": "Northeastern",
+                        "identifier": "WANE17",
+                        "fullOC": "17 North Eastern",
+                        "reportLabel": "NORTHEASTERN OFFICE",
+                        "commercialIdentifier": "Parsippany - 17",
+                        "mailbox": "HOME AUTO-NORTHEASTAST",
+                        "mailboxAlias": "336n00",
+                        "State": [
+                            {
+                                "code": "30",
+                                "name": "New Jersey",
+                                "postalCode": "NJ",
+                                "multiCar": "true",
+                                "Division": [
+                                    {
+                                        "code": "3",
+                                        "alphaStateDiv": "A",
+                                        "name": "N. Jersey"
+                                    },
+                                    {
+                                        "code": "7",
+                                        "alphaStateDiv": "B",
+                                        "name": "Spec Risk"
+                                    }
+                                ]
+                            },
+                            {
+                                "code": "32",
+                                "name": "New York",
+                                "postalCode": "NY",
+                                "multiCar": "false",
+                                "Division": [
+                                    {
+                                        "code": "1",
+                                        "alphaStateDiv": "C",
+                                        "name": "Ny City"
+                                    },
+                                    {
+                                        "code": "4",
+                                        "alphaStateDiv": "D",
+                                        "name": "Long Is"
+                                    },
+                                    {
+                                        "code": "7",
+                                        "alphaStateDiv": "E",
+                                        "name": "Spec Risk"
+                                    }
+                                ]
+                            }
+                        ],
+                        "Unit": [
+                            {
+                                "id": "30",
+                                "state": "New Jersey",
+                                "division": "1",
+                                "geoStateCode": "30"
+                            },
+                            {
+                                "id": "56",
+                                "state": "New York",
+                                "division": "1",
+                                "geoStateCode": "32"
+                            },
+                            {
+                                "id": "90",
+                                "state": "New Jersey",
+                                "division": "6",
+                                "geoStateCode": "30"
+                            },
+                            {
+                                "id": "92",
+                                "state": "New York",
+                                "division": "6",
+                                "geoStateCode": "32"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "28",
+                        "name": "North Atlantic",
+                        "identifier": "MALT28",
+                        "fullOC": "28 North Atlantic",
+                        "reportLabel": "NORTH ATLANTIC OFFICE",
+                        "commercialIdentifier": "Ballston Spa - 28",
+                        "mailbox": "HOME AUTO-NORTHEASTAST",
+                        "mailboxAlias": "336n00",
+                        "State": [
+                            {
+                                "code": "07",
+                                "name": "Connecticut",
+                                "postalCode": "CT",
+                                "multiCar": "false",
+                                "Division": [
+                                    {
+                                        "code": "2",
+                                        "alphaStateDiv": "A",
+                                        "name": "N England"
+                                    },
+                                    {
+                                        "code": "7",
+                                        "alphaStateDiv": "B",
+                                        "name": "Spec Risk"
+                                    }
+                                ]
+                            },
+                            {
+                                "code": "19",
+                                "name": "Maine",
+                                "postalCode": "ME",
+                                "multiCar": "false",
+                                "Division": [
+                                    {
+                                        "code": "2",
+                                        "alphaStateDiv": "C",
+                                        "name": "N England"
+                                    },
+                                    {
+                                        "code": "7",
+                                        "alphaStateDiv": "D",
+                                        "name": "Spec Risk"
+                                    }
+                                ]
+                            },
+                            {
+                                "code": "21",
+                                "name": "Massachusetts",
+                                "postalCode": "MA",
+                                "multiCar": "false",
+                                "Division": {
+                                    "code": "2",
+                                    "alphaStateDiv": "E",
+                                    "name": "N England"
+                                }
+                            },
+                            {
+                                "code": "29",
+                                "name": "New Hampshire",
+                                "postalCode": "NH",
+                                "multiCar": "false",
+                                "Division": [
+                                    {
+                                        "code": "2",
+                                        "alphaStateDiv": "F",
+                                        "name": "N England"
+                                    },
+                                    {
+                                        "code": "7",
+                                        "alphaStateDiv": "G",
+                                        "name": "Spec Risk"
+                                    }
+                                ]
+                            },
+                            {
+                                "code": "39",
+                                "name": "Rhode Island",
+                                "postalCode": "RI",
+                                "multiCar": "false",
+                                "Division": [
+                                    {
+                                        "code": "2",
+                                        "alphaStateDiv": "H",
+                                        "name": "N England"
+                                    },
+                                    {
+                                        "code": "7",
+                                        "alphaStateDiv": "I",
+                                        "name": "Spec Risk"
+                                    }
+                                ]
+                            },
+                            {
+                                "code": "45",
+                                "name": "Vermont",
+                                "postalCode": "VT",
+                                "multiCar": "false",
+                                "Division": [
+                                    {
+                                        "code": "2",
+                                        "alphaStateDiv": "J",
+                                        "name": "N England"
+                                    },
+                                    {
+                                        "code": "7",
+                                        "alphaStateDiv": "K",
+                                        "name": "Spec Risk"
+                                    }
+                                ]
+                            },
+                            {
+                                "code": "52",
+                                "name": "New York",
+                                "postalCode": "NY",
+                                "multiCar": "false",
+                                "Division": [
+                                    {
+                                        "code": "3",
+                                        "alphaStateDiv": "L",
+                                        "name": "Capital"
+                                    },
+                                    {
+                                        "code": "6",
+                                        "alphaStateDiv": "M",
+                                        "name": "Lakes"
+                                    }
+                                ]
+                            }
+                        ],
+                        "Unit": [
+                            {
+                                "id": "32",
+                                "state": "New York",
+                                "division": "2",
+                                "geoStateCode": "52"
+                            },
+                            {
+                                "id": "07",
+                                "state": "Connecticut",
+                                "division": "3",
+                                "geoStateCode": "07"
+                            },
+                            {
+                                "id": "19",
+                                "state": "Maine",
+                                "division": "3",
+                                "geoStateCode": "19"
+                            },
+                            {
+                                "id": "21",
+                                "state": "Massachusetts",
+                                "division": "3",
+                                "geoStateCode": "21"
+                            },
+                            {
+                                "id": "29",
+                                "state": "New Hampshire",
+                                "division": "3",
+                                "geoStateCode": "29"
+                            },
+                            {
+                                "id": "39",
+                                "state": "Rhode Island",
+                                "division": "3",
+                                "geoStateCode": "39"
+                            },
+                            {
+                                "id": "45",
+                                "state": "Vermont",
+                                "division": "3",
+                                "geoStateCode": "45"
+                            },
+                            {
+                                "id": "91",
+                                "state": "Massachusetts",
+                                "division": "6",
+                                "geoStateCode": "21"
+                            },
+                            {
+                                "id": "92",
+                                "state": "New York",
+                                "division": "6",
+                                "geoStateCode": "52"
+                            },
+                            {
+                                "id": "93",
+                                "state": "Rhode Island",
+                                "division": "6",
+                                "geoStateCode": "39"
+                            },
+                            {
+                                "id": "94",
+                                "state": "New Hampshire",
+                                "division": "6",
+                                "geoStateCode": "29"
+                            },
+                            {
+                                "id": "95",
+                                "state": "Vermont",
+                                "division": "6",
+                                "geoStateCode": "45"
+                            },
+                            {
+                                "id": "97",
+                                "state": "Connecticut",
+                                "division": "6",
+                                "geoStateCode": "07"
+                            },
+                            {
+                                "id": "98",
+                                "state": "New York",
+                                "division": "6",
+                                "geoStateCode": "52"
+                            },
+                            {
+                                "id": "99",
+                                "state": "Maine",
+                                "division": "6",
+                                "geoStateCode": "19"
+                            }
+                        ]
+                    }
+                ],
+                "PrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "PENN",
+                            "text": "Pennsylvania"
+                        },
+                        {
+                            "name": "NEAS",
+                            "text": "Northeast"
+                        },
+                        {
+                            "name": "NATL",
+                            "text": "North Atlantic"
+                        },
+                        {
+                            "name": "ILLI",
+                            "text": "Illinois"
+                        },
+                        {
+                            "name": "GEOR",
+                            "text": "Georgia-South Carolina"
+                        },
+                        {
+                            "name": "NTEX",
+                            "text": "North Texas"
+                        }
+                    ]
+                },
+                "AutoPrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "COVL",
+                            "text": "Concordville"
+                        },
+                        {
+                            "name": "PARS",
+                            "text": "Parsippany"
+                        },
+                        {
+                            "name": "BASP",
+                            "text": "Balston Spa"
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "11",
+                "name": "Pacific Northwest",
+                "ftpName": "PACIFIC_NORTHWEST",
+                "States": "02,12,26,37,47,51",
+                "Office": {
+                    "code": "15",
+                    "name": "Pacific Northwest",
+                    "identifier": "SALM15",
+                    "fullOC": "15 Pacific Northwest",
+                    "reportLabel": "PACIFIC NORTHWEST OFFICE",
+                    "commercialIdentifier": "Pacific Northwest - 15",
+                    "mailbox": "HOME AUTO-PACIFICNORTHWESTAST",
+                    "mailboxAlias": "337n00",
+                    "State": [
+                        {
+                            "code": "02",
+                            "name": "Alaska",
+                            "postalCode": "AK",
+                            "multiCar": "false",
+                            "Division": {
+                                "code": "5",
+                                "alphaStateDiv": "A",
+                                "name": "Alaska"
+                            }
+                        },
+                        {
+                            "code": "12",
+                            "name": "Idaho",
+                            "postalCode": "ID",
+                            "multiCar": "false",
+                            "Division": {
+                                "code": "4",
+                                "alphaStateDiv": "B",
+                                "name": "Idaho"
+                            }
+                        },
+                        {
+                            "code": "26",
+                            "name": "Montana",
+                            "postalCode": "MT",
+                            "multiCar": "false",
+                            "Division": {
+                                "code": "3",
+                                "alphaStateDiv": "C",
+                                "name": "Montana"
+                            }
+                        },
+                        {
+                            "code": "37",
+                            "name": "Oregon",
+                            "postalCode": "OR",
+                            "multiCar": "false",
+                            "Division": {
+                                "code": "1",
+                                "alphaStateDiv": "D",
+                                "name": "Oregon"
+                            }
+                        },
+                        {
+                            "code": "47",
+                            "name": "Washington",
+                            "postalCode": "WA",
+                            "multiCar": "false",
+                            "Division": {
+                                "code": "2",
+                                "alphaStateDiv": "E",
+                                "name": "Wash."
+                            }
+                        },
+                        {
+                            "code": "51",
+                            "name": "Hawaii",
+                            "postalCode": "HI",
+                            "multiCar": "false",
+                            "Division": {
+                                "code": "6",
+                                "alphaStateDiv": "F",
+                                "name": "Hawaii"
+                            }
+                        }
+                    ],
+                    "Unit": [
+                        {
+                            "id": "37",
+                            "state": "Oregon",
+                            "division": "1",
+                            "geoStateCode": "37"
+                        },
+                        {
+                            "id": "47",
+                            "state": "Washington",
+                            "division": "2",
+                            "geoStateCode": "47"
+                        },
+                        {
+                            "id": "26",
+                            "state": "Montana",
+                            "division": "3",
+                            "geoStateCode": "26"
+                        },
+                        {
+                            "id": "12",
+                            "state": "Idaho",
+                            "division": "4",
+                            "geoStateCode": "12"
+                        },
+                        {
+                            "id": "02",
+                            "state": "Alaska",
+                            "division": "5",
+                            "geoStateCode": "02"
+                        },
+                        {
+                            "id": "51",
+                            "state": "Hawaii",
+                            "division": "5",
+                            "geoStateCode": "51"
+                        },
+                        {
+                            "id": "91",
+                            "state": "Hawaii",
+                            "division": "6",
+                            "geoStateCode": "51"
+                        },
+                        {
+                            "id": "92",
+                            "state": "Alaska",
+                            "division": "6",
+                            "geoStateCode": "02"
+                        },
+                        {
+                            "id": "93",
+                            "state": "Idaho",
+                            "division": "6",
+                            "geoStateCode": "12"
+                        },
+                        {
+                            "id": "96",
+                            "state": "Montana",
+                            "division": "6",
+                            "geoStateCode": "26"
+                        },
+                        {
+                            "id": "97",
+                            "state": "Oregon",
+                            "division": "6",
+                            "geoStateCode": "37"
+                        },
+                        {
+                            "id": "98",
+                            "state": "Washington",
+                            "division": "6",
+                            "geoStateCode": "47"
+                        }
+                    ]
+                },
+                "PrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "DUPT",
+                            "text": "Dupont Pacific Northwest"
+                        },
+                        {
+                            "name": "PACN",
+                            "text": "Pacific Northwest"
+                        },
+                        {
+                            "name": "SALM",
+                            "text": "Salem Pacific Northwest"
+                        },
+                        {
+                            "name": "ILLI",
+                            "text": "Illinois"
+                        },
+                        {
+                            "name": "GEOR",
+                            "text": "Georgia-South Carolina"
+                        },
+                        {
+                            "name": "NTEX",
+                            "text": "North Texas"
+                        }
+                    ]
+                },
+                "AutoPrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "SALM",
+                            "text": "Salem"
+                        },
+                        {
+                            "name": "DUPT",
+                            "text": "Dupont"
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "12",
+                "name": "Southern",
+                "ftpName": "SOUTHERN",
+                "States": "01,24,11,40",
+                "Office": [
+                    {
+                        "code": "09",
+                        "name": "Alabama-Mississippi",
+                        "identifier": "BHAM09",
+                        "fullOC": "09 Alabama-Mississippi",
+                        "reportLabel": "ALABAMA-MISS OFFICE",
+                        "commercialIdentifier": "Birmingham - 09",
+                        "mailbox": "HOME AUTO-SOUTHERNAST",
+                        "mailboxAlias": "977o00",
+                        "State": [
+                            {
+                                "code": "01",
+                                "name": "Alabama",
+                                "postalCode": "AL",
+                                "multiCar": "false",
+                                "Division": [
+                                    {
+                                        "code": "3",
+                                        "alphaStateDiv": "A",
+                                        "name": "North"
+                                    },
+                                    {
+                                        "code": "4",
+                                        "alphaStateDiv": "B",
+                                        "name": "South"
+                                    }
+                                ]
+                            },
+                            {
+                                "code": "24",
+                                "name": "Mississippi",
+                                "postalCode": "MS",
+                                "multiCar": "false",
+                                "Division": {
+                                    "code": "2",
+                                    "alphaStateDiv": "C",
+                                    "name": "Miss."
+                                }
+                            }
+                        ],
+                        "Unit": [
+                            {
+                                "id": "01",
+                                "state": "Alabama",
+                                "division": "1",
+                                "geoStateCode": "01"
+                            },
+                            {
+                                "id": "24",
+                                "state": "Mississippi",
+                                "division": "2",
+                                "geoStateCode": "24"
+                            },
+                            {
+                                "id": "93",
+                                "state": "Alabama",
+                                "division": "6",
+                                "geoStateCode": "01"
+                            },
+                            {
+                                "id": "99",
+                                "state": "Mississippi",
+                                "division": "6",
+                                "geoStateCode": "24"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "27",
+                        "name": "Georgia-South Carolina",
+                        "identifier": "DLTH27",
+                        "fullOC": "27 Georgia-South Carolina",
+                        "reportLabel": "GEORGIA-S CAROLINA OFFICE",
+                        "commercialIdentifier": "Atlanta - 27",
+                        "mailbox": "HOME AUTO-SOUTHERNAST",
+                        "mailboxAlias": "977o00",
+                        "State": [
+                            {
+                                "code": "11",
+                                "name": "Georgia",
+                                "postalCode": "GA",
+                                "multiCar": "false",
+                                "Division": [
+                                    {
+                                        "code": "2",
+                                        "alphaStateDiv": "C",
+                                        "name": "Peachtree"
+                                    },
+                                    {
+                                        "code": "4",
+                                        "alphaStateDiv": "B",
+                                        "name": "Woodland"
+                                    },
+                                    {
+                                        "code": "7",
+                                        "alphaStateDiv": "D",
+                                        "name": "Spec Risk"
+                                    }
+                                ]
+                            },
+                            {
+                                "code": "40",
+                                "name": "South Carolina",
+                                "postalCode": "SC",
+                                "multiCar": "false",
+                                "Division": {
+                                    "code": "5",
+                                    "alphaStateDiv": "E",
+                                    "name": "S. Car."
+                                }
+                            }
+                        ],
+                        "Unit": [
+                            {
+                                "id": "11",
+                                "state": "Georgia",
+                                "division": "2",
+                                "geoStateCode": "11"
+                            },
+                            {
+                                "id": "81",
+                                "state": "Georgia",
+                                "division": "4",
+                                "geoStateCode": "11"
+                            },
+                            {
+                                "id": "40",
+                                "state": "South Carolina",
+                                "division": "5",
+                                "geoStateCode": "40"
+                            },
+                            {
+                                "id": "91",
+                                "state": "Georgia",
+                                "division": "6",
+                                "geoStateCode": "11"
+                            },
+                            {
+                                "id": "99",
+                                "state": "South Carolina",
+                                "division": "6",
+                                "geoStateCode": "40"
+                            }
+                        ]
+                    }
+                ],
+                "PrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "ALMS",
+                            "text": "Alabama-Mississippi"
+                        },
+                        {
+                            "name": "GEOR",
+                            "text": "Georgia-South Carolina"
+                        },
+                        {
+                            "name": "ILLI",
+                            "text": "Illinois"
+                        },
+                        {
+                            "name": "NTEX",
+                            "text": "North Texas"
+                        }
+                    ]
+                },
+                "AutoPrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "DLTH",
+                            "text": "Atlanta"
+                        },
+                        {
+                            "name": "BIRM",
+                            "text": "Birmingham"
+                        }
+                    ]
+                }
+            },
+            {
+                "id": "13",
+                "name": "Texas",
+                "ftpName": "TEXAS",
+                "States": "43,53",
+                "Office": [
+                    {
+                        "code": "08",
+                        "name": "North Texas",
+                        "identifier": "DALS08",
+                        "fullOC": "08 North Texas",
+                        "reportLabel": "NORTH TEXAS OFFICE",
+                        "commercialIdentifier": "Dallas - 08",
+                        "mailbox": "HOME AUTO-TEXASAST",
+                        "mailboxAlias": "334n00",
+                        "State": {
+                            "code": "43",
+                            "name": "North Texas",
+                            "postalCode": "TX",
+                            "multiCar": "true",
+                            "Division": [
+                                {
+                                    "code": "3",
+                                    "alphaStateDiv": "B",
+                                    "name": "Ft Wth Mt"
+                                },
+                                {
+                                    "code": "4",
+                                    "alphaStateDiv": "C",
+                                    "name": "Dallas Mt"
+                                },
+                                {
+                                    "code": "5",
+                                    "alphaStateDiv": "A",
+                                    "name": "E Tx Auto"
+                                },
+                                {
+                                    "code": "6",
+                                    "alphaStateDiv": "D",
+                                    "name": "W Tx Auto"
+                                },
+                                {
+                                    "code": "7",
+                                    "alphaStateDiv": "E",
+                                    "name": "N Tx Srg"
+                                }
+                            ]
+                        },
+                        "Unit": [
+                            {
+                                "id": "58",
+                                "state": "Texas",
+                                "division": "1",
+                                "geoStateCode": "43"
+                            },
+                            {
+                                "id": "72",
+                                "state": "Texas",
+                                "division": "2",
+                                "geoStateCode": "43"
+                            },
+                            {
+                                "id": "43",
+                                "state": "Texas",
+                                "division": "3",
+                                "geoStateCode": "43"
+                            },
+                            {
+                                "id": "84",
+                                "state": "Texas",
+                                "division": "4",
+                                "geoStateCode": "43"
+                            },
+                            {
+                                "id": "85",
+                                "state": "Texas",
+                                "division": "5",
+                                "geoStateCode": "43"
+                            },
+                            {
+                                "id": "90",
+                                "state": "Texas",
+                                "division": "6",
+                                "geoStateCode": "43"
+                            },
+                            {
+                                "id": "93",
+                                "state": "Texas",
+                                "division": "6",
+                                "geoStateCode": "43"
+                            }
+                        ]
+                    },
+                    {
+                        "code": "25",
+                        "name": "South Texas",
+                        "identifier": "AUST25",
+                        "fullOC": "25 South Texas",
+                        "reportLabel": "SOUTH TEXAS OFFICE",
+                        "commercialIdentifier": "Austin - 25",
+                        "mailbox": "HOME AUTO-TEXASAST",
+                        "mailboxAlias": "334n00",
+                        "State": {
+                            "code": "53",
+                            "name": "South Texas",
+                            "postalCode": "TX",
+                            "multiCar": "true",
+                            "Division": [
+                                {
+                                    "code": "1",
+                                    "alphaStateDiv": "A",
+                                    "name": "Metro No."
+                                },
+                                {
+                                    "code": "2",
+                                    "alphaStateDiv": "B",
+                                    "name": "Alamo"
+                                },
+                                {
+                                    "code": "3",
+                                    "alphaStateDiv": "D",
+                                    "name": "Metro So."
+                                },
+                                {
+                                    "code": "4",
+                                    "alphaStateDiv": "E",
+                                    "name": "Capital"
+                                },
+                                {
+                                    "code": "7",
+                                    "alphaStateDiv": "C",
+                                    "name": "S.Tx Srg"
+                                }
+                            ]
+                        },
+                        "Unit": [
+                            {
+                                "id": "53",
+                                "state": "Texas",
+                                "division": "3",
+                                "geoStateCode": "53"
+                            },
+                            {
+                                "id": "83",
+                                "state": "Texas",
+                                "division": "4",
+                                "geoStateCode": "53"
+                            },
+                            {
+                                "id": "90",
+                                "state": "Texas",
+                                "division": "6",
+                                "geoStateCode": "53"
+                            }
+                        ]
+                    }
+                ],
+                "PrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "NTEX",
+                            "text": "North Texas"
+                        },
+                        {
+                            "name": "STEX",
+                            "text": "South Texas"
+                        },
+                        {
+                            "name": "ILLI",
+                            "text": "Illinois"
+                        },
+                        {
+                            "name": "GEOR",
+                            "text": "Georgia-South Carolina"
+                        }
+                    ]
+                },
+                "AutoPrintDestinations": {
+                    "PrintDestination": [
+                        {
+                            "name": "AUST",
+                            "text": "Austin"
+                        },
+                        {
+                            "name": "DALS",
+                            "text": "Dallas"
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+}

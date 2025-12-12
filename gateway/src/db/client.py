@@ -67,7 +67,7 @@ class DynamoDBClient:
             log.info("DynamoDB connection validated")
         except Exception as e:
             log.error("DynamoDB connection failed", error=str(e))
-            raise RuntimeError(f"Cannot connect to DynamoDB: {e}")
+            raise RuntimeError(f"Cannot connect to DynamoDB: {e}") from e
 
         log.info("DynamoDB client initialized", endpoint=config.endpoint, table=config.table_name)
 

@@ -5,8 +5,8 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from src.ast.login import LoginAST
 from src.ast import ASTStatus, run_ast
+from src.ast.login import LoginAST
 
 
 class _FakeHost:
@@ -59,8 +59,8 @@ class _FakeDB:
         self.policy_results: list[tuple[str, dict]] = []
         self.updates: list[dict] = []
 
-    def put_execution(self, **kwargs) -> None:
-        self.executions.append((kwargs.get("data", {}), kwargs))
+    def put_execution(self, **kwargs: object) -> None:
+        self.executions.append((kwargs.get("data", {}), kwargs))  # type: ignore[arg-type]
 
     def put_policy_result(self, execution_id: str, policy_number: str, data: dict) -> None:
         self.policy_results.append((policy_number, data))

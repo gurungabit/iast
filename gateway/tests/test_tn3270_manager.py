@@ -6,7 +6,7 @@ import unittest
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, patch
 
-from src.core import TN3270Config, TerminalError
+from src.core import TerminalError, TN3270Config
 from src.models import SessionCreateMessage, SessionDestroyMessage, serialize_message
 from src.services.tn3270.manager import TN3270Manager
 

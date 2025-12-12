@@ -8,9 +8,9 @@ import unittest
 import src.models.ast as ast_module
 import src.models.data as data_module
 import src.models.error as error_module
+import src.models.parser as parser_module
 import src.models.ping as ping_module
 import src.models.session as session_module
-import src.models.parser as parser_module
 
 
 class ParserTests(unittest.TestCase):

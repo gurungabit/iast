@@ -6,16 +6,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .data import DataMessage
-    from .error import ErrorMessage
-    from .ping import PingMessage, PongMessage
-    from .session import (
-        SessionCreatedMessage,
-        SessionCreateMessage,
-        SessionDestroyedMessage,
-        SessionDestroyMessage,
-    )
-    from .tn3270 import TN3270ScreenMessage, TN3270CursorMessage
+    pass
 
 
 class MessageType(StrEnum):

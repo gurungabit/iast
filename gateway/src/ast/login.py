@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Any, Literal
 import structlog
 
 from ..core.ast import AST
-from ..core.errors import ASTError
 
 if TYPE_CHECKING:
     from ..services.tn3270.host import Host

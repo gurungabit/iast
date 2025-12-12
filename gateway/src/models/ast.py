@@ -7,8 +7,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from .base import BaseMessage
-from .types import MessageType
-
 
 # ============================================================================
 # AST Run

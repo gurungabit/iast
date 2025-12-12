@@ -13,12 +13,12 @@ export function registerLoginAST(): void {
   registerAST({
     id: 'login',
     name: 'TSO Login',
-    description: 'Automated TSO login sequence with credential management',
-    category: 'authentication',
-    keywords: ['login', 'tso', 'authentication', 'sign in', 'logon', 'credentials'],
+    description: 'Automated TSO login sequence with policy processing',
+    category: 'fire',
+    keywords: ['login', 'tso', 'authentication', 'sign in', 'logon', 'credentials', 'fire'],
     version: '1.0.0',
     author: 'Core Team',
-    requiresAuth: false,
+    supportsParallel: true,
     component: LoginASTForm,
   });
 }

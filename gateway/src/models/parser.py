@@ -12,7 +12,7 @@ from src.models.ast import ASTItemResultMessage, ASTPausedMessage, ASTProgressMe
 from .types import MessageType
 
 if TYPE_CHECKING:
-    from .ast import ASTRunMessage, ASTControlMessage, ASTStatusMessage
+    from .ast import ASTControlMessage, ASTRunMessage, ASTStatusMessage
     from .data import DataMessage
     from .error import ErrorMessage
     from .ping import PingMessage, PongMessage
@@ -44,10 +44,10 @@ if TYPE_CHECKING:
     )
 
 
-def parse_message(raw: str | bytes) -> "MessageEnvelope":
+def parse_message(raw: str | bytes) -> MessageEnvelope:
     """Parse a raw JSON message into the appropriate message type."""
     # Import here to avoid circular imports
-    from .ast import ASTRunMessage, ASTControlMessage, ASTStatusMessage
+    from .ast import ASTControlMessage, ASTRunMessage, ASTStatusMessage
     from .data import DataMessage
     from .error import ErrorMessage
     from .ping import PingMessage, PongMessage
@@ -91,6 +91,6 @@ def parse_message(raw: str | bytes) -> "MessageEnvelope":
             raise ValueError(f"Unknown message type: {msg_type}")
 
 
-def serialize_message(msg: "MessageEnvelope") -> str:
+def serialize_message(msg: MessageEnvelope) -> str:
     """Serialize a message to JSON."""
     return msg.model_dump_json(by_alias=True)

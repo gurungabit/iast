@@ -25,7 +25,7 @@ class FakePubSub:
     async def close(self) -> None:
         self.closed = True
 
-    async def get_message(self, **_: object):
+    async def get_message(self, **_: object) -> None:
         await asyncio.sleep(0)
         return None
 
