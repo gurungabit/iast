@@ -336,7 +336,7 @@ function TerminalPage() {
         ) : (
           tabs
             .filter((tab) => tab.id === activeTabId)
-            .map((tab) => <TabContent key={tab.id} tab={tab} active={true} />)
+            .map((tab) => <TabContent key={tab.id} tab={tab} />)
         )}
         {loadError ? (
           <div className="text-xs text-amber-600 dark:text-amber-400">{loadError}</div>
@@ -360,7 +360,6 @@ function TabContent({
     handleASTPaused,
     restoreFromExecution,
     isRunning: storeIsRunning,
-    reset,
   } = useAST(tab.id);
 
   // Check for active execution on mount AND whenever tab becomes visible
@@ -387,15 +386,14 @@ function TabContent({
           if (execution) {
             // There was an execution that completed
             handleASTComplete({
-              status: execution.status === 'success' ? 'completed' : execution.status === 'failed' ? 'error' : 'completed',
+              status: execution.status === 'success' ? 'success' : execution.status === 'failed' ? 'failed' : 'success',
               message: execution.message || '',
               error: execution.error,
               data: {},
             });
-          } else {
-            // No execution found at all - just reset
-            reset();
           }
+          // NOTE: Don't reset() if no execution found - this causes errors to flash and disappear
+          // The state will be updated via WebSocket messages instead
         }
       } catch (error) {
         console.error('Failed to sync execution state:', error);
@@ -403,7 +401,7 @@ function TabContent({
     };
 
     syncExecutionState();
-  }, [tab.sessionId, restoreFromExecution, storeIsRunning, handleASTComplete, reset]);
+  }, [tab.sessionId, restoreFromExecution, storeIsRunning, handleASTComplete]);
 
   const handleTerminalReady = useCallback(
     (api: TerminalApi) => {
