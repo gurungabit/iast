@@ -32,6 +32,7 @@ AST_REGISTRY: dict[str, type["AST"]] = {
 # Try to load BiRenewAST - it has heavy dependencies (pandas, ibm_db, etc.)
 try:
     from .auto import BiRenewAST
+
     AST_REGISTRY["bi_renew"] = BiRenewAST
     log.info("Loaded BiRenewAST into registry")
 except ImportError as e:
