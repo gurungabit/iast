@@ -15,36 +15,29 @@ To add a new AST:
 
 from typing import TYPE_CHECKING
 
+import structlog
+
 if TYPE_CHECKING:
     from ..core.ast import AST
 
 from .login import LoginAST
 
+log = structlog.get_logger()
+
 # Registry mapping AST names to their classes
-# Note: Some ASTs have heavy dependencies (pandas, etc.) and are imported lazily
 AST_REGISTRY: dict[str, type["AST"]] = {
     "login": LoginAST,
 }
 
-# Flag to track if lazy ASTs have been loaded
-_lazy_asts_loaded = False
-
-
-def _load_lazy_asts() -> None:
-    """Load ASTs with heavy dependencies on first access."""
-    global _lazy_asts_loaded
-    if _lazy_asts_loaded:
-        return
-
-    try:
-        from .auto import BiRenewAST
-
-        AST_REGISTRY["bi_renew"] = BiRenewAST
-    except ImportError:
-        # Dependencies not available (e.g., pandas not installed)
-        pass
-
-    _lazy_asts_loaded = True
+# Try to load BiRenewAST - it has heavy dependencies (pandas, ibm_db, etc.)
+try:
+    from .auto import BiRenewAST
+    AST_REGISTRY["bi_renew"] = BiRenewAST
+    log.info("Loaded BiRenewAST into registry")
+except ImportError as e:
+    log.warning("BiRenewAST not available - missing dependencies", error=str(e))
+except Exception as e:
+    log.error("Failed to load BiRenewAST", error=str(e), exc_info=True)
 
 
 def get_ast_class(ast_name: str) -> type["AST"] | None:
@@ -57,7 +50,6 @@ def get_ast_class(ast_name: str) -> type["AST"] | None:
     Returns:
         The AST class if found, None otherwise
     """
-    _load_lazy_asts()
     return AST_REGISTRY.get(ast_name)
 
 
@@ -79,5 +71,4 @@ def list_ast_names() -> list[str]:
     Returns:
         List of registered AST names
     """
-    _load_lazy_asts()
     return list(AST_REGISTRY.keys())
