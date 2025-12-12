@@ -27,10 +27,8 @@ export function formatDateForBackend(dateStr: string): string {
 }
 
 /**
- * Get default date (yesterday or last business day)
+ * Get default date - returns empty string (no default selection)
  */
 export function getDefaultDate(): string {
-  const today = new Date();
-  today.setDate(today.getDate() - 1); // Default to yesterday
-  return today.toISOString().split('T')[0];
+  return '';
 }

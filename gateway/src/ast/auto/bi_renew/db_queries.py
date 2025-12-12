@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from gateway.src.db.db2.db import connect, disconnect, execute_query
+from ....db.db2.db import connect, disconnect, execute_query
 
 logger = logging.getLogger(__name__)
 

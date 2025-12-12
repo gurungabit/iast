@@ -5,10 +5,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
-from app.networkstorage.office_info import get_office_info
 from smbclient import open_file, register_session, scandir
 
-from src.core.config import get_config
+from .office_info import get_office_info
+from ..core.config import get_config
 
 
 def parse_queue_report_from_content(content: str) -> pd.DataFrame:

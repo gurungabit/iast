@@ -28,14 +28,14 @@ Optional parameters:
 
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
-from venv import logger
 
 import pandas as pd
 import structlog
-from gateway.src.ast.auto.bi_renew.db_queries import get_bi_renew_pending_records
-from gateway.src.core.ast.base import AST
-from gateway.src.networkstorage.parse_office_reports import get_office_report
-from gateway.src.utils.date_utils import get_previous_business_date
+
+from .db_queries import get_bi_renew_pending_records
+from ....core.ast.base import AST
+from ....networkstorage.parse_office_reports import get_office_report
+from ....utils.date_utils import get_previous_business_date
 
 if TYPE_CHECKING:
     from ....services.tn3270.host import Host
