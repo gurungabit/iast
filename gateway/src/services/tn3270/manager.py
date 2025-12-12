@@ -24,7 +24,7 @@ from uuid import uuid4
 
 import structlog
 
-from ...ast import AST, LoginAST, run_ast
+from ...ast import AST, get_ast_class, run_ast
 from ...core import ErrorCodes, TerminalError, TN3270Config
 from ...models import (
     ASTControlMessage,
@@ -547,11 +547,12 @@ class TN3270Manager:
             # Create Host wrapper for the session's tnz instance
             host = Host(session.tnz)
 
-            # Get the appropriate AST
-            if ast_name == "login":
-                ast = LoginAST()
-            else:
+            # Get the appropriate AST from the registry
+            ast_class = get_ast_class(ast_name)
+            if ast_class is None:
                 raise ValueError(f"Unknown AST: {ast_name}")
+
+            ast = ast_class()
 
             # Store the running AST in the session for control commands
             session.running_ast = ast

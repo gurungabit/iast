@@ -18,6 +18,7 @@ from ..core.ast import (
     run_ast,
 )
 from .login import LoginAST
+from .registry import AST_REGISTRY, get_ast_class, list_ast_names, register_ast
 
 __all__ = [
     "AST",
@@ -28,4 +29,9 @@ __all__ = [
     "ItemResultCallback",
     "LoginAST",
     "run_ast",
+    # Registry
+    "AST_REGISTRY",
+    "get_ast_class",
+    "register_ast",
+    "list_ast_names",
 ]

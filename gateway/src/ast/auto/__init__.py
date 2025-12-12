@@ -1,10 +1,12 @@
 # ============================================================================
-# BI Renew AST Module
+# Auto ASTs - Automated processing scripts
 # ============================================================================
 """
-BI (Billing Invoice) Renewal processing AST.
+Automated AST scripts for batch processing operations.
 """
 
-from .bi_renew_ import BiRenew as BiRenewAST
+from .bi_renew import BiRenewAST
 
-__all__ = ["BiRenewAST"]
+__all__ = [
+    "BiRenewAST",
+]

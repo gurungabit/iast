@@ -296,7 +296,7 @@ class ManagerExtendedTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch("src.services.tn3270.manager.Host", return_value=MagicMock()),
-            patch("src.services.tn3270.manager.LoginAST", return_value=StubAST()),
+            patch("src.services.tn3270.manager.get_ast_class", return_value=StubAST),
             patch("src.services.tn3270.manager.uuid4", return_value="exec-1"),
             patch(
                 "src.services.tn3270.manager.asyncio.get_running_loop",
