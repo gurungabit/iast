@@ -12,6 +12,7 @@ import {
   isASTStatusMessage,
   isASTPausedMessage,
   createASTControlMessage,
+  createSessionCreateMessage,
   type ASTProgressMeta,
   type ASTStatusMeta,
   type ASTControlAction,
@@ -167,6 +168,17 @@ export function useExecutionObserver({
         ws.onopen = () => {
           if (isActive && mountedRef.current) {
             setState((prev) => ({ ...prev, status: 'connected', error: null }));
+          }
+
+          // Ensure TN3270 gateway session is created/reused so output stream (including ast.status)
+          // flows even when the Terminal UI is not mounted.
+          if (sessionIdRef.current) {
+            const createMsg = createSessionCreateMessage(sessionIdRef.current, {
+              terminalType: 'tn3270',
+              cols: 80,
+              rows: 43,
+            });
+            ws.send(serializeMessage(createMsg));
           }
         };
 

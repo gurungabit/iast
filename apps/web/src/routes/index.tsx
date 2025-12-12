@@ -38,9 +38,7 @@ function TerminalPage() {
 
   // Sync active tab ID to Zustand store
   useEffect(() => {
-    if (activeTabId) {
-      setActiveTabId(activeTabId);
-    }
+    setActiveTabId(activeTabId || null);
   }, [activeTabId, setActiveTabId]);
 
   useEffect(() => {
@@ -74,13 +72,16 @@ function TerminalPage() {
           if (validSession) {
             setStoredSessionId(currentSessionId ?? '');
             setActiveTabIdLocal(validSession.id);
+            setActiveTabId(validSession.id);
           } else {
             setActiveTabIdLocal(initialTabs[0].id);
             setStoredSessionId(initialTabs[0].sessionId);
+            setActiveTabId(initialTabs[0].id);
           }
         } else {
           setTabs([]);
           setActiveTabIdLocal('');
+          setActiveTabId(null);
           removeStoredSessionId();
         }
       } catch (error) {
@@ -89,13 +90,14 @@ function TerminalPage() {
         setLoadError('Unable to load sessions. Use + to start a new one.');
         setTabs([]);
         setActiveTabIdLocal('');
+        setActiveTabId(null);
       } finally {
         setSessionsLoaded(true);
       }
     };
 
     initializeSession();
-  }, [initTab]);
+  }, [initTab, setActiveTabId]);
 
   const handleAddTab = useCallback(() => {
     if (isCreatingSession) return;
@@ -109,13 +111,14 @@ function TerminalPage() {
         const newTab = { id: session.id, sessionId: session.id, name: session.name };
         setTabs((prev) => [...prev, newTab]);
         setActiveTabIdLocal(session.id);
+        setActiveTabId(session.id);
         setStoredSessionId(session.id);
       })
       .catch((error) => {
         console.error('Failed to create session:', error);
       })
       .finally(() => setIsCreatingSession(false));
-  }, [initTab, isCreatingSession, tabs.length]);
+  }, [initTab, isCreatingSession, setActiveTabId, tabs.length]);
 
   // Get tabs state from Zustand to check for running ASTs
   const tabsASTState = useASTStore((state) => state.tabs);
@@ -152,9 +155,11 @@ function TerminalPage() {
 
       if (!nextActiveTab) {
         setActiveTabIdLocal('');
+        setActiveTabId(null);
         removeStoredSessionId();
       } else {
         setActiveTabIdLocal(nextActiveTab.id);
+        setActiveTabId(nextActiveTab.id);
         setStoredSessionId(nextActiveTab.sessionId);
       }
 
@@ -168,7 +173,7 @@ function TerminalPage() {
         });
       }
     },
-    [activeTabId, isTabRunningAST, removeTab, tabs]
+    [activeTabId, isTabRunningAST, removeTab, setActiveTabId, tabs]
   );
 
   const handleSwitchTab = useCallback(
@@ -176,9 +181,10 @@ function TerminalPage() {
       const target = tabs.find((t) => t.id === tabId);
       if (!target) return;
       setActiveTabIdLocal(tabId);
+      setActiveTabId(tabId);
       setStoredSessionId(target.sessionId);
     },
-    [tabs]
+    [setActiveTabId, tabs]
   );
 
   const renderTabLabel = useCallback(
@@ -359,7 +365,7 @@ function TabContent({
     handleASTItemResult,
     handleASTPaused,
     restoreFromExecution,
-    isRunning: storeIsRunning,
+    reset,
   } = useAST(tab.id);
 
   // Check for active execution on mount AND whenever tab becomes visible
@@ -367,9 +373,15 @@ function TabContent({
   useEffect(() => {
     if (!tab.sessionId) return;
 
+    let isCancelled = false;
+
     const syncExecutionState = async () => {
       try {
+        const tabState = useASTStore.getState().tabs[tab.id];
+        const storeIsRunningNow = tabState?.status === 'running' || tabState?.status === 'paused';
+
         const execution = await getActiveExecution(tab.sessionId);
+        if (isCancelled) return;
         if (execution && (execution.status === 'running' || execution.status === 'paused')) {
           // AST is still running - restore/update state
           restoreFromExecution({
@@ -380,7 +392,7 @@ function TabContent({
             failed_count: execution.failed_count,
             execution_id: execution.execution_id,
           });
-        } else if (storeIsRunning) {
+        } else if (storeIsRunningNow) {
           // Store thinks AST is running, but it's actually completed
           // Reset the state to sync with reality
           if (execution) {
@@ -391,9 +403,10 @@ function TabContent({
               error: execution.error,
               data: {},
             });
+          } else {
+            // No active execution exists anymore; clear stale running/paused UI state.
+            reset();
           }
-          // NOTE: Don't reset() if no execution found - this causes errors to flash and disappear
-          // The state will be updated via WebSocket messages instead
         }
       } catch (error) {
         console.error('Failed to sync execution state:', error);
@@ -401,7 +414,11 @@ function TabContent({
     };
 
     syncExecutionState();
-  }, [tab.sessionId, restoreFromExecution, storeIsRunning, handleASTComplete]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [tab.id, tab.sessionId, restoreFromExecution, handleASTComplete, reset]);
 
   const handleTerminalReady = useCallback(
     (api: TerminalApi) => {

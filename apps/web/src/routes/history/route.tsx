@@ -220,7 +220,7 @@ function HistoryPage() {
       setHasMorePolicies(false)
       void fetchPolicies(selectedExecutionId, true)
     }
-  }, [selectedExecutionId])
+  }, [selectedExecutionId, fetchPolicies])
 
   // Load more policies for infinite scroll
   const loadMorePolicies = useCallback(() => {
