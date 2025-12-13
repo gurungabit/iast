@@ -118,14 +118,14 @@ export {
 // Config
 export {
   type ServerConfig,
-  type ValkeyConfig,
   type AuthConfig,
   type TN3270Config,
+  type DynamoDBConfig,
   type AppConfig,
   DEFAULT_SERVER_CONFIG,
-  DEFAULT_VALKEY_CONFIG,
   DEFAULT_AUTH_CONFIG,
   DEFAULT_TN3270_CONFIG,
+  DEFAULT_DYNAMODB_CONFIG,
   getDefaultConfig,
 } from './config';
 

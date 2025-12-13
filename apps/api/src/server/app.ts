@@ -8,7 +8,6 @@ import websocket from '@fastify/websocket';
 import { config } from '../config';
 import { authRoutes, historyRoutes, sessionRoutes } from '../routes';
 import { terminalWebSocket } from '../ws';
-import { closeValkeyClient } from '../valkey';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -17,14 +16,14 @@ export async function buildApp(): Promise<FastifyInstance> {
       transport:
         config.env === 'development'
           ? {
-              target: 'pino-pretty',
-              options: {
-                colorize: true,
-                singleLine: true,
-                translateTime: 'HH:MM:ss.l',
-                ignore: 'pid,hostname',
-              },
-            }
+            target: 'pino-pretty',
+            options: {
+              colorize: true,
+              singleLine: true,
+              translateTime: 'HH:MM:ss.l',
+              ignore: 'pid,hostname',
+            },
+          }
           : undefined,
       serializers: {
         req(request) {
@@ -99,7 +98,6 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Graceful shutdown
   const shutdown = async (): Promise<void> => {
     app.log.info('Shutting down...');
-    await closeValkeyClient();
     await app.close();
     process.exit(0);
   };

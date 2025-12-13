@@ -1,5 +1,5 @@
 # ============================================================================
-# Services Module - Valkey Client, TN3270 Manager
+# Services Module - WebSocket Server, TN3270 Manager
 # ============================================================================
 
 from .tn3270 import (
@@ -9,19 +9,19 @@ from .tn3270 import (
     get_tn3270_manager,
     init_tn3270_manager,
 )
-from .valkey import (
-    ValkeyClient,
-    close_valkey_client,
-    get_valkey_client,
-    init_valkey_client,
+from .websocket_server import (
+    WebSocketServer,
+    close_ws_server,
+    get_ws_server,
+    init_ws_server,
 )
 
 __all__ = [
-    # Valkey Client
-    "ValkeyClient",
-    "get_valkey_client",
-    "init_valkey_client",
-    "close_valkey_client",
+    # WebSocket Server
+    "WebSocketServer",
+    "get_ws_server",
+    "init_ws_server",
+    "close_ws_server",
     # TN3270 Manager
     "TN3270Manager",
     "TN3270Session",

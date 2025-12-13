@@ -32,11 +32,6 @@ export const ERROR_CODES = {
   WS_CONNECTION_CLOSED: 'E4003',
   WS_TIMEOUT: 'E4004',
 
-  // Valkey/Redis Errors (5xxx)
-  VALKEY_CONNECTION_FAILED: 'E5001',
-  VALKEY_PUBLISH_FAILED: 'E5002',
-  VALKEY_SUBSCRIBE_FAILED: 'E5003',
-
   // Validation Errors (6xxx)
   VALIDATION_FAILED: 'E6001',
   VALIDATION_MISSING_FIELD: 'E6002',
@@ -135,10 +130,6 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ERROR_CODES.WS_MESSAGE_INVALID]: 'Invalid WebSocket message',
   [ERROR_CODES.WS_CONNECTION_CLOSED]: 'WebSocket connection closed',
   [ERROR_CODES.WS_TIMEOUT]: 'WebSocket operation timed out',
-
-  [ERROR_CODES.VALKEY_CONNECTION_FAILED]: 'Failed to connect to Valkey',
-  [ERROR_CODES.VALKEY_PUBLISH_FAILED]: 'Failed to publish to Valkey',
-  [ERROR_CODES.VALKEY_SUBSCRIBE_FAILED]: 'Failed to subscribe to Valkey channel',
 
   [ERROR_CODES.VALIDATION_FAILED]: 'Validation failed',
   [ERROR_CODES.VALIDATION_MISSING_FIELD]: 'Required field is missing',

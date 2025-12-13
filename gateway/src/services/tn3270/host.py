@@ -811,9 +811,9 @@ class Host:
             if self.screen_contains(text, case_sensitive):
                 return True
             if self._mode == "ati":
-                self.wait(timeout=0.1)
+                self.wait(timeout=0.5)
             else:
-                time.sleep(0.1)
+                time.sleep(0.5)
 
         return False
 

@@ -9,6 +9,7 @@
     "dev:web": "pnpm --filter @terminal/web dev",
     "dev:api": "pnpm --filter @terminal/api dev",
     "dev:gateway": "cd gateway && uv run gateway",
+    "dev:proxy": "pnpm --filter @terminal/proxy dev",
     "test:gateway": "cd gateway && uv run gateway-tests",
     "coverage:gateway": "cd gateway && uv run gateway-coverage",
     "dev:valkey": "docker compose -f infra/docker-compose.dev.yml up -d",

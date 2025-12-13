@@ -9,6 +9,7 @@ import type { ExecutionRecord } from '../components/history/types';
 
 async function fetchJson<T>(url: string, init: RequestInit = {}): Promise<T> {
   const token = await getAccessToken();
+  console.log('[session.ts] Token:', token ? `${token.slice(0, 20)}...` : 'null');
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (init.body) headers['Content-Type'] = 'application/json';

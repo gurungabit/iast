@@ -58,13 +58,13 @@ export class TerminalWebSocket {
   private async connectWithToken(): Promise<void> {
     try {
       const token = await getAccessToken();
-      
+
       // Double-check we weren't closed while waiting for token
       if (this.isClosing) {
         this.isConnecting = false;
         return;
       }
-      
+
       const params = new URLSearchParams();
       if (token) params.set('token', token);
       const queryString = params.toString();
@@ -100,11 +100,19 @@ export class TerminalWebSocket {
       this.sendRaw(serializeMessage(createMsg));
     };
 
-    this.ws.onmessage = (event: MessageEvent<string>): void => {
+    this.ws.onmessage = async (event: MessageEvent): Promise<void> => {
       try {
-        const message = deserializeMessage(event.data);
+        // Handle both string and Blob data (websockets may send binary)
+        let data: string;
+        if (event.data instanceof Blob) {
+          data = await event.data.text();
+        } else {
+          data = event.data;
+        }
+        const message = deserializeMessage(data);
         this.handlers.onMessage(message);
       } catch (error) {
+        console.error('Connection error:', error);
         this.handlers.onError(
           error instanceof Error ? error : new Error('Failed to parse message')
         );
@@ -140,7 +148,7 @@ export class TerminalWebSocket {
 
     const delay = Math.min(
       config.reconnect.initialDelayMs *
-        Math.pow(config.reconnect.backoffMultiplier, this.reconnectAttempts),
+      Math.pow(config.reconnect.backoffMultiplier, this.reconnectAttempts),
       config.reconnect.maxDelayMs
     );
 

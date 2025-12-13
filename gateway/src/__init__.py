@@ -6,23 +6,19 @@ TN3270 Gateway for terminal sessions.
 
 Structure:
     src/
-    ├── core/           # Configuration, errors, channels
+    ├── core/           # Configuration, errors
     ├── models/         # Pydantic message models
-    ├── services/       # Valkey client, TN3270 manager
+    ├── services/       # WebSocket server, TN3270 manager
     └── app.py          # Application entry point
 """
 
 from .app import main
 from .core import (
-    TN3270_CONTROL_CHANNEL,
     Config,
     ErrorCodes,
     TerminalError,
     TN3270Config,
-    ValkeyConfig,
     get_config,
-    get_tn3270_input_channel,
-    get_tn3270_output_channel,
 )
 from .models import (
     DataMessage,
@@ -46,24 +42,19 @@ from .services import (
     TN3270Manager,
     TN3270Renderer,
     TN3270Session,
-    ValkeyClient,
-    close_valkey_client,
+    WebSocketServer,
+    close_ws_server,
     get_tn3270_manager,
-    get_valkey_client,
+    get_ws_server,
     init_tn3270_manager,
-    init_valkey_client,
+    init_ws_server,
 )
 
 __all__ = [
     # App
     "main",
-    # Channels
-    "get_tn3270_input_channel",
-    "get_tn3270_output_channel",
-    "TN3270_CONTROL_CHANNEL",
     # Config
     "Config",
-    "ValkeyConfig",
     "TN3270Config",
     "get_config",
     # Errors
@@ -92,9 +83,9 @@ __all__ = [
     "TN3270Renderer",
     "get_tn3270_manager",
     "init_tn3270_manager",
-    # Valkey Client
-    "ValkeyClient",
-    "get_valkey_client",
-    "init_valkey_client",
-    "close_valkey_client",
+    # WebSocket Server
+    "WebSocketServer",
+    "get_ws_server",
+    "init_ws_server",
+    "close_ws_server",
 ]

@@ -26,16 +26,6 @@ class DynamoDBConfig:
 
 
 @dataclass(frozen=True)
-class ValkeyConfig:
-    """Valkey/Redis connection configuration."""
-
-    host: str = field(default_factory=lambda: os.getenv("VALKEY_HOST", "localhost"))
-    port: int = field(default_factory=lambda: int(os.getenv("VALKEY_PORT", "6379")))
-    db: int = field(default_factory=lambda: int(os.getenv("VALKEY_DB", "0")))
-    password: str | None = field(default_factory=lambda: os.getenv("VALKEY_PASSWORD"))
-
-
-@dataclass(frozen=True)
 class TN3270Config:
     """TN3270 terminal session configuration.
 
@@ -54,6 +44,14 @@ class TN3270Config:
     secure: bool = field(
         default_factory=lambda: os.getenv("TN3270_SECURE", "false").lower() == "true"
     )
+
+
+@dataclass(frozen=True)
+class WebSocketConfig:
+    """WebSocket server configuration."""
+
+    host: str = field(default_factory=lambda: os.getenv("WS_HOST", "0.0.0.0"))
+    port: int = field(default_factory=lambda: int(os.getenv("WS_PORT", "8080")))
 
 
 @dataclass(frozen=True)
@@ -83,8 +81,8 @@ class SMBConfig:
 class Config:
     """Application configuration."""
 
-    valkey: ValkeyConfig = field(default_factory=ValkeyConfig)
     tn3270: TN3270Config = field(default_factory=TN3270Config)
+    websocket: WebSocketConfig = field(default_factory=WebSocketConfig)
     dynamodb: DynamoDBConfig = field(default_factory=DynamoDBConfig)
     db2: DB2Config = field(default_factory=DB2Config)
     smb: SMBConfig = field(default_factory=SMBConfig)

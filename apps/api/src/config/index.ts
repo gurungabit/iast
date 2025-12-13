@@ -18,19 +18,12 @@ function getEnvNumber(key: string, defaultValue: number): number {
   return defaultValue;
 }
 
-function getEnvBoolean(key: string, defaultValue: boolean): boolean {
-  const value = process.env[key];
-  if (value === 'true') return true;
-  if (value === 'false') return false;
-  return defaultValue;
-}
-
 export function loadConfig(): AppConfig {
   const defaults = getDefaultConfig();
 
   return {
-    env: getEnvString('NODE_ENV', 'development') as AppConfig['env'],
-    logLevel: getEnvString('LOG_LEVEL', 'debug') as AppConfig['logLevel'],
+    env: (process.env['NODE_ENV'] as AppConfig['env']) || 'development',
+    logLevel: (process.env['LOG_LEVEL'] as AppConfig['logLevel']) || 'debug',
     server: {
       host: getEnvString('HOST', defaults.server.host),
       port: getEnvNumber('PORT', defaults.server.port),
@@ -38,13 +31,6 @@ export function loadConfig(): AppConfig {
         origin: getEnvString('CORS_ORIGIN', 'http://localhost:5173'),
         credentials: true,
       },
-    },
-    valkey: {
-      host: getEnvString('VALKEY_HOST', defaults.valkey.host),
-      port: getEnvNumber('VALKEY_PORT', defaults.valkey.port),
-      password: process.env['VALKEY_PASSWORD'],
-      db: getEnvNumber('VALKEY_DB', 0),
-      tls: getEnvBoolean('VALKEY_TLS', false),
     },
     auth: {
       entraTenantId: getEnvString('ENTRA_TENANT_ID', defaults.auth.entraTenantId),

@@ -1,5 +1,5 @@
 # ============================================================================
-# TN3270 Gateway Application
+# TN3270 Gateway Application - WebSocket Version
 # ============================================================================
 
 import asyncio
@@ -9,10 +9,11 @@ import structlog
 
 from .core import get_config
 from .services import (
-    close_valkey_client,
+    close_ws_server,
     get_tn3270_manager,
+    get_ws_server,
     init_tn3270_manager,
-    init_valkey_client,
+    init_ws_server,
 )
 
 # Configure structlog
@@ -49,8 +50,8 @@ async def shutdown(sig: signal.Signals | None = None) -> None:
     except RuntimeError:
         pass
 
-    # Close Valkey connection
-    await close_valkey_client()
+    # Close WebSocket server
+    await close_ws_server()
 
     log.info("Shutdown complete")
 
@@ -67,9 +68,8 @@ async def async_main() -> None:
     config = get_config()
 
     log.info(
-        "Starting TN3270 Gateway",
-        valkey_host=config.valkey.host,
-        valkey_port=config.valkey.port,
+        "Starting TN3270 Gateway (WebSocket mode)",
+        ws_port=8080,
         tn3270_host=config.tn3270.host,
         tn3270_port=config.tn3270.port,
         tn3270_max_sessions=config.tn3270.max_sessions,
@@ -80,15 +80,35 @@ async def async_main() -> None:
 
     get_dynamodb_client(config.dynamodb)
 
-    # Initialize Valkey client
-    valkey = await init_valkey_client(config.valkey)
+    # Initialize WebSocket server
+    ws_server = await init_ws_server(host="0.0.0.0", port=8080)
 
-    # Initialize TN3270 manager and start listening
-    tn3270_manager = init_tn3270_manager(config.tn3270, valkey)
+    # Create output sender function that sends via WebSocket
+    async def send_output(session_id: str, message: str) -> None:
+        """Send output to API via WebSocket."""
+        await ws_server.send_to_session(session_id, message)
+
+    # Initialize TN3270 manager with output sender
+    tn3270_manager = init_tn3270_manager(config.tn3270, send_output)
     await tn3270_manager.start()
 
-    # Start the Valkey message listener
-    await valkey.start_listening()
+    # Set up WebSocket handlers
+    async def on_message(session_id: str, message: str) -> None:
+        """Handle incoming message from API."""
+        await tn3270_manager.handle_message(session_id, message)
+
+    async def on_session_closed(session_id: str) -> None:
+        """Handle WebSocket connection closed."""
+        log.info("WebSocket closed, destroying session", session_id=session_id)
+        await tn3270_manager.destroy_session(session_id, "websocket_closed")
+
+    ws_server.set_handlers(
+        on_message=on_message,
+        on_session_closed=on_session_closed,
+    )
+
+    # Start WebSocket server
+    await ws_server.start()
 
     # Setup signal handlers
     loop = asyncio.get_running_loop()
@@ -99,7 +119,7 @@ async def async_main() -> None:
     for sig in (signal.SIGTERM, signal.SIGINT):
         loop.add_signal_handler(sig, handle_signal, sig)
 
-    log.info("TN3270 Gateway ready, waiting for connections...")
+    log.info("TN3270 Gateway ready, waiting for connections on port 8080...")
 
     # Keep running until shutdown
     await _shutdown_event.wait()

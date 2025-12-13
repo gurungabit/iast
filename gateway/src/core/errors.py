@@ -35,11 +35,6 @@ class ErrorCodes(StrEnum):
     WS_MESSAGE_INVALID = "E4002"
     WS_CLOSED_ABNORMAL = "E4003"
 
-    # Valkey errors (E5xxx)
-    VALKEY_CONNECTION_FAILED = "E5001"
-    VALKEY_PUBLISH_FAILED = "E5002"
-    VALKEY_SUBSCRIBE_FAILED = "E5003"
-
 
 class TerminalError(Exception):
     """Custom error with error code."""

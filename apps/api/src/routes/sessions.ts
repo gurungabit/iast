@@ -6,7 +6,6 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import {
   createSuccessResponse,
   createErrorResponse,
-  createSessionDestroyMessage,
   ERROR_CODES,
   TerminalError,
 } from '@terminal/shared';
@@ -18,8 +17,8 @@ import {
   deleteUserSession,
 } from '../models/userSession';
 import { verifyToken } from '../services/auth';
-import { getValkeyClient } from '../valkey';
 import { getActiveExecutionBySession } from '../services/dynamodb';
+import { terminateGatewaySession } from '../services/registry';
 
 export function sessionRoutes(fastify: FastifyInstance): void {
   // Create a new session
@@ -188,7 +187,7 @@ export function sessionRoutes(fastify: FastifyInstance): void {
       // Get active execution for this session
       const execution = await getActiveExecutionBySession(sessionId);
       fastify.log.info({ sessionId, execution }, 'getActiveExecutionBySession result');
-      
+
       return await reply.send(createSuccessResponse({ execution }));
     } catch (error) {
       if (error instanceof TerminalError) {
@@ -220,14 +219,14 @@ export function sessionRoutes(fastify: FastifyInstance): void {
           .send(createErrorResponse(ERROR_CODES.VALIDATION_FAILED, 'Session not found'));
       }
 
-      // Send destroy message to gateway to terminate TN3270 connection
+      // Clean up gateway session registry
+      // Note: The gateway will automatically destroy the TN3270 session when
+      // the WebSocket connection is closed (handled by bridge.ts)
       try {
-        const valkey = getValkeyClient();
-        const destroyMsg = createSessionDestroyMessage(sessionId);
-        await valkey.publishControl(sessionId, destroyMsg);
+        await terminateGatewaySession(sessionId);
       } catch (err) {
-        fastify.log.error({ err }, 'Failed to send session destroy to gateway');
-        // Continue with deletion even if gateway notification fails
+        fastify.log.error({ err }, 'Failed to clean up gateway session registry');
+        // Continue with deletion even if cleanup fails
       }
 
       await deleteUserSession(payload.sub, sessionId);

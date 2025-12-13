@@ -11,14 +11,6 @@ export interface ServerConfig {
   };
 }
 
-export interface ValkeyConfig {
-  host: string;
-  port: number;
-  password?: string;
-  db?: number;
-  tls?: boolean;
-}
-
 export interface AuthConfig {
   entraTenantId: string;
   entraClientId: string;
@@ -43,7 +35,6 @@ export interface AppConfig {
   env: 'development' | 'production' | 'test';
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   server: ServerConfig;
-  valkey: ValkeyConfig;
   auth: AuthConfig;
   tn3270: TN3270Config;
   dynamodb: DynamoDBConfig;
@@ -60,11 +51,6 @@ export const DEFAULT_SERVER_CONFIG: ServerConfig = {
     origin: 'http://localhost:5173',
     credentials: true,
   },
-};
-
-export const DEFAULT_VALKEY_CONFIG: ValkeyConfig = {
-  host: 'localhost',
-  port: 6379,
 };
 
 export const DEFAULT_AUTH_CONFIG: AuthConfig = {
@@ -92,7 +78,6 @@ export function getDefaultConfig(): AppConfig {
     env: 'development',
     logLevel: 'debug',
     server: { ...DEFAULT_SERVER_CONFIG },
-    valkey: { ...DEFAULT_VALKEY_CONFIG },
     auth: { ...DEFAULT_AUTH_CONFIG },
     tn3270: { ...DEFAULT_TN3270_CONFIG },
     dynamodb: { ...DEFAULT_DYNAMODB_CONFIG },

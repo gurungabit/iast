@@ -18,6 +18,7 @@ dependencies = [
     "pytest-cov>=7.0.0",
     "ibm-db>=3.2.8",
     "smbprotocol>=1.15.0",
+    "websockets>=15.0.1",
 ]
 
 [project.scripts]

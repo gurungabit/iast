@@ -1,8 +1,11 @@
 # ============================================================================
-# TN3270 Session Manager
+# TN3270 Session Manager - WebSocket Version
 # ============================================================================
 """
 Manages TN3270 terminal sessions using the tnz library.
+
+This version uses WebSocket for direct communication with the API server
+This version uses WebSocket for direct communication with the API server.
 
 Each session connects to a 3270 host (like Hercules mainframe emulator)
 and provides:
@@ -16,13 +19,16 @@ thread to avoid conflicts with the main asyncio event loop.
 
 import asyncio
 import concurrent.futures
+import contextlib
 import threading
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 from uuid import uuid4
 
 import structlog
+from tnz import tnz as tnz_module
 
 from ...ast import AST, get_ast_class, run_ast
 from ...core import ErrorCodes, TerminalError, TN3270Config
@@ -46,13 +52,6 @@ from ...models import (
 )
 from .host import Host
 from .renderer import TN3270Renderer
-
-if TYPE_CHECKING:
-    from ..valkey import ValkeyClient
-
-import contextlib
-
-from tnz import tnz as tnz_module
 
 log = structlog.get_logger()
 
@@ -116,6 +115,9 @@ KEY_MAPPINGS = {
     "\x1b\x1b": "clear",  # Double Escape as Clear
 }
 
+# Type for output sender function
+OutputSender = Callable[[str, str], Awaitable[None]]
+
 
 @dataclass
 class TN3270Session:
@@ -135,17 +137,28 @@ class TN3270Session:
 
 
 class TN3270Manager:
-    """Manages TN3270 terminal sessions."""
+    """Manages TN3270 terminal sessions using WebSocket for communication."""
 
-    def __init__(self, config: "TN3270Config", valkey: "ValkeyClient") -> None:
+    def __init__(
+        self,
+        config: "TN3270Config",
+        output_sender: OutputSender,
+    ) -> None:
+        """
+        Initialize the TN3270 manager.
+
+        Args:
+            config: TN3270 configuration
+            output_sender: Async function to send output messages.
+                           Signature: async def send(session_id: str, message: str) -> None
+        """
         self._config = config
-        self._valkey = valkey
+        self._output_sender = output_sender
         self._sessions: dict[str, TN3270Session] = {}
         self._renderer = TN3270Renderer()
 
     async def start(self) -> None:
         """Start the TN3270 manager."""
-        await self._valkey.subscribe_to_tn3270_control(self._handle_gateway_control)
         log.info(
             "TN3270 Manager started",
             default_host=self._config.host,
@@ -161,6 +174,53 @@ class TN3270Manager:
         """Get a session by ID."""
         return self._sessions.get(session_id)
 
+    async def handle_message(self, session_id: str, raw_data: str) -> None:
+        """
+        Handle an incoming message from WebSocket.
+
+        This is the main entry point for processing messages from the API.
+        """
+        try:
+            msg = parse_message(raw_data)
+
+            if isinstance(msg, SessionCreateMessage):
+                # Create new TN3270 session
+                meta = msg.meta
+                host = None
+                port = None
+                if meta and meta.shell:
+                    if ":" in meta.shell:
+                        host, port_str = meta.shell.rsplit(":", 1)
+                        with contextlib.suppress(ValueError):
+                            port = int(port_str)
+                    else:
+                        host = meta.shell
+
+                await self.create_session(session_id, host=host, port=port)
+                return
+
+            if isinstance(msg, SessionDestroyMessage):
+                await self.destroy_session(session_id, "user_requested")
+                return
+
+            # For other messages, session must exist
+            session = self._sessions.get(session_id)
+            if not session:
+                log.warning("Session not found for message", session_id=session_id)
+                return
+
+            if isinstance(msg, DataMessage):
+                await self._process_input(session, msg.payload)
+            elif isinstance(msg, ASTRunMessage):
+                asyncio.create_task(
+                    self._run_ast(session, msg.meta.ast_name, msg.meta.params)
+                )
+            elif isinstance(msg, ASTControlMessage):
+                await self._handle_ast_control(session, msg.meta.action)
+
+        except Exception:
+            log.exception("Handle message error", session_id=session_id)
+
     async def create_session(
         self,
         session_id: str,
@@ -172,12 +232,13 @@ class TN3270Manager:
         existing = self._sessions.get(session_id)
         if existing:
             log.info("Reusing existing TN3270 session", session_id=session_id)
-            # Send current screen with field data
             await self._send_screen_update(existing)
             return existing
 
         if len(self._sessions) >= self._config.max_sessions:
-            raise TerminalError(ErrorCodes.SESSION_LIMIT_REACHED, "Maximum TN3270 sessions reached")
+            raise TerminalError(
+                ErrorCodes.SESSION_LIMIT_REACHED, "Maximum TN3270 sessions reached"
+            )
 
         host = host or self._config.host
         port = port or self._config.port
@@ -190,7 +251,7 @@ class TN3270Manager:
                 port=port,
             )
 
-            # Create and connect tnz in a thread (it has its own event loop)
+            # Create and connect tnz in a thread
             loop = asyncio.get_running_loop()
             tnz = await loop.run_in_executor(
                 _executor,
@@ -211,12 +272,6 @@ class TN3270Manager:
 
             self._sessions[session_id] = session
 
-            # Subscribe to TN3270 input channel
-            sid = session_id
-            await self._valkey.subscribe_to_tn3270_input(
-                session_id, lambda data, s=sid: self._handle_input(s, data)
-            )
-
             log.info(
                 "Created TN3270 session",
                 session_id=session_id,
@@ -225,23 +280,27 @@ class TN3270Manager:
             )
 
             # Send session created message
-            msg = create_session_created_message(session_id, f"tn3270://{host}:{port}", 0)
-            await self._valkey.publish_tn3270_output(session_id, serialize_message(msg))
+            msg = create_session_created_message(
+                session_id, f"tn3270://{host}:{port}", 0
+            )
+            await self._send_output(session_id, serialize_message(msg))
 
-            # Wait for initial screen data in thread (before starting update loop)
+            # Wait for initial screen data
             await loop.run_in_executor(_executor, lambda: tnz.wait(timeout=2))
 
-            # Send initial screen with field data
+            # Send initial screen
             await self._send_screen_update(session)
 
-            # Now start update loop to poll for subsequent screen changes
+            # Start update loop
             session._update_task = asyncio.create_task(self._update_loop(session))
 
             return session
 
         except Exception as e:
             log.exception("Failed to create TN3270 session", session_id=session_id)
-            raise TerminalError(ErrorCodes.TERMINAL_CONNECTION_FAILED, str(e)) from e
+            raise TerminalError(
+                ErrorCodes.TERMINAL_CONNECTION_FAILED, str(e)
+            ) from e
 
     def _create_tnz_connection(
         self,
@@ -252,20 +311,13 @@ class TN3270Manager:
         """Create tnz connection in a thread (blocking)."""
         tnz = tnz_module.Tnz(name=session_id)
 
-        # Set encoding: cp037 for default character set, cp310 for APL graphics (0xf1)
-        tnz.encoding = "cp037", 0  # Default character set
-        tnz.encoding = (
-            "cp310",
-            0xF1,
-        )  # Alternate character set (APL graphics with box drawing)
+        # Set encoding
+        tnz.encoding = "cp037", 0
+        tnz.encoding = ("cp310", 0xF1)
 
         # Enable TN3270E protocol
         tnz.use_tn3270e = True
-
-        # Set device type to IBM-3279-4-E (color terminal, 80x43)
         tnz.terminal_type = "IBM-3279-4-E"
-
-        # Enable color support
         tnz.capable_color = True
 
         # Set screen dimensions (43x80)
@@ -276,7 +328,7 @@ class TN3270Manager:
         tnz.maxrow = 43
         tnz.maxcol = 80
 
-        # Reinitialize buffers with correct size
+        # Reinitialize buffers
         buffer_size = 43 * 80
         tnz.buffer_size = buffer_size
         tnz.plane_dc = bytearray(buffer_size)
@@ -286,7 +338,7 @@ class TN3270Manager:
         tnz.plane_fg = bytearray(buffer_size)
         tnz.plane_bg = bytearray(buffer_size)
 
-        # Connect without TLS for Hercules
+        # Connect
         tnz.connect(host=host, port=port, secure=False, verifycert=False)
 
         return tnz
@@ -304,10 +356,7 @@ class TN3270Manager:
             with contextlib.suppress(asyncio.CancelledError):
                 await session._update_task
 
-        # Unsubscribe from channels
-        await self._valkey.unsubscribe_tn3270_session(session_id)
-
-        # Close tnz connection in thread
+        # Close tnz connection
         loop = asyncio.get_running_loop()
         with contextlib.suppress(Exception):
             await loop.run_in_executor(_executor, session.tnz.close)
@@ -316,13 +365,20 @@ class TN3270Manager:
 
         # Send session destroyed message
         msg = create_session_destroyed_message(session_id, reason)
-        await self._valkey.publish_tn3270_output(session_id, serialize_message(msg))
+        await self._send_output(session_id, serialize_message(msg))
 
     async def destroy_all_sessions(self) -> None:
         """Destroy all TN3270 sessions."""
         session_ids = list(self._sessions.keys())
         for session_id in session_ids:
             await self.destroy_session(session_id, "shutdown")
+
+    async def _send_output(self, session_id: str, message: str) -> None:
+        """Send output message to API via WebSocket."""
+        try:
+            await self._output_sender(session_id, message)
+        except Exception:
+            log.exception("Failed to send output", session_id=session_id)
 
     async def _update_loop(self, session: TN3270Session) -> None:
         """Poll for screen updates and send them to the client."""
@@ -331,21 +387,16 @@ class TN3270Manager:
 
         while not session._stop_event.is_set():
             try:
-                # Wait for data with timeout in thread pool
                 await loop.run_in_executor(_executor, lambda: tnz.wait(timeout=0.1))
 
-                # Check if session lost
                 if tnz.seslost:
                     log.info("TN3270 session lost", session_id=session.session_id)
                     await self.destroy_session(session.session_id, "connection_lost")
                     return
 
-                # Check if screen updated
                 if tnz.updated:
                     tnz.updated = False
                     session.last_activity = datetime.now()
-
-                    # Send screen update with field data
                     await self._send_screen_update(session)
 
             except asyncio.CancelledError:
@@ -354,31 +405,9 @@ class TN3270Manager:
                 log.exception("Update loop error", session_id=session.session_id)
                 await asyncio.sleep(1)
 
-    async def _handle_input(self, session_id: str, raw_data: str) -> None:
-        """Handle keyboard input from the client."""
-        session = self._sessions.get(session_id)
-
-        try:
-            msg = parse_message(raw_data)
-            if isinstance(msg, SessionDestroyMessage):
-                # Handle session destroy even if session doesn't exist in our map
-                await self.destroy_session(session_id, "user_requested")
-                return
-
-            if not session:
-                return
-
-            if isinstance(msg, DataMessage):
-                await self._process_input(session, msg.payload)
-            elif isinstance(msg, ASTRunMessage):
-                # Run AST as background task so we can still receive control messages
-                asyncio.create_task(self._run_ast(session, msg.meta.ast_name, msg.meta.params))
-            elif isinstance(msg, ASTControlMessage):
-                await self._handle_ast_control(session, msg.meta.action)
-        except Exception:
-            log.exception("Handle input error", session_id=session_id)
-
-    async def _handle_ast_control(self, session: TN3270Session, action: str) -> None:
+    async def _handle_ast_control(
+        self, session: TN3270Session, action: str
+    ) -> None:
         """Handle AST control commands (pause/resume/cancel)."""
         ast = session.running_ast
         log.info(
@@ -392,13 +421,10 @@ class TN3270Manager:
             return
 
         if action == "pause":
-            log.info("Pausing AST", session_id=session.session_id)
             ast.pause()
         elif action == "resume":
-            log.info("Resuming AST", session_id=session.session_id)
             ast.resume()
         elif action == "cancel":
-            log.info("Cancelling AST", session_id=session.session_id)
             ast.cancel()
 
     async def _run_ast(
@@ -408,46 +434,33 @@ class TN3270Manager:
         params: dict[str, Any] | None = None,
     ) -> None:
         """Run an AST (Automated Streamlined Transaction)."""
-        # Check if there's already an AST running (including paused)
         if session.running_ast is not None:
             log.warning(
                 "Cannot start AST - another AST is already running",
                 ast_name=ast_name,
                 session_id=session.session_id,
-                running_ast=type(session.running_ast).__name__,
             )
-            # Send error status to frontend
             status_msg = create_ast_status_message(
                 session.session_id,
                 ast_name,
                 "failed",
-                error=(
-                    "Another AST is already running. Please wait for it to complete, "
-                    "cancel it, or go to the History page to view its status."
-                ),
+                error="Another AST is already running.",
             )
-            await self._valkey.publish_tn3270_output(
-                session.session_id, serialize_message(status_msg)
-            )
+            await self._send_output(session.session_id, serialize_message(status_msg))
             return
 
         log.info("Running AST", ast_name=ast_name, session_id=session.session_id)
-
-        # Generate unique execution_id for this AST run
-        # session_id is used for WebSocket channel, execution_id is unique per run
-
         execution_id = str(uuid4())
 
         # Send running status
         status_msg = create_ast_status_message(
             session.session_id, ast_name, "running", message=f"Starting {ast_name}..."
         )
-        await self._valkey.publish_tn3270_output(session.session_id, serialize_message(status_msg))
+        await self._send_output(session.session_id, serialize_message(status_msg))
 
-        # Get the event loop for thread-safe callbacks
         loop = asyncio.get_running_loop()
 
-        # Create thread-safe progress callback
+        # Progress callback
         def on_progress(
             current: int,
             total: int,
@@ -457,7 +470,6 @@ class TN3270Manager:
             ) = None,
             message: str | None = None,
         ) -> None:
-            """Thread-safe progress callback."""
             progress_msg = create_ast_progress_message(
                 session.session_id,
                 execution_id,
@@ -470,13 +482,13 @@ class TN3270Manager:
             )
 
             async def send() -> None:
-                await self._valkey.publish_tn3270_output(
+                await self._send_output(
                     session.session_id, serialize_message(progress_msg)
                 )
 
             asyncio.run_coroutine_threadsafe(send(), loop)
 
-        # Create thread-safe item result callback
+        # Item result callback
         def on_item_result(
             item_id: str,
             status: Literal["success", "failed", "skipped"],
@@ -484,7 +496,6 @@ class TN3270Manager:
             error: str | None = None,
             data: dict | None = None,
         ) -> None:
-            """Thread-safe item result callback."""
             result_msg = create_ast_item_result_message(
                 session.session_id,
                 execution_id,
@@ -496,19 +507,17 @@ class TN3270Manager:
             )
 
             async def send() -> None:
-                await self._valkey.publish_tn3270_output(
+                await self._send_output(
                     session.session_id, serialize_message(result_msg)
                 )
 
             asyncio.run_coroutine_threadsafe(send(), loop)
 
-        # Create thread-safe pause state callback
+        # Pause state callback
         def on_pause_state(paused: bool, message: str | None = None) -> None:
-            """Thread-safe pause state callback."""
             log.info(
                 "Pause state changed",
                 paused=paused,
-                message=message,
                 session_id=session.session_id,
             )
             paused_msg = create_ast_paused_message(
@@ -518,14 +527,12 @@ class TN3270Manager:
             )
 
             async def send() -> None:
-                await self._valkey.publish_tn3270_output(
+                await self._send_output(
                     session.session_id, serialize_message(paused_msg)
                 )
-                # Also send a screen update so user sees current state while paused
                 if paused:
                     await self._send_screen_update(session)
 
-                # Update execution status in DynamoDB
                 from ...db import get_dynamodb_client
 
                 db = get_dynamodb_client()
@@ -535,54 +542,36 @@ class TN3270Manager:
                     execution_id=execution_id,
                     updates={"status": new_status},
                 )
-                log.info(
-                    "Updated execution status",
-                    execution_id=execution_id,
-                    status=new_status,
-                )
 
             asyncio.run_coroutine_threadsafe(send(), loop)
 
         try:
-            # Create Host wrapper for the session's tnz instance
             host = Host(session.tnz)
-
-            # Get the appropriate AST from the registry
             ast_class = get_ast_class(ast_name)
             if ast_class is None:
                 raise ValueError(f"Unknown AST: {ast_name}")
 
             ast = ast_class()
-
-            # Store the running AST in the session for control commands
             session.running_ast = ast
-
-            # Set progress callbacks
             ast.set_callbacks(
                 on_progress=on_progress,
                 on_item_result=on_item_result,
                 on_pause_state=on_pause_state,
             )
 
-            # Build params with host config for parallel execution
             run_params = {**(params or {})}
-            # Add host config from session for parallel mode
             if "hostAddress" not in run_params:
                 run_params["hostAddress"] = session.host
             if "hostPort" not in run_params:
                 run_params["hostPort"] = session.port
 
-            # Run the AST in executor (blocking operations)
-            # Pass execution_id so it matches what we store in DynamoDB
             result = await loop.run_in_executor(
                 _executor,
                 lambda: run_ast(ast, host, execution_id=execution_id, **run_params),
             )
 
-            # Clear the running AST
             session.running_ast = None
 
-            # Send result status
             status_msg = create_ast_status_message(
                 session.session_id,
                 ast_name,
@@ -592,35 +581,28 @@ class TN3270Manager:
                 duration=result.duration,
                 data=result.data,
             )
-            await self._valkey.publish_tn3270_output(
-                session.session_id, serialize_message(status_msg)
-            )
-
-            # Update screen after AST completes
+            await self._send_output(session.session_id, serialize_message(status_msg))
             await self._send_screen_update(session)
 
             log.info(
                 "AST completed",
                 ast_name=ast_name,
                 status=result.status.value,
-                duration=result.duration,
                 session_id=session.session_id,
             )
 
         except Exception as e:
-            # Clear the running AST on error
             session.running_ast = None
-
-            log.exception("AST execution error", ast_name=ast_name, session_id=session.session_id)
+            log.exception(
+                "AST execution error", ast_name=ast_name, session_id=session.session_id
+            )
             status_msg = create_ast_status_message(
                 session.session_id,
                 ast_name,
                 "failed",
                 error=str(e),
             )
-            await self._valkey.publish_tn3270_output(
-                session.session_id, serialize_message(status_msg)
-            )
+            await self._send_output(session.session_id, serialize_message(status_msg))
 
     async def _process_input(self, session: TN3270Session, data: str) -> None:
         """Process keyboard input and send to 3270 host."""
@@ -628,14 +610,15 @@ class TN3270Manager:
         loop = asyncio.get_running_loop()
 
         try:
-            # Check for special key sequences first
+            # Check for special key sequences
             for seq, action in KEY_MAPPINGS.items():
                 if data.startswith(seq):
                     method = getattr(tnz, action, None)
                     if method:
-                        log.debug("3270 key", action=action, session_id=session.session_id)
+                        log.debug(
+                            "3270 key", action=action, session_id=session.session_id
+                        )
                         await loop.run_in_executor(_executor, method)
-                        # Send updated screen after key
                         await self._send_screen_update(session)
                     return
 
@@ -654,15 +637,12 @@ class TN3270Manager:
             error_msg = create_error_message(
                 session.session_id, ErrorCodes.TERMINAL_WRITE_FAILED, str(e)
             )
-            await self._valkey.publish_tn3270_output(
-                session.session_id, serialize_message(error_msg)
-            )
+            await self._send_output(session.session_id, serialize_message(error_msg))
 
     async def _send_screen_update(self, session: TN3270Session) -> None:
         """Send current screen to client with field information."""
         screen_data = self._renderer.render_screen_with_fields(session.tnz)
 
-        # Convert renderer Field objects to TN3270Field model objects
         fields = [
             TN3270Field(
                 start=f.start,
@@ -685,60 +665,7 @@ class TN3270Manager:
             screen_data.rows,
             screen_data.cols,
         )
-        await self._valkey.publish_tn3270_output(session.session_id, serialize_message(msg))
-
-    async def _handle_control(self, session_id: str, raw_data: str) -> None:
-        """Handle control messages."""
-        try:
-            msg = parse_message(raw_data)
-
-            if isinstance(msg, SessionDestroyMessage):
-                await self.destroy_session(session_id, "user_requested")
-
-        except TerminalError as e:
-            error_msg = create_error_message(session_id, e.code, e.message)
-            await self._valkey.publish_tn3270_output(session_id, serialize_message(error_msg))
-        except Exception:
-            log.exception("Handle control error", session_id=session_id)
-
-    async def _handle_gateway_control(self, raw_data: str) -> None:
-        """Handle global gateway control messages (session creation)."""
-        try:
-            msg = parse_message(raw_data)
-
-            if isinstance(msg, SessionCreateMessage):
-                meta = msg.meta
-                # Extract host/port from session create meta
-                # Could be passed as shell="host:port" or in env
-                host = None
-                port = None
-                if meta and meta.shell:
-                    if ":" in meta.shell:
-                        host, port_str = meta.shell.rsplit(":", 1)
-                        with contextlib.suppress(ValueError):
-                            port = int(port_str)
-                    else:
-                        host = meta.shell
-
-                await self.create_session(
-                    msg.session_id,
-                    host=host,
-                    port=port,
-                )
-
-        except TerminalError as e:
-            try:
-                parsed = parse_message(raw_data)
-                if hasattr(parsed, "session_id"):
-                    error_msg = create_error_message(parsed.session_id, e.code, e.message)
-                    await self._valkey.publish_tn3270_output(
-                        parsed.session_id, serialize_message(error_msg)
-                    )
-            except Exception:
-                pass
-            log.warning("TN3270 gateway control error", error=str(e))
-        except Exception:
-            log.exception("Handle TN3270 gateway control error")
+        await self._send_output(session.session_id, serialize_message(msg))
 
 
 # Singleton instance
@@ -752,8 +679,11 @@ def get_tn3270_manager() -> TN3270Manager:
     return _manager
 
 
-def init_tn3270_manager(config: "TN3270Config", valkey: "ValkeyClient") -> TN3270Manager:
+def init_tn3270_manager(
+    config: "TN3270Config",
+    output_sender: OutputSender,
+) -> TN3270Manager:
     """Initialize and return the TN3270 manager."""
     global _manager
-    _manager = TN3270Manager(config, valkey)
+    _manager = TN3270Manager(config, output_sender)
     return _manager
