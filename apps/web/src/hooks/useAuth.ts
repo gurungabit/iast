@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useMsal } from '@azure/msal-react';
 import { InteractionStatus, InteractionRequiredAuthError } from '@azure/msal-browser';
 import { graphTokenRequest, apiConfig } from '../config/authConfig';
-import { setTokenAccessor, clearTokenAccessor } from '../utils/tokenAccessor';
+import { setTokenAccessor, clearTokenAccessor, fullLogout } from '../utils/tokenAccessor';
 
 export interface UserInfo {
   id: string;
@@ -153,7 +153,7 @@ export function useAuth(): UseAuthReturn {
    */
   const logout = useCallback(async () => {
     try {
-      clearTokenAccessor();
+      fullLogout(); // Clears both token accessor AND dev session
       await instance.logoutRedirect({
         account,
       });
@@ -171,14 +171,14 @@ export function useAuth(): UseAuthReturn {
       if (account && inProgress === InteractionStatus.None) {
         // Set up token accessor for services (API calls, WebSocket, etc.)
         setTokenAccessor(getApiAccessToken);
-        
+
         if (!accessToken) {
           await acquireToken();
         }
       } else if (!account) {
         clearTokenAccessor();
       }
-      
+
       if (!cancelled) {
         setIsLoading(false);
       }

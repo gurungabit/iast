@@ -7,7 +7,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { AuthContext } from '../context/AuthContext';
 import { ThemeToggle } from './ThemeToggle';
-import { enableDevMode, isDevModeAvailable } from '../utils/tokenAccessor';
+import { enableDevMode, isDevModeAvailable, isDevModeActive } from '../utils/tokenAccessor';
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -16,12 +16,12 @@ interface AuthGuardProps {
 export function AuthGuard({ children }: AuthGuardProps): ReactNode {
   const { isAuthenticated, isLoading, userInfo, login } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const [devAuthenticated, setDevAuthenticated] = useState(false);
+  // Initialize from URL param for persistence
+  const [devAuthenticated] = useState(() => isDevModeActive());
 
-  // Dev mode login - bypasses MSAL
+  // Dev mode login - enableDevMode will redirect with URL param
   const handleDevLogin = () => {
     enableDevMode();
-    setDevAuthenticated(true);
   };
 
   // Show loading spinner while checking auth
@@ -103,8 +103,12 @@ export function AuthGuard({ children }: AuthGuardProps): ReactNode {
   const effectiveUserInfo = userInfo || devUserInfo;
 
   // Wrap children with AuthContext provider
+  // Use key to force remount of children when auth state changes (esp. for dev login)
+  const authKey = devAuthenticated ? 'dev' : isAuthenticated ? 'msal' : 'none';
+
   return (
     <AuthContext.Provider
+      key={authKey}
       value={{
         user: effectiveUserInfo ? {
           id: effectiveUserInfo.id,

@@ -9,6 +9,24 @@ import './index.css'
 // Import the generated route tree
 import { routeTree } from './routeTree.gen'
 
+// ============================================================================
+// DEV MODE DETECTION - Check URL param before MSAL strips it
+// ============================================================================
+const DEV_MODE = import.meta.env.DEV;
+const DEV_SESSION_KEY = '__dev_auth__';
+
+// Check if dev mode should be activated via URL param (before MSAL strips it)
+if (DEV_MODE) {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get('dev') === '1') {
+    // Store in sessionStorage and remove from URL to avoid MSAL issues
+    sessionStorage.setItem(DEV_SESSION_KEY, 'true');
+    url.searchParams.delete('dev');
+    window.history.replaceState({}, '', url.toString());
+    console.log('🔓 Dev mode activated via URL param');
+  }
+}
+
 // Create router instance
 const router = createRouter({ routeTree })
 
@@ -57,3 +75,4 @@ async function initializeApp() {
 initializeApp().catch((error) => {
   console.error('App initialization error:', error)
 })
+

@@ -4,6 +4,7 @@
 
 // Check if we're in dev mode (Vite sets this automatically)
 const DEV_MODE = import.meta.env.DEV;
+const DEV_SESSION_KEY = '__dev_auth__';
 
 /**
  * Type for the token accessor function
@@ -16,17 +17,29 @@ type TokenAccessor = () => Promise<string | null>;
 let tokenAccessor: TokenAccessor | null = null;
 
 /**
- * Dev mode bypass - when set, returns 'dev' token instead of MSAL token
+ * Check if dev session is active (reads sessionStorage directly)
  */
-let devModeActive = false;
+function isDevSessionActive(): boolean {
+  if (!DEV_MODE) return false;
+  try {
+    return sessionStorage.getItem(DEV_SESSION_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
 
 /**
- * Enable dev mode bypass (skips MSAL, uses 'dev' token)
+ * Enable dev mode bypass
  */
 export function enableDevMode(): void {
   if (DEV_MODE) {
-    devModeActive = true;
-    console.log('🔓 Dev mode enabled - using bypass token');
+    try {
+      sessionStorage.setItem(DEV_SESSION_KEY, 'true');
+      console.log('🔓 Dev mode enabled');
+      window.location.reload();
+    } catch (e) {
+      console.error('Failed to enable dev mode:', e);
+    }
   }
 }
 
@@ -41,7 +54,7 @@ export function isDevModeAvailable(): boolean {
  * Check if dev mode is active
  */
 export function isDevModeActive(): boolean {
-  return devModeActive;
+  return isDevSessionActive();
 }
 
 /**
@@ -52,11 +65,23 @@ export function setTokenAccessor(accessor: TokenAccessor): void {
 }
 
 /**
- * Clear the token accessor (called on logout)
+ * Clear the token accessor (called when no MSAL account)
+ * NOTE: Does NOT clear dev session - that's only for explicit logout
  */
 export function clearTokenAccessor(): void {
   tokenAccessor = null;
-  devModeActive = false;
+}
+
+/**
+ * Full logout - clears token accessor AND dev session
+ */
+export function fullLogout(): void {
+  tokenAccessor = null;
+  try {
+    sessionStorage.removeItem(DEV_SESSION_KEY);
+  } catch {
+    // Ignore storage errors
+  }
 }
 
 /**
@@ -64,8 +89,9 @@ export function clearTokenAccessor(): void {
  * Can be called from anywhere (services, WebSocket handlers, etc.)
  */
 export async function getAccessToken(): Promise<string | null> {
-  // Dev mode bypass - return 'dev' token instead of MSAL token
-  if (devModeActive) {
+  // Dev mode bypass - check sessionStorage directly
+  if (isDevSessionActive()) {
+    console.log('[getAccessToken] Using dev token');
     return 'dev';
   }
 
@@ -75,4 +101,3 @@ export async function getAccessToken(): Promise<string | null> {
   }
   return tokenAccessor();
 }
-
