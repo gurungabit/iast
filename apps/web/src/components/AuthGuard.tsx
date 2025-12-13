@@ -2,11 +2,12 @@
 // Auth Guard Component - MSAL Authentication
 // ============================================================================
 
-import { type ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { AuthContext } from '../context/AuthContext';
 import { ThemeToggle } from './ThemeToggle';
+import { enableDevMode, isDevModeAvailable } from '../utils/tokenAccessor';
 
 interface AuthGuardProps {
   children: ReactNode;
@@ -15,6 +16,13 @@ interface AuthGuardProps {
 export function AuthGuard({ children }: AuthGuardProps): ReactNode {
   const { isAuthenticated, isLoading, userInfo, login } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const [devAuthenticated, setDevAuthenticated] = useState(false);
+
+  // Dev mode login - bypasses MSAL
+  const handleDevLogin = () => {
+    enableDevMode();
+    setDevAuthenticated(true);
+  };
 
   // Show loading spinner while checking auth
   if (isLoading) {
@@ -28,8 +36,11 @@ export function AuthGuard({ children }: AuthGuardProps): ReactNode {
     );
   }
 
+  // Check if authenticated (either via MSAL or dev mode)
+  const effectivelyAuthenticated = isAuthenticated || devAuthenticated;
+
   // Show login screen if not authenticated
-  if (!isAuthenticated) {
+  if (!effectivelyAuthenticated) {
     return (
       <div className="min-h-screen flex flex-col transition-colors bg-white dark:bg-zinc-950">
         {/* Theme toggle in corner */}
@@ -64,6 +75,17 @@ export function AuthGuard({ children }: AuthGuardProps): ReactNode {
                 </svg>
                 Sign in with Microsoft
               </button>
+
+              {/* Dev Login - only shown in development mode */}
+              {isDevModeAvailable() && (
+                <button
+                  onClick={handleDevLogin}
+                  className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 border border-dashed border-amber-400 dark:border-amber-600 rounded-lg text-sm font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                >
+                  <span>🔧</span>
+                  Dev Login (No Azure)
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -71,16 +93,25 @@ export function AuthGuard({ children }: AuthGuardProps): ReactNode {
     );
   }
 
+  // Dev mode user info
+  const devUserInfo = devAuthenticated ? {
+    id: 'dev-user-001',
+    email: 'dev@local.test',
+    name: 'Dev User',
+  } : null;
+
+  const effectiveUserInfo = userInfo || devUserInfo;
+
   // Wrap children with AuthContext provider
   return (
     <AuthContext.Provider
       value={{
-        user: userInfo ? {
-          id: userInfo.id,
-          email: userInfo.email,
-          displayName: userInfo.name
+        user: effectiveUserInfo ? {
+          id: effectiveUserInfo.id,
+          email: effectiveUserInfo.email,
+          displayName: effectiveUserInfo.name
         } : null,
-        isAuthenticated,
+        isAuthenticated: effectivelyAuthenticated,
       }}
     >
       {children}

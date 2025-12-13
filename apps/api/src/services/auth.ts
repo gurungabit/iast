@@ -91,7 +91,7 @@ export async function verifyEntraToken(token: string): Promise<EntraTokenPayload
     if (error instanceof jose.errors.JWSSignatureVerificationFailed) {
       throw TerminalError.fromCode(ERROR_CODES.AUTH_INVALID_TOKEN);
     }
-    
+
     console.error('Token verification error:', error);
     throw TerminalError.fromCode(ERROR_CODES.AUTH_INVALID_TOKEN);
   }
@@ -100,10 +100,23 @@ export async function verifyEntraToken(token: string): Promise<EntraTokenPayload
 /**
  * Verify token and return standardized payload for backward compatibility
  * This matches the old AuthTokenPayload interface shape
+ * 
+ * LOCAL DEV BYPASS: Use token 'dev' or 'local' to skip Azure validation
  */
 export async function verifyToken(token: string): Promise<{ sub: string; email: string; iat: number; exp: number }> {
+  // Local development bypass - use token 'dev' or 'local' to skip Azure auth
+  if (config.env === 'development' && (token === 'dev' || token === 'local')) {
+    const now = Math.floor(Date.now() / 1000);
+    return {
+      sub: 'dev-user-001',
+      email: 'dev@local.test',
+      iat: now,
+      exp: now + 86400, // 24 hours
+    };
+  }
+
   const entraPayload = await verifyEntraToken(token);
-  
+
   return {
     sub: entraPayload.oid, // Use oid as user ID
     email: entraPayload.email || entraPayload.preferred_username || '',
