@@ -1,17 +1,6 @@
 # AWS Deployment Guide
 
-This guide covers deploying the IAST (Interactive Automated Streamlined Terminal) application to AWS for production use.
-
-## Table of Contents
-
-1. [Architecture Overview](#architecture-overview)
-2. [Infrastructure Components](#infrastructure-components)
-3. [Scaling Strategy](#scaling-strategy)
-4. [High Availability & Failover](#high-availability--failover)
-5. [Security Architecture](#security-architecture)
-6. [Monitoring & Alerting](#monitoring--alerting)
-
----
+Deploy IAST (Interactive Automated Streamlined Terminal) to AWS for production use.
 
 ## Architecture Overview
 
@@ -23,26 +12,23 @@ flowchart TB
 
     subgraph AWS["AWS Cloud"]
         subgraph Edge["Edge Layer"]
-            Route53["Route 53 (DNS)"]
-            CloudFront["CloudFront (CDN)"]
-            WAF["WAF (Security)"]
+            Route53["Route 53"]
+            CloudFront["CloudFront"]
+            WAF["WAF"]
         end
 
-        subgraph VPC["VPC (10.0.0.0/16)"]
-            subgraph Public["Public Subnets (Multi-AZ)"]
+        subgraph VPC["VPC"]
+            subgraph Public["Public Subnets"]
                 ALB["Application Load Balancer"]
                 NAT["NAT Gateway"]
             end
 
-            subgraph Private["Private Subnets (Multi-AZ)"]
-                ROSA["ROSA Cluster (API Servers)"]
-                EC2["EC2 Auto Scaling Group (TN3270 Gateway)"]
-                ElastiCache["ElastiCache (Valkey)"]
+            subgraph Private["Private Subnets"]
+                ROSA["ROSA Cluster<br>(API + Gateway Pods)"]
             end
         end
 
-        DynamoDB["DynamoDB (Global Tables)"]
-        S3["S3 (Static Assets)"]
+        DynamoDB["DynamoDB"]
         SecretsManager["Secrets Manager"]
         CloudWatch["CloudWatch"]
     end
@@ -53,410 +39,515 @@ flowchart TB
     end
 
     subgraph Azure["Azure"]
-        EntraID["Entra ID (SSO)"]
+        EntraID["Entra ID"]
     end
 
-    Users --> Route53 --> CloudFront --> S3
+    Users --> Route53 --> CloudFront
     Users --> WAF --> ALB --> ROSA
-    ROSA <--> ElastiCache <--> EC2
-    ROSA & EC2 --> DynamoDB
-    EC2 --> NAT --> DirectConnect --> Mainframe
+    ROSA --> DynamoDB
+    ROSA --> NAT --> DirectConnect --> Mainframe
     ROSA -.-> EntraID
 ```
 
 ---
 
-## Infrastructure Components
+## Deployment Options
 
-### Component Matrix
+### Option 1: ROSA (Recommended)
 
-| Component | AWS Service | Purpose | HA Strategy |
-|-----------|-------------|---------|-------------|
-| **Web Frontend** | S3 + CloudFront | Static assets hosting | Global CDN replication |
-| **DNS** | Route 53 | DNS + health checks | Built-in global HA |
-| **Load Balancer** | ALB | HTTPS termination, WebSocket routing | Multi-AZ |
-| **API Server** | ROSA (OpenShift) | REST API + WebSocket handling | Pod replicas across AZs |
-| **TN3270 Gateway** | EC2 Auto Scaling | Mainframe connectivity | Multi-AZ ASG |
-| **Message Broker** | ElastiCache (Redis) | Pub/Sub messaging | Multi-AZ with failover |
-| **Database** | DynamoDB | User data, sessions, history | Global Tables (multi-region) |
-| **Secrets** | Secrets Manager | API keys, credentials | Regional replication |
-| **Mainframe Access** | Direct Connect / VPN | Private connectivity | Redundant connections |
+Deploy as containers on an existing Red Hat OpenShift Service on AWS (ROSA) cluster.
 
-### Why This Architecture?
-
-**ROSA for API Servers:**
+**Benefits:**
 
 - Kubernetes-native scaling with HPA
 - Rolling deployments with zero downtime
-- Enterprise container platform with Red Hat support
-- Integrated monitoring and logging
+- Shared infrastructure with other applications
+- Built-in monitoring and logging
 
-**EC2 for TN3270 Gateway (not containers):**
+### Option 2: EC2 Auto Scaling
 
-- Long-running TCP connections (hours/days)
-- Direct network access to mainframes via Direct Connect
-- In-memory session state that can't be easily migrated
-- Predictable resource allocation for TN3270 sessions
+Deploy directly on EC2 instances with Auto Scaling Groups.
 
-### Network Architecture
+**Benefits:**
 
-```mermaid
-flowchart TB
-    subgraph VPC["VPC: 10.0.0.0/16"]
-        subgraph AZ1["Availability Zone 1"]
-            subgraph Pub1["Public Subnet: 10.0.1.0/24"]
-                ALB1["ALB Node"]
-                NAT1["NAT Gateway"]
-            end
-            subgraph Priv1["Private Subnet: 10.0.3.0/24"]
-                ROSA1["ROSA Worker Node"]
-                GW1["Gateway Instance"]
-                Cache1["ElastiCache Node"]
-            end
-        end
-
-        subgraph AZ2["Availability Zone 2"]
-            subgraph Pub2["Public Subnet: 10.0.2.0/24"]
-                ALB2["ALB Node"]
-            end
-            subgraph Priv2["Private Subnet: 10.0.4.0/24"]
-                ROSA2["ROSA Worker Node"]
-                GW2["Gateway Instance"]
-                Cache2["ElastiCache Replica"]
-            end
-        end
-    end
-
-    Internet["Internet"] --> ALB1 & ALB2
-    NAT1 --> DirectConnect["Direct Connect"]
-    DirectConnect --> Mainframe["Mainframe"]
-```
-
-### Security Groups
-
-| Security Group | Inbound | Outbound | Purpose |
-|----------------|---------|----------|---------|
-| `iast-alb-sg` | 443 from 0.0.0.0/0 | All | Public HTTPS access |
-| `iast-rosa-sg` | 3000 from ALB-SG | All | API server traffic |
-| `iast-gateway-sg` | 6379 from Cache-SG | 23 to Mainframe, 6379 to Cache | Gateway traffic |
-| `iast-cache-sg` | 6379 from ROSA-SG, Gateway-SG | None | ElastiCache access |
+- Simple deployment model
+- Full control over instances
+- Good for long-running TN3270 connections
 
 ---
 
-## Scaling Strategy
+## ROSA Deployment
 
-### Horizontal Scaling Diagram
+### Prerequisites
 
-```mermaid
-flowchart TB
-    subgraph Scaling["Auto-Scaling Architecture"]
-        subgraph API["API Tier (ROSA)"]
-            direction LR
-            Pod1["Pod 1"]
-            Pod2["Pod 2"]
-            PodN["Pod N"]
-            HPA["HorizontalPodAutoscaler"]
-        end
+- Existing ROSA cluster with available capacity
+- Namespace allocated for IAST
+- Container registry access (ECR or internal)
+- Network connectivity to mainframe
 
-        subgraph Gateway["Gateway Tier (EC2 ASG)"]
-            direction LR
-            GW1["Instance 1 (Sessions A-C)"]
-            GW2["Instance 2 (Sessions D-F)"]
-            GWN["Instance N (Sessions G-I)"]
-            ASG["Auto Scaling Group"]
-        end
+### Container Images
 
-        subgraph Cache["Cache Tier (ElastiCache)"]
-            Primary["Primary Node"]
-            Replica["Read Replica"]
-        end
-    end
+Build and push container images:
 
-    HPA -->|"Scale pods"| Pod1 & Pod2 & PodN
-    ASG -->|"Scale instances"| GW1 & GW2 & GWN
-    Primary <-->|"Replication"| Replica
+```bash
+# API Server
+docker build -t iast-api:latest -f apps/api/Dockerfile .
+docker tag iast-api:latest <registry>/iast-api:latest
+docker push <registry>/iast-api:latest
+
+# Gateway
+docker build -t iast-gateway:latest -f gateway/Dockerfile .
+docker tag iast-gateway:latest <registry>/iast-gateway:latest
+docker push <registry>/iast-gateway:latest
 ```
 
-### Scaling Rules
+### Kubernetes Manifests
 
-| Component | Metric | Scale Out | Scale In | Min | Max |
-|-----------|--------|-----------|----------|-----|-----|
-| **API (ROSA)** | CPU > 70% | +50% pods | -25% pods | 2 | 20 |
-| **API (ROSA)** | Memory > 80% | +50% pods | -25% pods | 2 | 20 |
-| **Gateway (EC2)** | Active Sessions > 50/instance | +1 instance | -1 instance | 2 | 20 |
-| **Gateway (EC2)** | CPU > 70% | +2 instances | -1 instance | 2 | 20 |
-| **ElastiCache** | Memory > 80% | Vertical scale | - | - | - |
+**Namespace:**
 
-### Capacity Planning
-
-| Load Level | Concurrent Users | API Pods | Gateway Instances | ElastiCache |
-|------------|------------------|----------|-------------------|-------------|
-| **Development** | 1-10 | 2 | 1 | cache.t3.micro |
-| **Low** | 10-100 | 2-4 | 2 | cache.r6g.large |
-| **Medium** | 100-500 | 4-8 | 4-6 | cache.r6g.xlarge |
-| **High** | 500-1000 | 8-12 | 8-10 | cache.r6g.2xlarge |
-| **Enterprise** | 1000+ | 12-20 | 10-20 | Redis Cluster |
-
-### Session Affinity
-
-```mermaid
-flowchart LR
-    subgraph Sessions["Session Distribution"]
-        User1["User A"] --> GW1["Gateway 1"]
-        User2["User B"] --> GW1
-        User3["User C"] --> GW2["Gateway 2"]
-        User4["User D"] --> GW2
-    end
-
-    subgraph Valkey["Valkey Pub/Sub"]
-        Channel1["tn3270.input.session-a"]
-        Channel2["tn3270.output.session-a"]
-    end
-
-    GW1 <--> Channel1 & Channel2
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: iast
 ```
 
-**Key Points:**
+**API Deployment:**
 
-- TN3270 sessions are bound to specific Gateway instances
-- Valkey pub/sub routes messages to the correct Gateway
-- If a Gateway fails, sessions must be re-established (no migration)
-- ALB uses sticky sessions for WebSocket connections
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iast-api
+  namespace: iast
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: iast-api
+  template:
+    metadata:
+      labels:
+        app: iast-api
+    spec:
+      containers:
+      - name: api
+        image: <registry>/iast-api:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: PORT
+          value: "3000"
+        - name: GATEWAY_WS_URL
+          value: "ws://iast-gateway:8765"
+        envFrom:
+        - secretRef:
+            name: iast-secrets
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+```
+
+**Gateway Deployment:**
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: iast-gateway
+  namespace: iast
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: iast-gateway
+  template:
+    metadata:
+      labels:
+        app: iast-gateway
+    spec:
+      containers:
+      - name: gateway
+        image: <registry>/iast-gateway:latest
+        ports:
+        - containerPort: 8765
+        env:
+        - name: HOST
+          value: "0.0.0.0"
+        - name: PORT
+          value: "8765"
+        envFrom:
+        - secretRef:
+            name: iast-secrets
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "1000m"
+            memory: "2Gi"
+```
+
+**Services:**
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: iast-api
+  namespace: iast
+spec:
+  selector:
+    app: iast-api
+  ports:
+  - port: 3000
+    targetPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iast-gateway
+  namespace: iast
+spec:
+  selector:
+    app: iast-gateway
+  ports:
+  - port: 8765
+    targetPort: 8765
+```
+
+**Ingress/Route:**
+
+```yaml
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: iast
+  namespace: iast
+spec:
+  host: iast.example.com
+  to:
+    kind: Service
+    name: iast-api
+  port:
+    targetPort: 3000
+  tls:
+    termination: edge
+```
+
+**HorizontalPodAutoscaler:**
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: iast-api-hpa
+  namespace: iast
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: iast-api
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+```
 
 ---
 
-## High Availability & Failover
+## EC2 Auto Scaling Deployment
 
-### Multi-AZ Architecture
+### Architecture
 
 ```mermaid
 flowchart TB
-    subgraph Region["AWS Region (us-east-1)"]
-        Route53["Route 53"]
-        
-        subgraph AZ1["Availability Zone 1"]
-            ALB1["ALB"]
-            ROSA1["ROSA Workers"]
-            GW1["Gateway ASG"]
-            Cache1["ElastiCache Primary"]
+    subgraph VPC["VPC"]
+        subgraph Public["Public Subnets"]
+            ALB["ALB"]
         end
         
-        subgraph AZ2["Availability Zone 2"]
-            ALB2["ALB"]
-            ROSA2["ROSA Workers"]
-            GW2["Gateway ASG"]
-            Cache2["ElastiCache Replica"]
+        subgraph Private["Private Subnets"]
+            subgraph ASG_API["API Auto Scaling Group"]
+                API1["API Instance 1"]
+                API2["API Instance 2"]
+            end
+            
+            subgraph ASG_GW["Gateway Auto Scaling Group"]
+                GW1["Gateway Instance 1"]
+                GW2["Gateway Instance 2"]
+            end
         end
     end
-
-    Route53 --> ALB1 & ALB2
-    Cache1 <-->|"Sync Replication"| Cache2
     
-    style AZ1 fill:#e8f5e9
-    style AZ2 fill:#e3f2fd
+    ALB --> API1 & API2
+    API1 & API2 --> GW1 & GW2
 ```
 
-### Multi-Region Disaster Recovery
+### Launch Template - API Server
 
-```mermaid
-flowchart TB
-    subgraph Primary["Primary Region (us-east-1)"]
-        R53P["Route 53 (Active)"]
-        ALBP["ALB"]
-        ROSAP["ROSA Cluster"]
-        GWP["Gateway ASG"]
-        CacheP["ElastiCache"]
-        DDBP["DynamoDB"]
-    end
-
-    subgraph DR["DR Region (us-west-2)"]
-        R53D["Route 53 (Standby)"]
-        ALBD["ALB (Warm)"]
-        ROSAD["ROSA Cluster (Scaled Down)"]
-        GWD["Gateway ASG (Min: 1)"]
-        CacheD["ElastiCache (Warm)"]
-        DDBD["DynamoDB Global Table"]
-    end
-
-    Users["Users"] --> R53P
-    R53P -.->|"Failover"| R53D
-    DDBP <-->|"Global Tables Replication"| DDBD
-
-    style Primary fill:#e8f5e9
-    style DR fill:#fff3e0
+```json
+{
+  "LaunchTemplateName": "iast-api",
+  "LaunchTemplateData": {
+    "ImageId": "ami-xxxxx",
+    "InstanceType": "t3.medium",
+    "IamInstanceProfile": {
+      "Name": "iast-api-role"
+    },
+    "SecurityGroupIds": ["sg-api"],
+    "UserData": "<base64-encoded-startup-script>"
+  }
+}
 ```
 
-### Failover Scenarios
+**Startup Script (User Data):**
 
-| Failure Type | Detection | Recovery Action | RTO | RPO |
-|--------------|-----------|-----------------|-----|-----|
-| **Single Gateway Instance** | ASG Health Check | Auto-replace instance | 2-5 min | 0 (sessions reconnect) |
-| **Single API Pod** | K8s Liveness Probe | Auto-restart pod | 30 sec | 0 |
-| **Availability Zone** | ALB Health Check | Route to healthy AZ | 1-2 min | 0 |
-| **ElastiCache Primary** | ElastiCache Auto-failover | Promote replica | 1-2 min | ~1 sec |
-| **Entire Region** | Route 53 Health Check | DNS failover to DR | 5-15 min | ~1 min |
+```bash
+#!/bin/bash
+# Install Node.js
+curl -fsSL https://rpm.nodesource.com/setup_24.x | bash -
+yum install -y nodejs
 
-### Health Check Configuration
+# Clone and setup
+cd /opt
+git clone <repo> iast
+cd iast
+npm install --prefix apps/api
 
-| Component | Health Check Type | Endpoint | Interval | Threshold |
-|-----------|-------------------|----------|----------|-----------|
-| **ALB → API** | HTTP | `/health` | 30s | 2 failures |
-| **Route 53 → ALB** | HTTPS | `/health` | 30s | 3 failures |
-| **ASG → Gateway** | EC2 | Instance status | 60s | 2 failures |
-| **ElastiCache** | Built-in | Automatic | - | Automatic |
+# Configure environment
+cat > apps/api/.env << EOF
+PORT=3000
+GATEWAY_WS_URL=ws://<gateway-internal-lb>:8765
+DYNAMODB_REGION=us-east-1
+DYNAMODB_TABLE_NAME=terminal
+# ... other env vars
+EOF
 
-### Recovery Procedures
+# Start service
+npm run --prefix apps/api start
+```
 
-**AZ Failure:**
+### Launch Template - Gateway
 
-1. ALB automatically routes to healthy AZ
-2. ASG launches replacement instances in healthy AZ
-3. ROSA scheduler places pods in healthy AZ
-4. Users reconnect to new Gateway instances
+```json
+{
+  "LaunchTemplateName": "iast-gateway",
+  "LaunchTemplateData": {
+    "ImageId": "ami-xxxxx",
+    "InstanceType": "c5.large",
+    "IamInstanceProfile": {
+      "Name": "iast-gateway-role"
+    },
+    "SecurityGroupIds": ["sg-gateway"],
+    "UserData": "<base64-encoded-startup-script>"
+  }
+}
+```
 
-**Region Failure:**
+**Startup Script:**
 
-1. Route 53 detects ALB health check failures
-2. DNS automatically fails over to DR region (TTL: 60s)
-3. DR region ROSA scales up to handle load
-4. DR Gateway ASG scales to match demand
-5. DynamoDB Global Tables already in sync
-6. Users reconnect (sessions lost, data preserved)
+```bash
+#!/bin/bash
+# Install Python and uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Clone and setup
+cd /opt
+git clone <repo> iast
+cd iast/gateway
+uv sync
+
+# Configure environment
+cat > .env << EOF
+HOST=0.0.0.0
+PORT=8765
+TN3270_HOST=mainframe.example.com
+TN3270_PORT=23
+DYNAMODB_REGION=us-east-1
+DYNAMODB_TABLE_NAME=terminal
+EOF
+
+# Start service
+uv run python -m src.app
+```
+
+### Auto Scaling Group Configuration
+
+| Setting | API ASG | Gateway ASG |
+|---------|---------|-------------|
+| Min Size | 2 | 2 |
+| Max Size | 10 | 6 |
+| Desired | 2 | 2 |
+| Health Check | ELB | ELB |
+| Cooldown | 300s | 300s |
+
+### Scaling Policies
+
+**API - Target Tracking:**
+
+- Metric: ALBRequestCountPerTarget
+- Target: 1000 requests/target
+
+**Gateway - Target Tracking:**
+
+- Metric: CPUUtilization
+- Target: 70%
 
 ---
 
-## Security Architecture
+## Shared Infrastructure
 
-### Security Layers
+### DynamoDB Table
 
-```mermaid
-flowchart TB
-    subgraph External["External Traffic"]
-        Users["Users"]
-    end
-
-    subgraph Edge["Edge Security"]
-        WAF["AWS WAF (Rate limiting, OWASP rules)"]
-        CloudFront["CloudFront (DDoS protection)"]
-    end
-
-    subgraph Network["Network Security"]
-        VPC["VPC (Isolated network)"]
-        SG["Security Groups (Firewall)"]
-        PrivateSubnet["Private Subnets (No public IPs)"]
-    end
-
-    subgraph App["Application Security"]
-        TLS["TLS 1.3 (Encryption in transit)"]
-        JWT["JWT Validation (Azure Entra ID)"]
-        RBAC["User-scoped access"]
-    end
-
-    subgraph Data["Data Security"]
-        Encryption["Encryption at rest (KMS)"]
-        Secrets["Secrets Manager"]
-        IAM["IAM Roles (Least privilege)"]
-    end
-
-    Users --> WAF --> CloudFront --> VPC
-    VPC --> SG --> PrivateSubnet
-    PrivateSubnet --> TLS --> JWT --> RBAC
-    RBAC --> Encryption & Secrets & IAM
+```bash
+aws dynamodb create-table \
+  --table-name terminal \
+  --attribute-definitions \
+    AttributeName=PK,AttributeType=S \
+    AttributeName=SK,AttributeType=S \
+    AttributeName=GSI1PK,AttributeType=S \
+    AttributeName=GSI1SK,AttributeType=S \
+  --key-schema \
+    AttributeName=PK,KeyType=HASH \
+    AttributeName=SK,KeyType=RANGE \
+  --global-secondary-indexes \
+    'IndexName=GSI1,KeySchema=[{AttributeName=GSI1PK,KeyType=HASH},{AttributeName=GSI1SK,KeyType=RANGE}],Projection={ProjectionType=ALL}' \
+  --billing-mode PAY_PER_REQUEST
 ```
 
-### Secrets Required
+### Secrets Manager
 
-| Secret | Service | Purpose |
-|--------|---------|---------|
-| `iast/entra` | API Server | Azure Entra ID tenant/client IDs |
-| `iast/valkey` | API + Gateway | ElastiCache connection string |
-| `iast/tn3270` | Gateway | Mainframe host and port |
+```bash
+# Create secrets
+aws secretsmanager create-secret \
+  --name iast/config \
+  --secret-string '{
+    "ENTRA_TENANT_ID": "xxx",
+    "ENTRA_CLIENT_ID": "xxx",
+    "TN3270_HOST": "mainframe.example.com",
+    "TN3270_PORT": "23"
+  }'
+```
 
 ### IAM Roles
 
-| Role | Assigned To | Permissions |
-|------|-------------|-------------|
-| `iast-api-role` | ROSA Pods | DynamoDB, Secrets Manager (read) |
-| `iast-gateway-role` | EC2 Instances | DynamoDB, Secrets Manager (read), CloudWatch (write), ECR (pull) |
+**API Role Permissions:**
+
+- `dynamodb:GetItem`, `dynamodb:PutItem`, `dynamodb:Query`, `dynamodb:DeleteItem`
+- `secretsmanager:GetSecretValue`
+- `logs:CreateLogStream`, `logs:PutLogEvents`
+
+**Gateway Role Permissions:**
+
+- Same as API role
 
 ---
 
-## Monitoring & Alerting
+## Load Balancer Configuration
 
-### Key Metrics Dashboard
+### ALB Settings
 
-```mermaid
-flowchart LR
-    subgraph Metrics["CloudWatch Metrics"]
-        API["API Metrics"]
-        GW["Gateway Metrics"]
-        Cache["Cache Metrics"]
-        DB["DynamoDB Metrics"]
-    end
+| Setting | Value |
+|---------|-------|
+| Scheme | internet-facing |
+| IP Type | ipv4 |
+| Idle Timeout | 3600s (for WebSocket) |
 
-    subgraph Alarms["CloudWatch Alarms"]
-        A1["5xx Error Rate > 1%"]
-        A2["Latency P99 > 2s"]
-        A3["Active Sessions > 80%"]
-        A4["Cache CPU > 80%"]
-    end
+### Target Groups
 
-    subgraph Actions["Alert Actions"]
-        SNS["SNS Topic"]
-        PD["PagerDuty / Slack"]
-        ASG2["Auto Scaling"]
-    end
+**API Target Group:**
 
-    API --> A1 & A2
-    GW --> A3
-    Cache --> A4
-    A1 & A2 & A3 & A4 --> SNS --> PD
-    A3 --> ASG2
-```
+- Protocol: HTTP
+- Port: 3000
+- Health Check: `/health`
+- Stickiness: Enabled (for WebSocket)
 
-### Critical Alerts
+### Listener Rules
 
-| Alert | Condition | Severity | Action |
-|-------|-----------|----------|--------|
-| **High Error Rate** | 5xx errors > 10/min | Critical | Page on-call |
-| **High Latency** | P99 > 2 seconds | Warning | Investigate |
-| **Gateway Capacity** | Sessions > 80% capacity | Warning | Scale out |
-| **Cache Memory** | Memory > 85% | Critical | Vertical scale |
-| **DynamoDB Throttling** | Throttled requests > 0 | Warning | Check capacity |
-| **Gateway Unhealthy** | Unhealthy instances > 0 | Critical | Check ASG |
-
-### Logging Strategy
-
-| Component | Log Destination | Retention |
-|-----------|-----------------|-----------|
-| API Server | CloudWatch Logs `/iast/api` | 30 days |
-| Gateway | CloudWatch Logs `/iast/gateway` | 30 days |
-| ALB Access Logs | S3 bucket | 90 days |
-| WAF Logs | CloudWatch Logs | 30 days |
+| Priority | Condition | Action |
+|----------|-----------|--------|
+| 1 | Path: `/terminal/*` | Forward to API (WebSocket) |
+| Default | All | Forward to API |
 
 ---
 
-## Quick Reference
+## Security
 
-### Resource Summary
+### Security Groups
 
-| Resource | Name | Notes |
-|----------|------|-------|
-| VPC | `iast-vpc` | 10.0.0.0/16 |
-| ROSA Cluster | `iast-rosa` | 2+ worker nodes |
-| EC2 ASG | `iast-gateway-asg` | c5.xlarge instances |
-| ElastiCache | `iast-cache` | Redis 7.0, Multi-AZ |
-| DynamoDB | `iast-terminal` | On-demand, Global Tables |
-| S3 | `iast-web-*` | Static assets |
-| ALB | `iast-alb` | HTTPS + WebSocket |
+| Security Group | Inbound | Outbound |
+|----------------|---------|----------|
+| `iast-alb-sg` | 443 from 0.0.0.0/0 | All |
+| `iast-api-sg` | 3000 from ALB-SG | All |
+| `iast-gateway-sg` | 8765 from API-SG | 23 to Mainframe |
 
-### Architecture Decision Records
+### Network ACLs
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| API Platform | ROSA | K8s-native scaling, enterprise support |
-| Gateway Platform | EC2 | Long-lived TCP connections, Direct Connect |
-| Database | DynamoDB | Serverless, Global Tables for DR |
-| Cache | ElastiCache Redis | Managed, Multi-AZ, pub/sub support |
-| CDN | CloudFront | Global distribution, S3 integration |
-| Auth | Azure Entra ID | Enterprise SSO, existing identity |
+Allow traffic between subnets for API ↔ Gateway communication.
+
+---
+
+## Monitoring
+
+### CloudWatch Metrics
+
+| Metric | Source | Alert Threshold |
+|--------|--------|-----------------|
+| 5xx Error Rate | ALB | > 1% |
+| Latency P99 | ALB | > 2s |
+| CPU Utilization | EC2/Pods | > 80% |
+| Healthy Hosts | Target Group | < min |
+
+### Log Groups
+
+| Component | Log Group |
+|-----------|-----------|
+| API | `/iast/api` |
+| Gateway | `/iast/gateway` |
+| ALB Access | S3 bucket |
+
+---
+
+## Deployment Checklist
+
+### Prerequisites
+
+- [ ] VPC with public/private subnets
+- [ ] DynamoDB table created
+- [ ] Secrets configured
+- [ ] IAM roles created
+- [ ] Security groups configured
+- [ ] SSL certificate in ACM
+
+### Deployment
+
+- [ ] Build container images (ROSA) or AMIs (EC2)
+- [ ] Deploy API service/instances
+- [ ] Deploy Gateway service/instances
+- [ ] Configure ALB and target groups
+- [ ] Configure Route 53 DNS
+- [ ] Test WebSocket connectivity
+- [ ] Configure auto-scaling
+- [ ] Set up monitoring/alerts

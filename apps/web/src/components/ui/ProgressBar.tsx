@@ -9,6 +9,8 @@ export interface ProgressBarProps {
   label?: string;
   /** Current item being processed */
   currentItem?: string;
+  /** Status message (e.g., "Preparing policy list...") */
+  message?: string;
   /** Size variant */
   size?: 'sm' | 'md' | 'lg';
   /** Color variant */
@@ -36,6 +38,7 @@ export function ProgressBar({
   value,
   label,
   currentItem,
+  message,
   size = 'md',
   variant = 'default',
   showPercentage = true,
@@ -43,7 +46,7 @@ export function ProgressBar({
 }: ProgressBarProps): React.ReactNode {
   // Clamp value between 0 and 100
   const clampedValue = Math.max(0, Math.min(100, value));
-  
+
   return (
     <div className={`w-full ${className}`}>
       {/* Header with label and percentage */}
@@ -61,7 +64,7 @@ export function ProgressBar({
           )}
         </div>
       )}
-      
+
       {/* Progress bar track */}
       <div className={`
         w-full rounded-full overflow-hidden
@@ -77,7 +80,14 @@ export function ProgressBar({
           style={{ width: `${clampedValue}%` }}
         />
       </div>
-      
+
+      {/* Status message */}
+      {message && (
+        <div className="mt-1.5 text-xs text-blue-600 dark:text-blue-400 font-medium">
+          {message}
+        </div>
+      )}
+
       {/* Current item indicator */}
       {currentItem && (
         <div className="mt-1 flex items-center gap-1.5">

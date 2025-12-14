@@ -7,6 +7,7 @@ import { useTerminal } from '../hooks/useTerminal';
 import { useAST } from '../hooks/useAST';
 import { Pause, Play } from 'lucide-react';
 import { Tooltip } from './ui';
+import { SessionExpiredModal } from './SessionExpiredModal';
 import type { ConnectionStatus } from '../types';
 import type { ASTStatusMeta, ASTProgressMeta, ASTItemResultMeta } from '@terminal/shared';
 import '@xterm/xterm/css/xterm.css';
@@ -16,7 +17,7 @@ interface TerminalApi {
 }
 
 interface TerminalProps {
-  sessionId?: string;
+  sessionId: string;  // Required - useTerminal needs it
   autoConnect?: boolean;
   onStatusChange?: (status: ConnectionStatus) => void;
   onReady?: (api: TerminalApi) => void;
@@ -122,6 +123,7 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
     status,
     sessionId: activeSessionId,
     cursorPosition,
+    isExpired,
     connect,
     disconnect,
     focus,
@@ -130,6 +132,7 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
     pauseAST,
     resumeAST,
     cancelAST,
+    resetExpired,
   } = useTerminal({
     sessionId,
     autoConnect,
@@ -276,9 +279,14 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
           {/* AST Controls - show when AST is running */}
           {isASTRunning && (
             <div className="flex items-center gap-2 ml-2 pl-2 border-l border-zinc-700">
-              <span className={`text-xs mr-1 flex items-center gap-1 ${isPaused ? 'text-yellow-400' : 'text-yellow-400 animate-pulse'}`}>
-                {isPaused ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />} {runningAST}
+              {/* AST Name and Status */}
+              <span className={`text-xs flex items-center gap-1 ${isPaused ? 'text-yellow-400' : 'text-emerald-400'}`}>
+                {isPaused ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                <span className="font-medium">{runningAST}</span>
+                {isPaused && <span className="text-zinc-500">(paused)</span>}
               </span>
+
+              {/* Control Buttons */}
               {isPaused ? (
                 <Tooltip content="Resume AST execution" position="bottom">
                   <button
@@ -344,6 +352,12 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
         ref={terminalRef}
         className="p-1"
         onClick={focus}
+      />
+
+      {/* Session Expired Modal */}
+      <SessionExpiredModal
+        isOpen={isExpired}
+        onCreateNew={resetExpired}
       />
     </div>
   );

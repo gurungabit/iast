@@ -219,7 +219,6 @@ class ASTExecutor(ABC):
                 total=total,
                 current_item=item_id,
                 item_status="running",
-                message=f"Item {index}/{total}: Processing",
             )
 
             success, error, item_data = ast.process_single_item(host, item, index, total)

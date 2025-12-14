@@ -1,23 +1,18 @@
 // ============================================================================
-// useExecutionObserver - WebSocket hook for observing running executions
+// useExecutionObserver - Hook for observing running executions
+// ============================================================================
+//
+// This hook observes AST execution progress by subscribing to the global
+// session store's WebSocket connection. It does NOT create its own WebSocket.
 // ============================================================================
 
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { config } from '../config';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
-  deserializeMessage,
-  serializeMessage,
-  isASTProgressMessage,
-  isASTItemResultMessage,
-  isASTStatusMessage,
-  isASTPausedMessage,
-  createASTControlMessage,
-  createSessionCreateMessage,
   type ASTProgressMeta,
   type ASTStatusMeta,
   type ASTControlAction,
 } from '@terminal/shared';
-import { getAccessToken } from '../utils/tokenAccessor';
+import { useSessionStore, useSessionStatus } from '../stores/sessionStore';
 
 export type ObserverStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
@@ -27,6 +22,14 @@ export interface PolicyResult {
   durationMs?: number;
   error?: string;
   data?: Record<string, unknown>;
+}
+
+interface InternalState {
+  progress: ASTProgressMeta | null;
+  policyResults: PolicyResult[];
+  astStatus: ASTStatusMeta | null;
+  isPaused: boolean;
+  error: string | null;
 }
 
 export interface ExecutionObserverState {
@@ -47,8 +50,11 @@ interface UseExecutionObserverOptions {
 }
 
 /**
- * Hook to observe a running AST execution via WebSocket.
- * Connects to the session's WebSocket and filters messages for the specific execution.
+ * Hook to observe a running AST execution.
+ * 
+ * IMPORTANT: This hook now uses the global sessionStore's WebSocket connection
+ * instead of creating its own. This prevents connection conflicts when navigating
+ * between pages.
  */
 export function useExecutionObserver({
   sessionId,
@@ -62,8 +68,8 @@ export function useExecutionObserver({
   resume: () => void;
   cancel: () => void;
 } {
-  const [state, setState] = useState<ExecutionObserverState>({
-    status: 'disconnected',
+  // Internal state for AST updates (excluding status which is derived)
+  const [internalState, setInternalState] = useState<InternalState>({
     progress: null,
     policyResults: [],
     astStatus: null,
@@ -71,58 +77,49 @@ export function useExecutionObserver({
     error: null,
   });
 
-  const wsRef = useRef<WebSocket | null>(null);
   const mountedRef = useRef(true);
-  const sessionIdRef = useRef(sessionId);
-
-  // Keep sessionId ref updated
-  useEffect(() => {
-    sessionIdRef.current = sessionId;
-  }, [sessionId]);
-
-  const disconnect = useCallback(() => {
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
-    if (mountedRef.current) {
-      setState((prev) => ({ ...prev, status: 'disconnected' }));
-    }
-  }, []);
-
-  const sendControl = useCallback((action: ASTControlAction) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN && sessionIdRef.current) {
-      const message = createASTControlMessage(sessionIdRef.current, action);
-      wsRef.current.send(serializeMessage(message));
-    }
-  }, []);
-
-  const pause = useCallback(() => sendControl('pause'), [sendControl]);
-  const resume = useCallback(() => sendControl('resume'), [sendControl]);
-  const cancel = useCallback(() => sendControl('cancel'), [sendControl]);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  // Track previous executionId to detect changes
   const prevExecutionIdRef = useRef(executionId);
-  
-  // Reset state when execution changes (new execution selected)
-  // Only trigger on executionId change, not initialPaused changes
+
+  // Get store actions
+  const connect = useSessionStore((s) => s.connect);
+  const initSession = useSessionStore((s) => s.initSession);
+  const pauseAST = useSessionStore((s) => s.pauseAST);
+  const resumeAST = useSessionStore((s) => s.resumeAST);
+  const cancelAST = useSessionStore((s) => s.cancelAST);
+  const setASTStatusCallback = useSessionStore((s) => s.setASTStatusCallback);
+  const setASTProgressCallback = useSessionStore((s) => s.setASTProgressCallback);
+  const setASTItemResultCallback = useSessionStore((s) => s.setASTItemResultCallback);
+  const setASTPausedCallback = useSessionStore((s) => s.setASTPausedCallback);
+
+  // Get connection status from store
+  const sessionStatus = useSessionStatus(sessionId || '');
+
+  // Derive observer status from session status (not in an effect)
+  const status: ObserverStatus = useMemo(() => {
+    if (!sessionId || !enabled) {
+      return 'disconnected';
+    }
+
+    switch (sessionStatus) {
+      case 'connected':
+        return 'connected';
+      case 'connecting':
+      case 'reconnecting':
+        return 'connecting';
+      case 'error':
+        return 'error';
+      default:
+        return 'disconnected';
+    }
+  }, [sessionId, enabled, sessionStatus]);
+
+  // Reset internal state when execution changes
+  // This is an intentional state reset when the execution ID changes - it's a valid pattern
   useEffect(() => {
     if (prevExecutionIdRef.current !== executionId) {
       prevExecutionIdRef.current = executionId;
-      // Close existing WebSocket before resetting state
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      setState({
-        status: 'disconnected',
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional reset when executionId changes
+      setInternalState({
         progress: null,
         policyResults: [],
         astStatus: null,
@@ -130,139 +127,112 @@ export function useExecutionObserver({
         error: null,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [executionId]); // intentionally exclude initialPaused to avoid loops
+  }, [executionId, initialPaused]);
 
+  // Track mounted state
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // Subscribe to AST callbacks from the store
   useEffect(() => {
     if (!enabled || !sessionId) {
       return;
     }
 
-    setState((prev) => ({ ...prev, status: 'connecting', error: null }));
+    // Initialize and connect the session (reuses existing connection)
+    initSession(sessionId);
+    connect(sessionId);
 
-    // Track if this effect instance is still active (handles React StrictMode double-invocation)
-    let isActive = true;
-
-    const connectWebSocket = async () => {
-      const token = await getAccessToken();
-      if (!token) {
-        if (isActive && mountedRef.current) {
-          setState((prev) => ({
-            ...prev,
-            status: 'error',
-            error: 'Not authenticated',
-          }));
-        }
-        return;
+    // Set up callbacks to receive AST updates
+    setASTStatusCallback((sid, astStatus) => {
+      if (sid === sessionId && mountedRef.current) {
+        setInternalState(prev => ({ ...prev, astStatus }));
       }
+    });
 
-      if (!isActive) return;
+    setASTProgressCallback((sid, progress) => {
+      if (sid === sessionId && progress.executionId === executionId && mountedRef.current) {
+        setInternalState(prev => {
+          // Handle -1 sentinel values (indicates message-only update)
+          // Preserve previous current/total when receiving -1
+          const mergedProgress = progress.current === -1 && progress.total === -1
+            ? {
+              ...prev.progress,
+              ...progress,
+              current: prev.progress?.current ?? 0,
+              total: prev.progress?.total ?? 0,
+              percent: prev.progress?.percent ?? 0,
+            }
+            : progress;
+          return { ...prev, progress: mergedProgress };
+        });
+      }
+    });
 
-      const params = new URLSearchParams({ token });
-      const url = `${config.wsBaseUrl}/terminal/${sessionId}?${params}`;
-
-      try {
-        const ws = new WebSocket(url);
-        wsRef.current = ws;
-
-        ws.onopen = () => {
-          if (isActive && mountedRef.current) {
-            setState((prev) => ({ ...prev, status: 'connected', error: null }));
-          }
-
-          // Ensure TN3270 gateway session is created/reused so output stream (including ast.status)
-          // flows even when the Terminal UI is not mounted.
-          if (sessionIdRef.current) {
-            const createMsg = createSessionCreateMessage(sessionIdRef.current, {
-              terminalType: 'tn3270',
-              cols: 80,
-              rows: 43,
-            });
-            ws.send(serializeMessage(createMsg));
-          }
+    setASTItemResultCallback((sid, result) => {
+      if (sid === sessionId && result.executionId === executionId && mountedRef.current) {
+        const policyResult: PolicyResult = {
+          itemId: result.itemId,
+          status: result.status,
+          durationMs: result.durationMs,
+          error: result.error,
+          data: result.data,
         };
-
-      ws.onmessage = (event: MessageEvent<string>) => {
-        // Only process messages if this WebSocket is still the current one
-        if (!isActive || wsRef.current !== ws) return;
-        
-        try {
-          const message = deserializeMessage(event.data);
-
-          // Filter by execution ID
-          if (isASTProgressMessage(message)) {
-            if (message.meta.executionId === executionId) {
-              setState((prev) => ({
-                ...prev,
-                progress: message.meta,
-              }));
-            }
-          } else if (isASTItemResultMessage(message)) {
-            if (message.meta.executionId === executionId) {
-              const result: PolicyResult = {
-                itemId: message.meta.itemId,
-                status: message.meta.status,
-                durationMs: message.meta.durationMs,
-                error: message.meta.error,
-                data: message.meta.data,
-              };
-              setState((prev) => ({
-                ...prev,
-                policyResults: [...prev.policyResults, result],
-              }));
-            }
-          } else if (isASTStatusMessage(message)) {
-            setState((prev) => ({
-              ...prev,
-              astStatus: message.meta,
-            }));
-          } else if (isASTPausedMessage(message)) {
-            setState((prev) => ({
-              ...prev,
-              isPaused: message.meta.paused,
-            }));
-          }
-        } catch {
-          // Ignore parse errors for messages we don't care about
-        }
-      };
-
-      ws.onerror = () => {
-        if (isActive && mountedRef.current) {
-          setState((prev) => ({
-            ...prev,
-            status: 'error',
-            error: 'WebSocket connection error',
-          }));
-        }
-      };
-
-      ws.onclose = () => {
-        if (isActive && mountedRef.current) {
-          setState((prev) => ({ ...prev, status: 'disconnected' }));
-        }
-        if (wsRef.current === ws) {
-          wsRef.current = null;
-        }
-      };
-      } catch (err) {
-        if (isActive && mountedRef.current) {
-          setState((prev) => ({
-            ...prev,
-            status: 'error',
-            error: err instanceof Error ? err.message : 'Failed to connect',
-          }));
-        }
+        setInternalState(prev => ({
+          ...prev,
+          policyResults: [...prev.policyResults, policyResult],
+        }));
       }
-    };
+    });
 
-    connectWebSocket();
+    setASTPausedCallback((sid, paused) => {
+      if (sid === sessionId && mountedRef.current) {
+        setInternalState(prev => ({ ...prev, isPaused: paused }));
+      }
+    });
 
-    return () => {
-      isActive = false;
-      disconnect();
-    };
-  }, [sessionId, executionId, enabled, disconnect]);
+    // Note: We do NOT disconnect on cleanup - the connection is managed by sessionStore
+    // and should persist across route changes
+  }, [sessionId, executionId, enabled, initSession, connect, setASTStatusCallback, setASTProgressCallback, setASTItemResultCallback, setASTPausedCallback]);
 
-  return { ...state, disconnect, sendControl, pause, resume, cancel };
+  // Control actions - use store methods
+  const sendControl = useCallback((action: ASTControlAction) => {
+    if (!sessionId) return;
+
+    switch (action) {
+      case 'pause':
+        pauseAST(sessionId);
+        break;
+      case 'resume':
+        resumeAST(sessionId);
+        break;
+      case 'cancel':
+        cancelAST(sessionId);
+        break;
+    }
+  }, [sessionId, pauseAST, resumeAST, cancelAST]);
+
+  const pause = useCallback(() => sendControl('pause'), [sendControl]);
+  const resume = useCallback(() => sendControl('resume'), [sendControl]);
+  const cancel = useCallback(() => sendControl('cancel'), [sendControl]);
+
+  // disconnect is now a no-op - we don't want observers to disconnect the shared WebSocket
+  const disconnect = useCallback(() => {
+    // No-op: Connection is managed by sessionStore
+  }, []);
+
+  // Combine derived status with internal state for return value
+  return {
+    status,
+    ...internalState,
+    disconnect,
+    sendControl,
+    pause,
+    resume,
+    cancel,
+  };
 }

@@ -2,11 +2,12 @@
 // LoginASTForm Component - Form for Login AST with policy processing
 // ============================================================================
 
-import { useCallback, useState, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Button } from '../../components/ui';
 import { useAST } from '../../hooks/useAST';
+import { useFormField } from '../../hooks/useFormField';
 import { useAuthContext } from '../../context/AuthContext';
-import { useCredentials, ASTFormWrapper } from '../shared';
+import { ASTFormWrapper } from '../shared';
 import { useASTRegistry } from '../registry';
 import { CATEGORY_AUTH_GROUP } from '../registry/types';
 import { parsePolicyNumbers } from './types';
@@ -14,23 +15,13 @@ import { parsePolicyNumbers } from './types';
 const AST_ID = 'login';
 
 export function LoginASTForm(): React.ReactNode {
-  const { executeAST, status, isRunning, lastResult, progress, itemResults } = useAST();
+  const { executeAST, isRunning } = useAST();
   const { user } = useAuthContext();
   const { getAST } = useASTRegistry();
   const astConfig = getAST(AST_ID);
-  const {
-    credentials,
-    setUsername,
-    setPassword,
-    isValid,
-  } = useCredentials();
 
-  // Policy numbers input
-  const [policyInput, setPolicyInput] = useState<string>('');
-
-  // Test mode and parallel execution
-  const [testMode, setTestMode] = useState<boolean>(false);
-  const [useParallel, setUseParallel] = useState<boolean>(false);
+  // Policy numbers input (persisted per tab)
+  const [policyInput, setPolicyInput] = useFormField<string>('login.policyNumbers', '');
 
   // Parse and validate policy numbers
   const { validPolicies, invalidCount } = useMemo(() => {
@@ -43,53 +34,35 @@ export function LoginASTForm(): React.ReactNode {
   }, [policyInput]);
 
   const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      if (isValid && !isRunning) {
-        const payload: Record<string, unknown> = {
-          username: credentials.username,
-          password: credentials.password,
-          userId: user?.id || 'anonymous',
-          authGroup: CATEGORY_AUTH_GROUP.fire,
-          testMode,
-        };
+    (formData: { username: string; password: string; testMode: boolean; parallel: boolean }) => {
+      const payload: Record<string, unknown> = {
+        username: formData.username,
+        password: formData.password,
+        userId: user?.id || 'anonymous',
+        authGroup: CATEGORY_AUTH_GROUP.fire,
+        testMode: formData.testMode,
+      };
 
-        // Include policy numbers if provided
-        if (validPolicies.length > 0) {
-          payload.policyNumbers = validPolicies;
-        }
-
-        // Enable parallel processing if selected
-        if (useParallel) {
-          payload.parallel = true;
-        }
-
-        executeAST('login', payload);
+      // Include policy numbers if provided
+      if (validPolicies.length > 0) {
+        payload.policyNumbers = validPolicies;
       }
-    },
-    [executeAST, credentials, isValid, isRunning, validPolicies, user, useParallel, testMode]
-  );
 
-  const hasPolicies = validPolicies.length > 0;
+      // Enable parallel processing if selected
+      if (formData.parallel) {
+        payload.parallel = true;
+      }
+
+      executeAST('login', payload);
+    },
+    [executeAST, validPolicies, user]
+  );
 
   return (
     <ASTFormWrapper
       title="TSO Login"
       description="Automated TSO login with policy processing"
-      username={credentials.username}
-      password={credentials.password}
-      onUsernameChange={setUsername}
-      onPasswordChange={setPassword}
-      testMode={testMode}
-      onTestModeChange={setTestMode}
       showParallel={astConfig?.supportsParallel ?? false}
-      parallel={useParallel}
-      onParallelChange={setUseParallel}
-      status={status}
-      isRunning={isRunning}
-      lastResult={lastResult}
-      progress={progress}
-      itemResults={itemResults}
       onSubmit={handleSubmit}
       footer={
         <Button
@@ -97,11 +70,10 @@ export function LoginASTForm(): React.ReactNode {
           variant="primary"
           size="md"
           className="w-full"
-          disabled={!isValid}
           isLoading={isRunning}
         >
           {isRunning
-            ? (hasPolicies ? 'Processing...' : 'Running...')
+            ? (validPolicies.length > 0 ? 'Processing...' : 'Running...')
             : (validPolicies.length > 0 ? `Run Login + ${validPolicies.length} Policies` : 'Run Login')
           }
         </Button>

@@ -10,6 +10,7 @@ export { Modal } from './Modal';
 export { StatusBadge } from './StatusBadge';
 export { ProgressBar } from './ProgressBar';
 export { ItemResultList } from './ItemResultList';
+export { StatusLogList } from './StatusLogList';
 export { Tooltip } from './Tooltip';
 export { DatePicker } from './DatePicker';
 export { Toggle } from './Toggle';

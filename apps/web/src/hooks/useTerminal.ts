@@ -1,6 +1,11 @@
 // ============================================================================
 // useTerminal Hook - TN3270 xterm.js Integration
 // ============================================================================
+//
+// This hook manages the xterm.js terminal instance and connects it to the
+// global session store. The WebSocket connection is managed by the store,
+// so the terminal can be unmounted and remounted without losing connection.
+// ============================================================================
 
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
@@ -8,35 +13,11 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { config } from '../config';
 import type { ConnectionStatus, TerminalDimensions } from '../types';
-import {
-  createTerminalWebSocket,
-  type TerminalWebSocket,
-} from '../services/websocket';
-import {
-  type MessageEnvelope,
-  type TN3270Field,
-  type ASTStatusMeta,
-  type ASTProgressMeta,
-  type ASTItemResultMeta,
-  isDataMessage,
-  isErrorMessage,
-  isSessionCreatedMessage,
-  isSessionDestroyedMessage,
-  isPongMessage,
-  isTN3270ScreenMessage,
-  isASTStatusMessage,
-  isASTProgressMessage,
-  isASTItemResultMessage,
-  isASTPausedMessage,
-} from '@terminal/shared';
-import { generateSessionId } from '@terminal/shared';
-import {
-  getStoredSessionId,
-  setStoredSessionId,
-} from '../utils/storage';
+import type { TN3270Field, ASTStatusMeta, ASTProgressMeta, ASTItemResultMeta } from '@terminal/shared';
+import { useSessionStore, useSession, useSessionStatus, useSessionFields, useSessionCursor } from '../stores/sessionStore';
 
 export interface UseTerminalOptions {
-  sessionId?: string;
+  sessionId: string;
   autoConnect?: boolean;
   /** Disable terminal input (e.g., when AST is running) */
   inputDisabled?: boolean;
@@ -59,10 +40,14 @@ export interface UseTerminalReturn {
   fields: TN3270Field[];
   /** TN3270 cursor position */
   cursorPosition: { row: number; col: number };
+  /** Whether the TN3270 session has expired */
+  isExpired: boolean;
   connect: () => void;
   disconnect: () => void;
   /** Disconnect and destroy the TN3270 session on the backend */
   destroySession: () => void;
+  /** Reset expired state and create a new session */
+  resetExpired: () => void;
   write: (data: string) => void;
   sendKey: (key: string) => void;
   resize: (cols: number, rows: number) => void;
@@ -86,121 +71,131 @@ export interface UseTerminalReturn {
 const FIXED_COLS = 80;
 const FIXED_ROWS = 43;
 
-export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn {
-  const { autoConnect = true, inputDisabled = false, onASTStatus, onASTProgress, onASTItemResult, onASTPaused } = options;
+export function useTerminal(options: UseTerminalOptions): UseTerminalReturn {
+  const { sessionId, autoConnect = true, inputDisabled = false, onASTStatus, onASTProgress, onASTItemResult, onASTPaused } = options;
 
   const terminalRef = useRef<HTMLDivElement | null>(null);
   const terminalInstance = useRef<Terminal | null>(null);
   const fitAddon = useRef<FitAddon | null>(null);
-  const wsRef = useRef<TerminalWebSocket | null>(null);
   const inputDisabledRef = useRef(inputDisabled);
+  const lastBufferLengthRef = useRef(0);
 
   // Keep inputDisabled ref in sync
   useEffect(() => {
     inputDisabledRef.current = inputDisabled;
   }, [inputDisabled]);
 
-  const [status, setStatus] = useState<ConnectionStatus>('disconnected');
+  // Get store actions
+  const connect = useSessionStore((state) => state.connect);
+  const disconnect = useSessionStore((state) => state.disconnect);
+  const destroySessionAction = useSessionStore((state) => state.destroySession);
+  const initSession = useSessionStore((state) => state.initSession);
+  const resetExpiredAction = useSessionStore((state) => state.resetExpired);
+  const sendKeyAction = useSessionStore((state) => state.sendKey);
+  const runASTAction = useSessionStore((state) => state.runAST);
+  const pauseASTAction = useSessionStore((state) => state.pauseAST);
+  const resumeASTAction = useSessionStore((state) => state.resumeAST);
+  const cancelASTAction = useSessionStore((state) => state.cancelAST);
+  const setASTStatusCallback = useSessionStore((state) => state.setASTStatusCallback);
+  const setASTProgressCallback = useSessionStore((state) => state.setASTProgressCallback);
+  const setASTItemResultCallback = useSessionStore((state) => state.setASTItemResultCallback);
+  const setASTPausedCallback = useSessionStore((state) => state.setASTPausedCallback);
+
+  // Get session state from store
+  const session = useSession(sessionId);
+  const status = useSessionStatus(sessionId);
+  const fields = useSessionFields(sessionId);
+  const cursorPosition = useSessionCursor(sessionId);
+  void cursorPosition; // Used for reactivity but we use localCursorPosition for UI
+
   const [dimensions, setDimensions] = useState<TerminalDimensions>({
     cols: FIXED_COLS,
     rows: FIXED_ROWS,
   });
-  
-  // TN3270 field map and cursor tracking
-  const [fields, setFields] = useState<TN3270Field[]>([]);
-  const [cursorPosition, setCursorPosition] = useState<{ row: number; col: number }>({ row: 0, col: 0 });
+
+  // Local cursor state for click handling
+  const [localCursorPosition, setLocalCursorPosition] = useState<{ row: number; col: number }>({ row: 0, col: 0 });
   const fieldsRef = useRef<TN3270Field[]>([]);
 
-  // Get or create session ID
-  const [sessionId] = useState<string>(() => {
-    if (options.sessionId) return options.sessionId;
-    const stored = getStoredSessionId();
-    if (stored) return stored;
-    const newId = generateSessionId();
-    setStoredSessionId(newId);
-    return newId;
-  });
+  // Sync fields ref
+  useEffect(() => {
+    fieldsRef.current = fields;
+  }, [fields]);
 
-  // Handle incoming messages
-  const handleMessage = useCallback((message: MessageEnvelope): void => {
-    // Always process AST-related messages, even if terminal is not visible
-    if (isASTStatusMessage(message)) {
-      onASTStatus?.(message.meta);
-      return;
-    } else if (isASTProgressMessage(message)) {
-      onASTProgress?.(message.meta);
-      return;
-    } else if (isASTItemResultMessage(message)) {
-      onASTItemResult?.(message.meta);
-      return;
-    } else if (isASTPausedMessage(message)) {
-      onASTPaused?.(message.meta.paused);
-      return;
+  // Register AST callbacks with the store
+  useEffect(() => {
+    if (onASTStatus) {
+      setASTStatusCallback((sid, s) => {
+        if (sid === sessionId) onASTStatus(s);
+      });
+    }
+    if (onASTProgress) {
+      setASTProgressCallback((sid, p) => {
+        if (sid === sessionId) onASTProgress(p);
+      });
+    }
+    if (onASTItemResult) {
+      setASTItemResultCallback((sid, r) => {
+        if (sid === sessionId) onASTItemResult(r);
+      });
+    }
+    if (onASTPaused) {
+      setASTPausedCallback((sid, paused) => {
+        if (sid === sessionId) onASTPaused(paused);
+      });
     }
 
-    // For terminal display messages, need the terminal instance
-    if (!terminalInstance.current) return;
-
-    if (isDataMessage(message)) {
-      terminalInstance.current.write(message.payload);
-    } else if (isTN3270ScreenMessage(message)) {
-      // TN3270 screen update with field information
-      terminalInstance.current.write(message.payload);
-      // Update field map
-      setFields(message.meta.fields);
-      fieldsRef.current = message.meta.fields;
-      setCursorPosition({ row: message.meta.cursorRow, col: message.meta.cursorCol });
-    } else if (isErrorMessage(message)) {
-      terminalInstance.current.write(`\r\n\x1b[31mError: ${message.payload}\x1b[0m\r\n`);
-    } else if (isSessionCreatedMessage(message)) {
-      terminalInstance.current.write(`\r\n\x1b[32mSession started (shell: ${message.meta.shell})\x1b[0m\r\n`);
-    } else if (isSessionDestroyedMessage(message)) {
-      terminalInstance.current.write(`\r\n\x1b[33mSession ended\x1b[0m\r\n`);
-    } else if (isPongMessage(message)) {
-      // Heartbeat response, ignore
-    }
-  }, [onASTStatus, onASTProgress, onASTItemResult, onASTPaused]);
-
-  // Handle status changes
-  const handleStatusChange = useCallback((newStatus: ConnectionStatus): void => {
-    setStatus(newStatus);
-  }, []);
-
-  // Handle errors - only show persistent errors, not transient connection issues
-  const handleError = useCallback((error: Error): void => {
-    console.error('Terminal WebSocket error:', error);
-    // Only show error in terminal if it's a permanent failure (max reconnects reached)
-    // Transient "WebSocket error" messages during reconnection are not shown
-    if (terminalInstance.current && error.message !== 'WebSocket error') {
-      terminalInstance.current.write(`\r\n\x1b[31mConnection error: ${error.message}\x1b[0m\r\n`);
-    }
-  }, []);
+    return () => {
+      // Don't clear callbacks on unmount - other sessions may need them
+    };
+  }, [sessionId, onASTStatus, onASTProgress, onASTItemResult, onASTPaused, setASTStatusCallback, setASTProgressCallback, setASTItemResultCallback, setASTPausedCallback]);
 
   // Check if a position is in an unprotected (input) field
   const isInputPosition = useCallback((row: number, col: number): boolean => {
     const currentFields = fieldsRef.current;
-    if (currentFields.length === 0) return false; // No fields defined = no input
-    
+    if (currentFields.length === 0) return false;
+
     const addr = row * FIXED_COLS + col;
-    
+
     for (const field of currentFields) {
-      // Check if address is within this field
       if (field.end > field.start) {
-        // Normal case - no wrap
         if (addr >= field.start && addr < field.end) {
           return !field.protected;
         }
       } else {
-        // Wrap-around case
         if (addr >= field.start || addr < field.end) {
           return !field.protected;
         }
       }
     }
-    
-    // Position not in any field = protected
+
     return false;
   }, []);
+
+  // Initialize and connect session
+  useEffect(() => {
+    initSession(sessionId);
+
+    if (autoConnect) {
+      connect(sessionId);
+    }
+
+    // Don't disconnect on unmount - connection persists
+  }, [sessionId, autoConnect, initSession, connect]);
+
+  // Listen to screen buffer changes and write to terminal
+  useEffect(() => {
+    if (!terminalInstance.current || !session) return;
+
+    const buffer = session.screenBuffer;
+
+    // Write any new content since last render
+    for (let i = lastBufferLengthRef.current; i < buffer.length; i++) {
+      terminalInstance.current.write(buffer[i]);
+    }
+
+    lastBufferLengthRef.current = buffer.length;
+  }, [session?.screenBuffer]);
 
   // Initialize terminal
   useEffect(() => {
@@ -210,7 +205,7 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
       cursorBlink: config.terminal.cursorBlink,
       fontSize: config.terminal.fontSize,
       fontFamily: config.terminal.fontFamily,
-      scrollback: 0, // No scrollback for TN3270
+      scrollback: 0,
       cols: FIXED_COLS,
       rows: FIXED_ROWS,
       theme: {
@@ -244,28 +239,31 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
     terminal.loadAddon(webLinks);
 
     terminal.open(terminalRef.current);
-    
-    // TN3270 uses fixed size, don't fit to container
 
     terminalInstance.current = terminal;
     fitAddon.current = fit;
 
-    // Handle user input
-    terminal.onData((data: string): void => {
-      // Block input when AST is running (unless paused)
-      if (inputDisabledRef.current) {
-        return;
+    // Replay existing screen buffer if any
+    const existingSession = useSessionStore.getState().sessions[sessionId];
+    if (existingSession?.screenBuffer) {
+      for (const content of existingSession.screenBuffer) {
+        terminal.write(content);
       }
-      // Send all input to backend - the tnz library handles field protection
-      wsRef.current?.sendData(data);
+      lastBufferLengthRef.current = existingSession.screenBuffer.length;
+    }
+
+    // Handle user input - send to store
+    terminal.onData((data: string): void => {
+      if (inputDisabledRef.current) return;
+      sendKeyAction(sessionId, data);
     });
 
-    // Track cursor position - poll periodically to catch arrow key movements
+    // Track cursor position
     const cursorInterval = setInterval(() => {
       if (terminalInstance.current) {
         const row = terminalInstance.current.buffer.active.cursorY;
         const col = terminalInstance.current.buffer.active.cursorX;
-        setCursorPosition(prev => {
+        setLocalCursorPosition(prev => {
           if (prev.row !== row || prev.col !== col) {
             return { row, col };
           }
@@ -273,93 +271,73 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
         });
       }
     }, 50);
-    
-    const cursorDisposable = { dispose: () => clearInterval(cursorInterval) };
 
-    // Add click handler to move cursor using mousedown on the xterm viewport
+    // Click handler
     let clickHandler: ((e: Event) => void) | null = null;
     let viewportElement: Element | null = null;
-    // Wait a tick for xterm to render, then attach to the viewport
+
     setTimeout(() => {
       viewportElement = terminalRef.current?.querySelector('.xterm-screen') ?? null;
       if (viewportElement) {
         clickHandler = (e: Event): void => {
           if (!terminalInstance.current || !viewportElement) return;
           const mouseEvent = e as MouseEvent;
-          
+
           const rect = viewportElement.getBoundingClientRect();
           const cellWidth = rect.width / FIXED_COLS;
           const cellHeight = rect.height / FIXED_ROWS;
-          
-          // Calculate which cell was clicked
+
           const col = Math.floor((mouseEvent.clientX - rect.left) / cellWidth);
           const row = Math.floor((mouseEvent.clientY - rect.top) / cellHeight);
-          
-          // Clamp to valid range
+
           const clampedCol = Math.max(0, Math.min(col, FIXED_COLS - 1));
           const clampedRow = Math.max(0, Math.min(row, FIXED_ROWS - 1));
-          
-          // Move cursor using ANSI escape sequence (1-indexed)
+
           terminalInstance.current.write(`\x1b[${clampedRow + 1};${clampedCol + 1}H`);
-          setCursorPosition({ row: clampedRow, col: clampedCol });
+          setLocalCursorPosition({ row: clampedRow, col: clampedCol });
         };
-        
+
         viewportElement.addEventListener('mousedown', clickHandler);
       }
     }, 100);
 
-    // Create WebSocket connection
-    wsRef.current = createTerminalWebSocket(sessionId, {
-      onMessage: handleMessage,
-      onStatusChange: handleStatusChange,
-      onError: handleError,
-    });
-
-    if (autoConnect) {
-      wsRef.current.connect();
-    }
-
     return (): void => {
-      cursorDisposable.dispose();
+      clearInterval(cursorInterval);
       if (clickHandler && viewportElement) {
         viewportElement.removeEventListener('mousedown', clickHandler);
       }
-      wsRef.current?.disconnect();
       terminal.dispose();
       terminalInstance.current = null;
       fitAddon.current = null;
+      lastBufferLengthRef.current = 0;
     };
-  }, [sessionId, autoConnect, handleMessage, handleStatusChange, handleError, isInputPosition]);
+  }, [sessionId, sendKeyAction]);
 
-  const connect = useCallback((): void => {
-    wsRef.current?.connect();
-  }, []);
+  const handleConnect = useCallback((): void => {
+    connect(sessionId);
+  }, [connect, sessionId]);
 
-  const disconnect = useCallback((): void => {
-    wsRef.current?.disconnect();
-  }, []);
+  const handleDisconnect = useCallback((): void => {
+    disconnect(sessionId);
+  }, [disconnect, sessionId]);
 
-  const destroySession = useCallback((): void => {
-    wsRef.current?.disconnect(true);
-  }, []);
+  const handleDestroySession = useCallback((): void => {
+    destroySessionAction(sessionId);
+  }, [destroySessionAction, sessionId]);
 
   const write = useCallback((data: string): void => {
     terminalInstance.current?.write(data);
   }, []);
 
   const sendKey = useCallback((key: string): void => {
-    // Block input when AST is running (unless paused)
-    if (inputDisabledRef.current) {
-      return;
-    }
-    wsRef.current?.sendData(key);
-  }, []);
+    if (inputDisabledRef.current) return;
+    sendKeyAction(sessionId, key);
+  }, [sendKeyAction, sessionId]);
 
   const resize = useCallback((cols: number, rows: number): void => {
     if (terminalInstance.current) {
       terminalInstance.current.resize(cols, rows);
       setDimensions({ cols, rows });
-      wsRef.current?.sendResize(cols, rows);
     }
   }, []);
 
@@ -371,33 +349,33 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
     terminalInstance.current?.focus();
   }, []);
 
-  // Move cursor to a specific position (TN3270)
   const moveCursor = useCallback((row: number, col: number): void => {
     if (!terminalInstance.current) return;
-    // Move xterm cursor using ANSI escape sequence (1-indexed)
     terminalInstance.current.write(`\x1b[${row + 1};${col + 1}H`);
-    setCursorPosition({ row, col });
+    setLocalCursorPosition({ row, col });
   }, []);
 
-  // Run an AST (Automated Streamlined Transaction)
   const runAST = useCallback((astName: string, params?: Record<string, unknown>): void => {
-    wsRef.current?.sendASTRun(astName, params);
-  }, []);
+    runASTAction(sessionId, astName, params);
+  }, [runASTAction, sessionId]);
 
-  // Pause the currently running AST
   const pauseAST = useCallback((): void => {
-    wsRef.current?.sendASTPause();
-  }, []);
+    pauseASTAction(sessionId);
+  }, [pauseASTAction, sessionId]);
 
-  // Resume the paused AST
   const resumeAST = useCallback((): void => {
-    wsRef.current?.sendASTResume();
-  }, []);
+    resumeASTAction(sessionId);
+  }, [resumeASTAction, sessionId]);
 
-  // Cancel the currently running AST
   const cancelAST = useCallback((): void => {
-    wsRef.current?.sendASTCancel();
-  }, []);
+    cancelASTAction(sessionId);
+  }, [cancelASTAction, sessionId]);
+  // Create a new session after expiry
+  const handleResetExpired = useCallback((): void => {
+    resetExpiredAction(sessionId);
+    // Reconnect will create a new session
+    connect(sessionId);
+  }, [resetExpiredAction, connect, sessionId]);
 
   return {
     terminalRef,
@@ -405,10 +383,12 @@ export function useTerminal(options: UseTerminalOptions = {}): UseTerminalReturn
     dimensions,
     sessionId,
     fields,
-    cursorPosition,
-    connect,
-    disconnect,
-    destroySession,
+    cursorPosition: localCursorPosition,
+    isExpired: session?.isExpired ?? false,
+    connect: handleConnect,
+    disconnect: handleDisconnect,
+    destroySession: handleDestroySession,
+    resetExpired: handleResetExpired,
     write,
     sendKey,
     resize,

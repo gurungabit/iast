@@ -7,7 +7,7 @@ import { useASTStore, type TabASTState } from '../stores/astStore';
 import type { ASTStatus, ASTResult, ASTProgress, ASTItemResult } from '../ast/types';
 
 // ============================================================================
-// Return Type (maintains backward compatibility with old context)
+// Return Type
 // ============================================================================
 
 export interface UseASTReturn {
@@ -21,6 +21,8 @@ export interface UseASTReturn {
   progress: ASTProgress | null;
   /** Item results (for batch operations) */
   itemResults: ASTItemResult[];
+  /** Status messages log (accumulated during execution) */
+  statusMessages: string[];
   /** Callback to run an AST (injected from terminal) */
   runAST: ((astName: string, params?: Record<string, unknown>) => void) | null;
   /** Execute an AST with parameters */
@@ -37,6 +39,8 @@ export interface UseASTReturn {
   handleASTPaused: (isPaused: boolean) => void;
   /** Reset state */
   reset: () => void;
+  /** Clear logs (statusMessages and itemResults) */
+  clearLogs: () => void;
   /** Check if an AST is currently running */
   isRunning: boolean;
   /** Currently selected AST ID in the panel */
@@ -65,7 +69,17 @@ const defaultTabState: TabASTState = {
   lastResult: null,
   progress: null,
   itemResults: [],
+  statusMessages: [],
   runAST: null,
+  credentials: {
+    username: '',
+    password: '',
+  },
+  formOptions: {
+    testMode: false,
+    parallel: false,
+  },
+  customFields: {},
 };
 
 // ============================================================================
@@ -86,7 +100,7 @@ export function useAST(tabId?: string): UseASTReturn {
   const effectiveTabId = tabId ?? activeTabId;
 
   // Get the tab state
-  const tabState = useASTStore((state) => 
+  const tabState = useASTStore((state) =>
     effectiveTabId ? state.tabs[effectiveTabId] ?? null : null
   );
 
@@ -98,6 +112,7 @@ export function useAST(tabId?: string): UseASTReturn {
   const storeHandleASTItemResult = useASTStore((state) => state.handleASTItemResult);
   const storeHandleASTPaused = useASTStore((state) => state.handleASTPaused);
   const storeReset = useASTStore((state) => state.reset);
+  const storeClearLogs = useASTStore((state) => state.clearLogs);
   const storeSetSelectedASTId = useASTStore((state) => state.setSelectedASTId);
   const storeRestoreFromExecution = useASTStore((state) => state.restoreFromExecution);
 
@@ -164,6 +179,12 @@ export function useAST(tabId?: string): UseASTReturn {
     }
   }, [effectiveTabId, storeReset]);
 
+  const clearLogs = useCallback(() => {
+    if (effectiveTabId) {
+      storeClearLogs(effectiveTabId);
+    }
+  }, [effectiveTabId, storeClearLogs]);
+
   const setSelectedASTId = useCallback(
     (astId: string | null) => {
       if (effectiveTabId) {
@@ -200,6 +221,7 @@ export function useAST(tabId?: string): UseASTReturn {
       lastResult: state.lastResult,
       progress: state.progress,
       itemResults: state.itemResults,
+      statusMessages: state.statusMessages,
       runAST: state.runAST,
       executeAST,
       setRunCallback,
@@ -208,6 +230,7 @@ export function useAST(tabId?: string): UseASTReturn {
       handleASTItemResult,
       handleASTPaused,
       reset,
+      clearLogs,
       isRunning,
       selectedASTId: state.selectedASTId,
       setSelectedASTId,
@@ -222,6 +245,7 @@ export function useAST(tabId?: string): UseASTReturn {
       handleASTItemResult,
       handleASTPaused,
       reset,
+      clearLogs,
       isRunning,
       setSelectedASTId,
       restoreFromExecution,

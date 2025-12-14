@@ -282,15 +282,19 @@ class AST(ABC):
         )
 
     def report_status(self, message: str) -> None:
-        """Report a status message (convenience helper).
+        """Report a status message without affecting progress display.
 
-        Use this for simple status updates during prepare_items or processing.
+        Use this for status updates during prepare_items or processing.
+        The message will be shown but progress bar values will be preserved.
+
+        Uses -1 as sentinel values so the UI knows not to update current/total.
 
         Example:
             self.report_status("Fetching data from PolicyAPI...")
-            self.report_status(f"Found {len(items)} policies")
+            self.report_status(f"Processing policy {policy_number}")
         """
-        self.report_progress(0, 0, None, "running", message)
+        # Use -1 as sentinel to tell UI to preserve existing progress values
+        self.report_progress(-1, -1, None, "running", message)
 
     def report_item_result(
         self,

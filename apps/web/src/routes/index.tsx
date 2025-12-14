@@ -8,6 +8,7 @@ import { getStoredSessionId, setStoredSessionId, removeStoredSessionId } from '.
 import { createSession, deleteSession, getSessions, updateSession, getActiveExecution } from '../services/session';
 import { useAST } from '../hooks/useAST';
 import { useASTStore } from '../stores/astStore';
+import { useSessionStore } from '../stores/sessionStore';
 import { Terminal } from '../components/Terminal';
 import { ASTPanel } from '../ast';
 import type { ASTStatusMeta, ASTProgressMeta, ASTItemResultMeta } from '@terminal/shared';
@@ -35,6 +36,7 @@ function TerminalPage() {
   const initTab = useASTStore((state) => state.initTab);
   const removeTab = useASTStore((state) => state.removeTab);
   const setActiveTabId = useASTStore((state) => state.setActiveTabId);
+  const destroySession = useSessionStore((state) => state.destroySession);
 
   // Sync active tab ID to Zustand store
   useEffect(() => {
@@ -167,13 +169,16 @@ function TerminalPage() {
       if (tabToClose.sessionId) {
         setAvailableSessions((prev) => prev.filter((s) => s.id !== tabToClose.sessionId));
 
+        // Destroy WebSocket/TN3270 connection
+        destroySession(tabToClose.sessionId);
+
         // Delete session from backend (fire and forget)
         deleteSession(tabToClose.sessionId).catch((error) => {
           console.error('Failed to delete session:', error);
         });
       }
     },
-    [activeTabId, isTabRunningAST, removeTab, setActiveTabId, tabs]
+    [activeTabId, isTabRunningAST, removeTab, setActiveTabId, tabs, destroySession]
   );
 
   const handleSwitchTab = useCallback(
@@ -490,7 +495,7 @@ function TabContent({
           </div>
         )}
 
-        <div className="w-[400px] flex-shrink-0">
+        <div className="min-w-[350px] max-w-[650px] w-auto flex-shrink-0">
           <ASTPanel key={tab.id} />
         </div>
       </div>

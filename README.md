@@ -2,25 +2,51 @@
 
 A web-based TN3270 terminal emulator with automation capabilities for IBM mainframe systems. Features real-time terminal emulation, Azure Entra ID authentication, and Automated Streamlined Transactions (ASTs).
 
+## Architecture Overview
+
+```mermaid
+flowchart LR
+    Browser["🌐 Browser<br>(React)"] <-->|WSS| API["⚡ API Server<br>(Fastify)"]
+    API <-->|WS| Gateway["🐍 Gateway<br>(Python)"]
+    Gateway <-->|TN3270| Mainframe["🖥️ Mainframe"]
+    
+    API --> DynamoDB["🗄️ DynamoDB"]
+    Gateway --> DynamoDB
+```
+
+**Key Points:**
+
+- **WebSocket Bridge**: API server bridges browser ↔ gateway WebSocket connections
+- **Direct TN3270**: Gateway maintains actual TN3270 connections to mainframe
+- **Stateless API**: All state lives in Gateway (TN3270) and DynamoDB (persistence)
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture documentation.
+
+---
+
 ## Quick Start
 
 ```bash
-# Prerequisites check
-node --version  # >= 24.0.0
-pnpm --version  # >= 10.0.0
-python --version  # >= 3.12
-uv --version  # any recent version
-docker --version  # for local infrastructure
+# Prerequisites
+node --version   # >= 24.0.0
+pnpm --version   # >= 10.0.0
+python --version # >= 3.12
+uv --version     # any recent version
+docker --version # for local DynamoDB
 
-# Clone and setup
-git clone <>
+# Clone and install
+git clone <repo>
 cd iast
 
-# Install all dependencies
-pnpm install
-cd gateway && uv sync && cd ..
+pnpm install                    # TypeScript packages
+cd gateway && uv sync && cd ..  # Python gateway
 
-# Start everything (infrastructure + all services)
+# Configure environment
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+cp gateway/.env.example gateway/.env
+
+# Start everything
 pnpm dev
 ```
 
@@ -28,16 +54,14 @@ pnpm dev
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| Web | `http://localhost:5173` | React frontend |
-| API | `http://localhost:3000` | Fastify API server |
-| Valkey | `localhost:6379` | Message broker |
-| DynamoDB | `localhost:8042` | Local database |
+| Web | <http://localhost:5173> | React frontend |
+| API | <http://localhost:3000> | Fastify API + WebSocket bridge |
+| Gateway | ws://localhost:8765 | TN3270 gateway |
+| DynamoDB | <http://localhost:8042> | Local database |
 
 ---
 
 ## Prerequisites
-
-### Required
 
 | Tool | Version | Installation |
 |------|---------|--------------|
@@ -47,54 +71,31 @@ pnpm dev
 | **uv** | latest | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | **Docker** | latest | [docker.com](https://docker.com) |
 
-### Optional
+**Optional:**
 
-| Tool | Purpose |
-|------|---------|
-| **Hercules** | Local mainframe emulator for testing |
-| **VPN** | Access to real mainframe systems |
+- **Hercules**: Local mainframe emulator for testing
+- **VPN**: Access to real mainframe systems
 
 ---
 
-## Development Setup
+## Environment Configuration
 
-### 1. Install Dependencies
-
-```bash
-# TypeScript packages (pnpm workspaces)
-pnpm install
-
-# Python gateway
-cd gateway && uv sync && cd ..
-```
-
-### 2. Configure Environment
-
-Copy environment templates:
-
-```bash
-cp apps/api/.env.example apps/api/.env
-cp apps/web/.env.example apps/web/.env
-cp gateway/.env.example gateway/.env
-```
-
-**API Server (`apps/api/.env`):**
+### API Server (`apps/api/.env`)
 
 ```env
 PORT=3000
 HOST=0.0.0.0
 LOG_LEVEL=info
 
-# Valkey
-VALKEY_HOST=localhost
-VALKEY_PORT=6379
-
-# DynamoDB Local
+# DynamoDB
 DYNAMODB_ENDPOINT=http://localhost:8042
 DYNAMODB_REGION=us-east-1
 DYNAMODB_TABLE_NAME=terminal
 DYNAMODB_ACCESS_KEY_ID=dummy
 DYNAMODB_SECRET_ACCESS_KEY=dummy
+
+# Gateway connection
+GATEWAY_WS_URL=ws://localhost:8765
 
 # Azure Entra ID
 ENTRA_TENANT_ID=your-tenant-id
@@ -102,7 +103,7 @@ ENTRA_CLIENT_ID=your-api-client-id
 ENTRA_AUDIENCE=api://your-api-client-id
 ```
 
-**Web Frontend (`apps/web/.env`):**
+### Web Frontend (`apps/web/.env`)
 
 ```env
 VITE_API_URL=http://localhost:3000
@@ -115,11 +116,11 @@ VITE_ENTRA_REDIRECT_URI=http://localhost:5173
 VITE_ENTRA_API_SCOPE=api://your-api-client-id/.default
 ```
 
-**Gateway (`gateway/.env`):**
+### Gateway (`gateway/.env`)
 
 ```env
-VALKEY_HOST=localhost
-VALKEY_PORT=6379
+HOST=0.0.0.0
+PORT=8765
 
 # TN3270 Mainframe
 TN3270_HOST=mainframe.example.com
@@ -134,19 +135,6 @@ DYNAMODB_ACCESS_KEY_ID=dummy
 DYNAMODB_SECRET_ACCESS_KEY=dummy
 ```
 
-### 3. Start Development
-
-```bash
-# Start everything (recommended)
-pnpm dev
-
-# Or start components individually:
-pnpm dev:valkey    # Infrastructure (Valkey + DynamoDB)
-pnpm dev:api       # API server only
-pnpm dev:web       # Frontend only
-pnpm dev:gateway   # Python gateway only
-```
-
 ---
 
 ## Development Commands
@@ -154,184 +142,151 @@ pnpm dev:gateway   # Python gateway only
 ### Running Services
 
 ```bash
-pnpm dev              # Start all services + infrastructure
-pnpm app              # Start all services (infrastructure must be running)
-pnpm dev:web          # React frontend (localhost:5173)
-pnpm dev:api          # API server (localhost:3000)
-pnpm dev:gateway      # Python gateway
-pnpm dev:valkey       # Start Valkey + DynamoDB containers
-pnpm dev:valkey:stop  # Stop infrastructure containers
+pnpm dev              # Start all services + DynamoDB
+pnpm app              # Start services only (DynamoDB must be running)
+pnpm dev:web          # React frontend only
+pnpm dev:api          # API server only
+pnpm dev:gateway      # Python gateway only
+pnpm dev:db           # Start DynamoDB container
+pnpm dev:db:stop      # Stop DynamoDB container
 ```
 
 ### Code Quality
 
 ```bash
 pnpm typecheck        # TypeScript type checking
-pnpm lint             # ESLint (strict mode)
+pnpm lint             # ESLint
 pnpm format           # Prettier formatting
 pnpm build            # Build all packages
-pnpm clean            # Clean all build artifacts
+pnpm clean            # Clean build artifacts
 ```
 
 ### Gateway (Python)
 
 ```bash
 pnpm test:gateway     # Run pytest tests
-pnpm coverage:gateway # Run tests with coverage
-cd gateway && uv run gateway-format  # Format Python code
+pnpm coverage:gateway # Tests with coverage
+cd gateway && uv run gateway-format  # Format Python
 ```
 
 ### Workspace Commands
 
 ```bash
-# Add dependency to specific workspace
+# Add dependency to specific package
 pnpm --filter @terminal/api add <package>
 pnpm --filter @terminal/web add -D <package>
 
-# Run command in specific workspace
+# Run command in specific package
 pnpm --filter @terminal/api <script>
-
-# Run across all workspaces
-pnpm run --recursive <script>
 ```
 
 ---
 
 ## Project Structure
 
-```text
-iast/
+```
+/
 ├── apps/
-│   ├── api/                    # Node.js API server (Fastify)
+│   ├── api/                 # Fastify API server
 │   │   └── src/
-│   │       ├── routes/         # HTTP endpoints
-│   │       ├── ws/             # WebSocket handlers
-│   │       ├── services/       # Business logic
-│   │       └── valkey/         # Pub/sub client
+│   │       ├── ws/          # WebSocket bridge
+│   │       ├── routes/      # REST endpoints
+│   │       └── services/    # Business logic
 │   │
-│   └── web/                    # React frontend (Vite)
+│   └── web/                 # React frontend
 │       └── src/
-│           ├── components/     # UI components
-│           ├── hooks/          # React hooks
-│           ├── routes/         # Page components
-│           ├── stores/         # Zustand stores
-│           └── services/       # API/WebSocket clients
+│           ├── components/  # UI components
+│           ├── hooks/       # React hooks
+│           ├── stores/      # Zustand stores
+│           ├── ast/         # AST panel + forms
+│           └── routes/      # Page routes
+│
+├── gateway/                 # Python TN3270 gateway
+│   └── src/
+│       ├── services/        # WebSocket, TN3270
+│       ├── core/            # AST framework
+│       └── ast/             # AST implementations
 │
 ├── packages/
-│   └── shared/                 # Shared TypeScript types
-│       └── src/
-│           ├── messages.ts     # Message envelope types
-│           ├── channels.ts     # Pub/sub channels
-│           └── errors.ts       # Error codes
+│   └── shared/              # Shared TypeScript types
 │
-├── gateway/                    # Python TN3270 gateway
-│   └── src/
-│       ├── app.py              # Entry point
-│       ├── services/           # TN3270, Valkey services
-│       ├── core/               # AST framework
-│       └── models/             # Pydantic models
+├── docs/                    # Documentation
+│   ├── ARCHITECTURE.md      # System architecture
+│   └── AWS_DEPLOYMENT.md    # AWS deployment guide
 │
-├── infra/                      # Docker compose files
-├── scripts/                    # Dev scripts
-└── docs/                       # Architecture documentation
+└── infra/                   # Infrastructure as code
 ```
 
 ---
 
-## Architecture
+## Key Features
 
-```text
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Browser   │────▶│  API Server │────▶│   Valkey    │────▶│   Gateway   │
-│  (React +   │ WS  │  (Fastify)  │ P/S │  (Pub/Sub)  │ P/S │  (Python)   │
-│  xterm.js)  │◀────│             │◀────│             │◀────│             │
-└─────────────┘     └─────────────┘     └─────────────┘     └──────┬──────┘
-                                                                    │ TN3270
-                                                                    ▼
-                                                            ┌─────────────┐
-                                                            │  Mainframe  │
-                                                            │   (z/OS)    │
-                                                            └─────────────┘
-```
+### Terminal Emulation
 
-**Data Flow:**
+- Full TN3270 keyboard support (PF1-24, PA1-3, Enter, Clear, Tab)
+- Real-time screen updates with ANSI rendering
+- Multiple concurrent sessions in tabs
+- Session persistence across page reloads
 
-1. User types in browser terminal (xterm.js)
-2. WebSocket sends keystrokes to API server
-3. API publishes to Valkey channel `tn3270.input.<sessionId>`
-4. Gateway receives and sends TN3270 commands to mainframe
-5. Mainframe responds with screen data
-6. Gateway renders to ANSI and publishes to `tn3270.output.<sessionId>`
-7. API forwards via WebSocket to browser
-8. xterm.js renders the terminal output
+### AST (Automated Streamlined Transactions)
+
+- Form-based interface for running automations
+- Parallel or sequential execution
+- Real-time progress tracking
+- Pause/Resume/Cancel controls
+- Execution history with detailed results
+
+### Authentication
+
+- Azure Entra ID SSO
+- JWT token validation
+- Automatic user provisioning
 
 ---
 
-## Tech Stack
+## Testing
 
-| Layer | Technology |
-|-------|------------|
-| **Frontend** | React 19, Vite 7, TypeScript, xterm.js, TanStack Router, Zustand, Tailwind CSS v4 |
-| **API Server** | Node.js 24, Fastify 5, TypeScript, ioredis, jose |
-| **Gateway** | Python 3.12, asyncio, tnz, redis-py, Pydantic, structlog |
-| **Message Broker** | Valkey (Redis-compatible) |
-| **Database** | DynamoDB (single-table design) |
-| **Auth** | Azure Entra ID (OAuth 2.0 + JWT) |
+### Local Mainframe (Hercules)
 
----
-
-## Documentation
-
-- [Architecture Guide](./docs/ARCHITECTURE.md) - Detailed system architecture
-- [AWS Deployment](./docs/AWS_DEPLOYMENT.md) - Production deployment guide
-- [Diagrams](./docs/diagrams.md) - Visual architecture diagrams
-- [Copilot Instructions](./.github/copilot-instructions.md) - AI coding guidelines
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-**pnpm not found:**
+For local development without VPN, use Hercules mainframe emulator:
 
 ```bash
-corepack enable
-corepack prepare pnpm@latest --activate
+# Install Hercules (macOS)
+brew install hercules
+
+# Start with MVS configuration
+hercules -f /path/to/mvs.cnf
 ```
 
-**uv not found:**
+Configure gateway to connect to local Hercules:
 
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-source ~/.bashrc  # or ~/.zshrc
-```
-
-**Docker containers won't start:**
-
-```bash
-# Check if ports are in use
-lsof -i :6379  # Valkey
-lsof -i :8042  # DynamoDB
-
-# Force recreate containers
-docker compose -f infra/docker-compose.dev.yml down -v
-docker compose -f infra/docker-compose.dev.yml up -d
-```
-
-**TypeScript errors after update:**
-
-```bash
-pnpm clean
-pnpm install
-pnpm typecheck
-```
-
-**Python import errors:**
-
-```bash
-cd gateway
-uv sync --reinstall
+```env
+TN3270_HOST=localhost
+TN3270_PORT=3270
 ```
 
 ---
+
+## Deployment
+
+See [docs/AWS_DEPLOYMENT.md](docs/AWS_DEPLOYMENT.md) for AWS deployment instructions including:
+
+- ECS Fargate for API and Gateway
+- DynamoDB tables
+- Application Load Balancer with WebSocket support
+- Azure Entra ID app registration
+
+---
+
+## Contributing
+
+1. Create a feature branch from `main`
+2. Make changes with tests
+3. Run `pnpm typecheck && pnpm lint`
+4. Submit PR with description
+
+---
+
+## License
+
+Proprietary - Internal use only.

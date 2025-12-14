@@ -207,14 +207,17 @@ class TN3270Manager:
             session = self._sessions.get(session_id)
             if not session:
                 log.warning("Session not found for message", session_id=session_id)
+                # Send session expired error to client
+                error_msg = create_error_message(
+                    session_id, "SESSION_EXPIRED", "Session has expired or does not exist"
+                )
+                await self._send(session_id, error_msg.model_dump_json())
                 return
 
             if isinstance(msg, DataMessage):
                 await self._process_input(session, msg.payload)
             elif isinstance(msg, ASTRunMessage):
-                asyncio.create_task(
-                    self._run_ast(session, msg.meta.ast_name, msg.meta.params)
-                )
+                asyncio.create_task(self._run_ast(session, msg.meta.ast_name, msg.meta.params))
             elif isinstance(msg, ASTControlMessage):
                 await self._handle_ast_control(session, msg.meta.action)
 
@@ -236,9 +239,7 @@ class TN3270Manager:
             return existing
 
         if len(self._sessions) >= self._config.max_sessions:
-            raise TerminalError(
-                ErrorCodes.SESSION_LIMIT_REACHED, "Maximum TN3270 sessions reached"
-            )
+            raise TerminalError(ErrorCodes.SESSION_LIMIT_REACHED, "Maximum TN3270 sessions reached")
 
         host = host or self._config.host
         port = port or self._config.port
@@ -280,9 +281,7 @@ class TN3270Manager:
             )
 
             # Send session created message
-            msg = create_session_created_message(
-                session_id, f"tn3270://{host}:{port}", 0
-            )
+            msg = create_session_created_message(session_id, f"tn3270://{host}:{port}", 0)
             await self._send_output(session_id, serialize_message(msg))
 
             # Wait for initial screen data
@@ -298,9 +297,7 @@ class TN3270Manager:
 
         except Exception as e:
             log.exception("Failed to create TN3270 session", session_id=session_id)
-            raise TerminalError(
-                ErrorCodes.TERMINAL_CONNECTION_FAILED, str(e)
-            ) from e
+            raise TerminalError(ErrorCodes.TERMINAL_CONNECTION_FAILED, str(e)) from e
 
     def _create_tnz_connection(
         self,
@@ -405,9 +402,7 @@ class TN3270Manager:
                 log.exception("Update loop error", session_id=session.session_id)
                 await asyncio.sleep(1)
 
-    async def _handle_ast_control(
-        self, session: TN3270Session, action: str
-    ) -> None:
+    async def _handle_ast_control(self, session: TN3270Session, action: str) -> None:
         """Handle AST control commands (pause/resume/cancel)."""
         ast = session.running_ast
         log.info(
@@ -482,9 +477,7 @@ class TN3270Manager:
             )
 
             async def send() -> None:
-                await self._send_output(
-                    session.session_id, serialize_message(progress_msg)
-                )
+                await self._send_output(session.session_id, serialize_message(progress_msg))
 
             asyncio.run_coroutine_threadsafe(send(), loop)
 
@@ -507,9 +500,7 @@ class TN3270Manager:
             )
 
             async def send() -> None:
-                await self._send_output(
-                    session.session_id, serialize_message(result_msg)
-                )
+                await self._send_output(session.session_id, serialize_message(result_msg))
 
             asyncio.run_coroutine_threadsafe(send(), loop)
 
@@ -527,9 +518,7 @@ class TN3270Manager:
             )
 
             async def send() -> None:
-                await self._send_output(
-                    session.session_id, serialize_message(paused_msg)
-                )
+                await self._send_output(session.session_id, serialize_message(paused_msg))
                 if paused:
                     await self._send_screen_update(session)
 
@@ -593,9 +582,7 @@ class TN3270Manager:
 
         except Exception as e:
             session.running_ast = None
-            log.exception(
-                "AST execution error", ast_name=ast_name, session_id=session.session_id
-            )
+            log.exception("AST execution error", ast_name=ast_name, session_id=session.session_id)
             status_msg = create_ast_status_message(
                 session.session_id,
                 ast_name,
@@ -615,9 +602,7 @@ class TN3270Manager:
                 if data.startswith(seq):
                     method = getattr(tnz, action, None)
                     if method:
-                        log.debug(
-                            "3270 key", action=action, session_id=session.session_id
-                        )
+                        log.debug("3270 key", action=action, session_id=session.session_id)
                         await loop.run_in_executor(_executor, method)
                         await self._send_screen_update(session)
                     return

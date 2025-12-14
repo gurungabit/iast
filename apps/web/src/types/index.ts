@@ -10,8 +10,7 @@ export interface TerminalSession {
   status: ConnectionStatus;
 }
 
-// Note: Auth state is managed by MSAL, not local state
-// This interface is kept for backwards compatibility
+// Note: Auth state is managed by MSAL
 export interface AuthState {
   isAuthenticated: boolean;
   user: AuthUser | null;
@@ -41,8 +40,5 @@ export type {
   DataMessage,
   ResizeMessage,
   ErrorMessage,
-  LoginRequest,
-  RegisterRequest,
-  AuthResponse,
   User,
 } from '@terminal/shared';

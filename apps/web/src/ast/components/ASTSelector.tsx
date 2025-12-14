@@ -3,6 +3,7 @@
 // ============================================================================
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { Search, X, ChevronDown, Check } from 'lucide-react';
 import { useASTRegistry } from '../registry';
 import { CATEGORY_INFO } from '../registry/types';
 import type { ASTConfig, ASTCategory } from '../registry/types';
@@ -23,7 +24,7 @@ interface ASTSelectorProps {
 export function ASTSelector({
   value,
   onChange,
-  placeholder = 'Search ASTs...',
+  placeholder = 'Select Automation',
   disabled = false,
   groupByCategory = true,
 }: ASTSelectorProps): React.ReactNode {
@@ -31,9 +32,9 @@ export function ASTSelector({
     useASTRegistry();
 
   const [isOpen, setIsOpen] = useState(false);
-  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const selectedAST = value ? getAST(value) : null;
@@ -43,63 +44,40 @@ export function ASTSelector({
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
+        setSearchQuery('');
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [setSearchQuery]);
+
+  // Focus search input when dropdown opens
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => searchInputRef.current?.focus(), 0);
+    }
+  }, [isOpen]);
 
   // Reset highlighted index when search changes
   useEffect(() => {
-    setHighlightedIndex(0);
+    setHighlightedIndex(-1);
   }, [searchQuery]);
 
-  // Handle keyboard navigation
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (!isOpen) {
-        if (e.key === 'Enter' || e.key === 'ArrowDown') {
-          setIsOpen(true);
-          e.preventDefault();
-        }
-        return;
+  const handleToggle = useCallback(() => {
+    if (!disabled) {
+      setIsOpen((prev) => !prev);
+      if (isOpen) {
+        setSearchQuery('');
       }
-
-      const results = searchResults;
-      switch (e.key) {
-        case 'ArrowDown':
-          e.preventDefault();
-          setHighlightedIndex((i) => Math.min(i + 1, results.length - 1));
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          setHighlightedIndex((i) => Math.max(i - 1, 0));
-          break;
-        case 'Enter':
-          e.preventDefault();
-          if (results[highlightedIndex]) {
-            onChange(results[highlightedIndex].id);
-            setIsOpen(false);
-            setSearchQuery('');
-          }
-          break;
-        case 'Escape':
-          e.preventDefault();
-          setIsOpen(false);
-          setSearchQuery('');
-          break;
-      }
-    },
-    [isOpen, searchResults, highlightedIndex, onChange, setSearchQuery]
-  );
+    }
+  }, [disabled, isOpen, setSearchQuery]);
 
   const handleSelect = useCallback(
     (ast: ASTConfig) => {
       onChange(ast.id);
       setIsOpen(false);
       setSearchQuery('');
-      inputRef.current?.blur();
     },
     [onChange, setSearchQuery]
   );
@@ -113,11 +91,34 @@ export function ASTSelector({
     [onChange, setSearchQuery]
   );
 
-  const handleInputFocus = useCallback(() => {
-    if (!disabled) {
-      setIsOpen(true);
-    }
-  }, [disabled]);
+  // Handle keyboard navigation in dropdown
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const results = searchResults;
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setHighlightedIndex((i) => Math.min(i + 1, results.length - 1));
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          setHighlightedIndex((i) => Math.max(i - 1, 0));
+          break;
+        case 'Enter':
+          e.preventDefault();
+          if (highlightedIndex >= 0 && results[highlightedIndex]) {
+            handleSelect(results[highlightedIndex]);
+          }
+          break;
+        case 'Escape':
+          e.preventDefault();
+          setIsOpen(false);
+          setSearchQuery('');
+          break;
+      }
+    },
+    [searchResults, highlightedIndex, handleSelect, setSearchQuery]
+  );
 
   // Render grouped results
   const renderGroupedResults = () => {
@@ -170,95 +171,94 @@ export function ASTSelector({
 
   return (
     <div ref={containerRef} className="relative">
-      {/* Input / Display */}
-      <div
+      {/* Trigger Button */}
+      <button
+        type="button"
+        onClick={handleToggle}
+        disabled={disabled}
         className={`
-          flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors
-          ${disabled 
-            ? 'bg-gray-100 dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 cursor-not-allowed' 
-            : 'bg-white dark:bg-zinc-900 border-gray-300 dark:border-zinc-700 cursor-text hover:border-gray-400 dark:hover:border-zinc-600'}
+          w-full flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors text-left
+          ${disabled
+            ? 'bg-gray-100 dark:bg-zinc-800 border-gray-200 dark:border-zinc-700 cursor-not-allowed opacity-60'
+            : 'bg-white dark:bg-zinc-900 border-gray-300 dark:border-zinc-700 cursor-pointer hover:border-gray-400 dark:hover:border-zinc-600'}
           ${isOpen ? 'border-blue-500 dark:border-blue-500 ring-1 ring-blue-500/20' : ''}
         `}
-        onClick={() => !disabled && inputRef.current?.focus()}
       >
         {/* Search icon */}
-        <svg
-          className="w-4 h-4 text-gray-400 dark:text-zinc-500 flex-shrink-0"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-          />
-        </svg>
+        <Search className="w-4 h-4 text-gray-400 dark:text-zinc-500 flex-shrink-0" />
 
-        {/* Input or selected display */}
-        {isOpen || !selectedAST ? (
-          <input
-            ref={inputRef}
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={handleInputFocus}
-            onKeyDown={handleKeyDown}
-            placeholder={selectedAST ? selectedAST.name : placeholder}
-            disabled={disabled}
-            className="flex-1 bg-transparent border-none outline-none text-sm text-gray-900 dark:text-zinc-100 placeholder-gray-400 dark:placeholder-zinc-500"
-          />
-        ) : (
-          <div className="flex-1 flex items-center gap-2">
-            <span className="text-sm text-gray-900 dark:text-zinc-100">
-              {selectedAST.name}
+        {/* Selected value or placeholder */}
+        <div className="flex-1 flex items-center gap-2 min-w-0">
+          {selectedAST ? (
+            <>
+              <span className="text-sm text-gray-900 dark:text-zinc-100 truncate">
+                {selectedAST.name}
+              </span>
+              <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-500 flex-shrink-0">
+                {CATEGORY_INFO[selectedAST.category].name}
+              </span>
+            </>
+          ) : (
+            <span className="text-sm text-gray-400 dark:text-zinc-500">
+              {placeholder}
             </span>
-            <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-zinc-800 text-gray-500 dark:text-zinc-500">
-              {CATEGORY_INFO[selectedAST.category].name}
-            </span>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Clear button */}
-        {selectedAST && !isOpen && (
+        {selectedAST && !disabled && (
           <button
             type="button"
             onClick={handleClear}
-            className="p-0.5 text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300 transition-colors"
+            className="p-0.5 text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300 transition-colors cursor-pointer"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-4 h-4" />
           </button>
         )}
 
         {/* Dropdown arrow */}
-        <svg
-          className={`w-4 h-4 text-gray-400 dark:text-zinc-500 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </div>
+        <ChevronDown
+          className={`w-4 h-4 text-gray-400 dark:text-zinc-500 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`}
+        />
+      </button>
 
       {/* Dropdown */}
       {isOpen && (
         <div
-          ref={listRef}
-          className="absolute z-50 w-full mt-1 max-h-[300px] overflow-auto rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg"
+          className="absolute z-50 w-full mt-1 rounded-lg border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-lg overflow-hidden"
         >
-          {searchResults.length === 0 ? (
-            <div className="px-3 py-4 text-center text-sm text-gray-500 dark:text-zinc-500">
-              No ASTs found matching "{searchQuery}"
+          {/* Search input inside dropdown */}
+          <div className="p-2 border-b border-gray-100 dark:border-zinc-800">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-zinc-500" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Search..."
+                className="w-full pl-8 pr-3 py-1.5 text-sm bg-gray-50 dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-md outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-zinc-100 placeholder-gray-400 dark:placeholder-zinc-500"
+              />
             </div>
-          ) : groupByCategory && !searchQuery ? (
-            renderGroupedResults()
-          ) : (
-            renderFlatResults()
-          )}
+          </div>
+
+          {/* Results list */}
+          <div
+            ref={listRef}
+            className="max-h-[280px] overflow-auto"
+            onMouseLeave={() => setHighlightedIndex(-1)}
+          >
+            {searchResults.length === 0 ? (
+              <div className="px-3 py-4 text-center text-sm text-gray-500 dark:text-zinc-500">
+                No ASTs found{searchQuery && ` matching "${searchQuery}"`}
+              </div>
+            ) : groupByCategory && !searchQuery ? (
+              renderGroupedResults()
+            ) : (
+              renderFlatResults()
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -290,7 +290,7 @@ function ASTOption({
       onMouseEnter={onMouseEnter}
       className={`
         flex items-start gap-3 px-3 py-2 cursor-pointer transition-colors
-        ${isHighlighted ? 'bg-blue-50 dark:bg-blue-900/20' : ''}
+        ${isHighlighted ? 'bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-gray-50 dark:hover:bg-zinc-800/50'}
         ${isSelected ? 'bg-blue-100 dark:bg-blue-900/30' : ''}
       `}
     >
@@ -312,21 +312,14 @@ function ASTOption({
             </span>
           )}
         </div>
-        <p className="text-xs text-gray-500 dark:text-zinc-500">
+        <p className="text-xs text-gray-500 dark:text-zinc-500 truncate">
           {ast.description}
         </p>
       </div>
 
       {/* Selected check */}
       {isSelected && (
-        <svg
-          className="w-4 h-4 text-blue-500 flex-shrink-0 mt-1"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-        </svg>
+        <Check className="w-4 h-4 text-blue-500 flex-shrink-0 mt-1" />
       )}
     </div>
   );

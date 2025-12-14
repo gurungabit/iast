@@ -22,8 +22,22 @@ export interface TabASTState {
   progress: ASTProgress | null;
   /** Item results (for batch operations) */
   itemResults: ASTItemResult[];
+  /** Status messages log (accumulated during execution) */
+  statusMessages: string[];
   /** Callback to run an AST (injected from terminal) */
   runAST: ((astName: string, params?: Record<string, unknown>) => void) | null;
+  /** Form credentials (persisted per tab) */
+  credentials: {
+    username: string;
+    password: string;
+  };
+  /** Form options (persisted per tab) */
+  formOptions: {
+    testMode: boolean;
+    parallel: boolean;
+  };
+  /** Custom fields for AST-specific form data (persisted per tab) */
+  customFields: Record<string, unknown>;
 }
 
 interface ASTStore {
@@ -39,6 +53,15 @@ interface ASTStore {
 
   // AST selection (persisted per tab)
   setSelectedASTId: (tabId: string, astId: string | null) => void;
+
+  // Credentials management (persisted per tab)
+  setCredentials: (tabId: string, credentials: { username?: string; password?: string }) => void;
+
+  // Form options management (persisted per tab)
+  setFormOptions: (tabId: string, options: { testMode?: boolean; parallel?: boolean }) => void;
+
+  // Custom fields management (persisted per tab, for AST-specific data)
+  setCustomField: (tabId: string, key: string, value: unknown) => void;
 
   // Run callback management
   setRunCallback: (tabId: string, callback: (astName: string, params?: Record<string, unknown>) => void) => void;
@@ -62,6 +85,9 @@ interface ASTStore {
     execution_id: string;
   }) => void;
 
+  // Clear logs (statusMessages and itemResults)
+  clearLogs: (tabId: string) => void;
+
   // Reset
   reset: (tabId: string) => void;
 }
@@ -77,7 +103,17 @@ const createInitialTabState = (): TabASTState => ({
   lastResult: null,
   progress: null,
   itemResults: [],
+  statusMessages: [],
   runAST: null,
+  credentials: {
+    username: 'HERC01',
+    password: 'CUL8TR',
+  },
+  formOptions: {
+    testMode: false,
+    parallel: false,
+  },
+  customFields: {},
 });
 
 // ============================================================================
@@ -127,6 +163,63 @@ export const useASTStore = create<ASTStore>((set, get) => ({
     }
   },
 
+  setCredentials: (tabId, credentials) => {
+    const { tabs } = get();
+    const tabState = tabs[tabId];
+    if (tabState) {
+      set({
+        tabs: {
+          ...tabs,
+          [tabId]: {
+            ...tabState,
+            credentials: {
+              ...tabState.credentials,
+              ...credentials,
+            },
+          },
+        },
+      });
+    }
+  },
+
+  setFormOptions: (tabId, options) => {
+    const { tabs } = get();
+    const tabState = tabs[tabId];
+    if (tabState) {
+      set({
+        tabs: {
+          ...tabs,
+          [tabId]: {
+            ...tabState,
+            formOptions: {
+              ...tabState.formOptions,
+              ...options,
+            },
+          },
+        },
+      });
+    }
+  },
+
+  setCustomField: (tabId, key, value) => {
+    const { tabs } = get();
+    const tabState = tabs[tabId];
+    if (tabState) {
+      set({
+        tabs: {
+          ...tabs,
+          [tabId]: {
+            ...tabState,
+            customFields: {
+              ...tabState.customFields,
+              [key]: value,
+            },
+          },
+        },
+      });
+    }
+  },
+
   setRunCallback: (tabId, callback) => {
     const { tabs } = get();
     const tabState = tabs[tabId] ?? createInitialTabState();
@@ -152,6 +245,7 @@ export const useASTStore = create<ASTStore>((set, get) => ({
             lastResult: null,
             progress: null,
             itemResults: [],
+            statusMessages: [],
           },
         },
       });
@@ -184,10 +278,32 @@ export const useASTStore = create<ASTStore>((set, get) => ({
     const { tabs } = get();
     const tabState = tabs[tabId];
     if (tabState) {
+      // If current/total are -1, this is a status-only update - preserve existing values
+      const mergedProgress = progress.current === -1 && progress.total === -1
+        ? {
+          ...tabState.progress,
+          message: progress.message,
+          itemStatus: progress.itemStatus,
+          // Preserve existing values
+          current: tabState.progress?.current ?? 0,
+          total: tabState.progress?.total ?? 0,
+          percentage: tabState.progress?.percentage ?? 0,
+        }
+        : progress;
+
+      // Accumulate status messages if message is present
+      const newStatusMessages = progress.message
+        ? [...tabState.statusMessages, progress.message]
+        : tabState.statusMessages;
+
       set({
         tabs: {
           ...tabs,
-          [tabId]: { ...tabState, progress },
+          [tabId]: {
+            ...tabState,
+            progress: mergedProgress,
+            statusMessages: newStatusMessages,
+          },
         },
       });
     }
@@ -228,7 +344,7 @@ export const useASTStore = create<ASTStore>((set, get) => ({
   restoreFromExecution: (tabId, execution) => {
     const { tabs } = get();
     const tabState = tabs[tabId] ?? createInitialTabState();
-    
+
     // Calculate progress from execution counts
     const processed = (execution.success_count ?? 0) + (execution.failed_count ?? 0);
     const progress = execution.policy_count > 0 ? {
@@ -253,6 +369,23 @@ export const useASTStore = create<ASTStore>((set, get) => ({
     });
   },
 
+  clearLogs: (tabId) => {
+    const { tabs } = get();
+    const tabState = tabs[tabId];
+    if (tabState) {
+      set({
+        tabs: {
+          ...tabs,
+          [tabId]: {
+            ...tabState,
+            itemResults: [],
+            statusMessages: [],
+          },
+        },
+      });
+    }
+  },
+
   reset: (tabId) => {
     const { tabs } = get();
     const tabState = tabs[tabId];
@@ -267,6 +400,7 @@ export const useASTStore = create<ASTStore>((set, get) => ({
             lastResult: null,
             progress: null,
             itemResults: [],
+            statusMessages: [],
           },
         },
       });

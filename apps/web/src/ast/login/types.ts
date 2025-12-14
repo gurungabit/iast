@@ -4,10 +4,6 @@
 
 import type { BaseASTPayload } from '../types';
 
-// Re-export shared credentials for backwards compatibility
-export type { Credentials as LoginCredentials } from '../shared';
-export { CREDENTIALS_STORAGE_KEY as LOGIN_STORAGE_KEY, DEFAULT_CREDENTIALS } from '../shared';
-
 export interface LoginASTPayload extends BaseASTPayload {
   username: string;
   password: string;
@@ -32,10 +28,10 @@ export function parsePolicyNumbers(input: string): string[] {
   if (!input.trim()) {
     return [];
   }
-  
+
   // Split by comma, newline, or whitespace
   const parts = input.split(/[,\s\n]+/).filter(Boolean);
-  
+
   // Clean up and validate
   return parts
     .map(p => p.trim().toUpperCase())

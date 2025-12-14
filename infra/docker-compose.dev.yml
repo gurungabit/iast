@@ -4,18 +4,6 @@
 
 services:
   # ---------------------------------------------------------------------------
-  # Valkey (Redis-compatible) for pub/sub messaging
-  # ---------------------------------------------------------------------------
-  valkey:
-    image: valkey/valkey:8-alpine
-    container_name: terminal-valkey
-    ports:
-      - "6379:6379"
-    volumes:
-      - valkey-data:/data
-    command: valkey-server --appendonly yes
-
-  # ---------------------------------------------------------------------------
   # DynamoDB Local for persistent storage
   # ---------------------------------------------------------------------------
   dynamodb:
@@ -24,10 +12,6 @@ services:
     ports:
       - "8042:8000"
     command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
-
-volumes:
-  valkey-data:
-    driver: local
 
 networks:
   default:

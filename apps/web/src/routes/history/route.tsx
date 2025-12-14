@@ -220,7 +220,9 @@ function HistoryPage() {
       setHasMorePolicies(false)
       void fetchPolicies(selectedExecutionId, true)
     }
-  }, [selectedExecutionId, fetchPolicies])
+    // intentionally missing fetchPolicies to avoid infinite loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedExecutionId])
 
   // Load more policies for infinite scroll
   const loadMorePolicies = useCallback(() => {
