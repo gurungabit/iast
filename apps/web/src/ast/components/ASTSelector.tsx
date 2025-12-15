@@ -205,15 +205,17 @@ export function ASTSelector({
           )}
         </div>
 
-        {/* Clear button */}
+        {/* Clear button - using span to avoid nested button */}
         {selectedAST && !disabled && (
-          <button
-            type="button"
+          <span
+            role="button"
+            tabIndex={0}
             onClick={handleClear}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClear(e as unknown as React.MouseEvent); }}
             className="p-0.5 text-gray-400 dark:text-zinc-500 hover:text-gray-600 dark:hover:text-zinc-300 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
-          </button>
+          </span>
         )}
 
         {/* Dropdown arrow */}

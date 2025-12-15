@@ -13,4 +13,6 @@ export { ItemResultList } from './ItemResultList';
 export { StatusLogList } from './StatusLogList';
 export { Tooltip } from './Tooltip';
 export { DatePicker } from './DatePicker';
+export { DateTimePicker } from './DateTimePicker';
 export { Toggle } from './Toggle';
+

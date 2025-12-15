@@ -3,7 +3,7 @@
 // ============================================================================
 
 import { createFileRoute } from '@tanstack/react-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { getStoredSessionId, setStoredSessionId, removeStoredSessionId } from '../utils/storage';
 import { createSession, deleteSession, getSessions, updateSession, getActiveExecution } from '../services/session';
 import { useAST } from '../hooks/useAST';
@@ -31,6 +31,7 @@ function TerminalPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const initializingRef = useRef(false); // Guard against React StrictMode double-mount
 
   // Get Zustand store actions
   const initTab = useASTStore((state) => state.initTab);
@@ -45,6 +46,10 @@ function TerminalPage() {
 
   useEffect(() => {
     const initializeSession = async () => {
+      // Guard against React StrictMode double-mount
+      if (initializingRef.current) return;
+      initializingRef.current = true;
+
       try {
         const sessions = await getSessions();
 
@@ -81,10 +86,22 @@ function TerminalPage() {
             setActiveTabId(initialTabs[0].id);
           }
         } else {
-          setTabs([]);
-          setActiveTabIdLocal('');
-          setActiveTabId(null);
-          removeStoredSessionId();
+          // No sessions exist - auto-create one
+          try {
+            const newSession = await createSession('Terminal');
+            initTab(newSession.id);
+            setTabs([{ id: newSession.id, sessionId: newSession.id, name: newSession.name }]);
+            setActiveTabIdLocal(newSession.id);
+            setStoredSessionId(newSession.id);
+            setActiveTabId(newSession.id);
+            setAvailableSessions([newSession]);
+          } catch (createError) {
+            console.error('Failed to auto-create session:', createError);
+            setTabs([]);
+            setActiveTabIdLocal('');
+            setActiveTabId(null);
+            removeStoredSessionId();
+          }
         }
       } catch (error) {
         console.error('Failed to initialize session:', error);

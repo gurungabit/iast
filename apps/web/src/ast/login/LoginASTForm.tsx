@@ -3,11 +3,10 @@
 // ============================================================================
 
 import { useCallback, useMemo } from 'react';
-import { Button } from '../../components/ui';
 import { useAST } from '../../hooks/useAST';
 import { useFormField } from '../../hooks/useFormField';
 import { useAuthContext } from '../../context/AuthContext';
-import { ASTFormWrapper } from '../shared';
+import { ASTFormWrapper, type CommonFormParams } from '../shared';
 import { useASTRegistry } from '../registry';
 import { CATEGORY_AUTH_GROUP } from '../registry/types';
 import { parsePolicyNumbers } from './types';
@@ -15,7 +14,7 @@ import { parsePolicyNumbers } from './types';
 const AST_ID = 'login';
 
 export function LoginASTForm(): React.ReactNode {
-  const { executeAST, isRunning } = useAST();
+  const { executeAST } = useAST();
   const { user } = useAuthContext();
   const { getAST } = useASTRegistry();
   const astConfig = getAST(AST_ID);
@@ -33,51 +32,46 @@ export function LoginASTForm(): React.ReactNode {
     };
   }, [policyInput]);
 
-  const handleSubmit = useCallback(
-    (formData: { username: string; password: string; testMode: boolean; parallel: boolean }) => {
-      const payload: Record<string, unknown> = {
-        username: formData.username,
-        password: formData.password,
-        userId: user?.id || 'anonymous',
-        authGroup: CATEGORY_AUTH_GROUP.fire,
-        testMode: formData.testMode,
-      };
+  // Dynamic button label based on policy count
+  const submitLabel = validPolicies.length > 0
+    ? `Run Login + ${String(validPolicies.length)} Policies`
+    : 'Run Login';
 
-      // Include policy numbers if provided
-      if (validPolicies.length > 0) {
-        payload.policyNumbers = validPolicies;
-      }
+  // Build the complete payload - called by wrapper for both run and schedule
+  const buildPayload = useCallback((common: CommonFormParams): Record<string, unknown> => {
+    const payload: Record<string, unknown> = {
+      username: common.username,
+      password: common.password,
+      userId: user?.id || 'anonymous',
+      authGroup: CATEGORY_AUTH_GROUP.fire,
+      testMode: common.testMode,
+    };
 
-      // Enable parallel processing if selected
-      if (formData.parallel) {
-        payload.parallel = true;
-      }
+    if (validPolicies.length > 0) {
+      payload.policyNumbers = validPolicies;
+    }
 
-      executeAST('login', payload);
-    },
-    [executeAST, validPolicies, user]
-  );
+    if (common.parallel) {
+      payload.parallel = true;
+    }
+
+    return payload;
+  }, [validPolicies, user]);
+
+  // Called when running immediately
+  const handleRun = useCallback((payload: Record<string, unknown>) => {
+    executeAST('login', payload);
+  }, [executeAST]);
 
   return (
     <ASTFormWrapper
       title="TSO Login"
       description="Automated TSO login with policy processing"
       showParallel={astConfig?.supportsParallel ?? false}
-      onSubmit={handleSubmit}
-      footer={
-        <Button
-          type="submit"
-          variant="primary"
-          size="md"
-          className="w-full"
-          isLoading={isRunning}
-        >
-          {isRunning
-            ? (validPolicies.length > 0 ? 'Processing...' : 'Running...')
-            : (validPolicies.length > 0 ? `Run Login + ${validPolicies.length} Policies` : 'Run Login')
-          }
-        </Button>
-      }
+      submitLabel={submitLabel}
+      astName="login"
+      buildPayload={buildPayload}
+      onRun={handleRun}
     >
       {/* Policy Numbers Textarea */}
       <div>
@@ -104,7 +98,6 @@ export function LoginASTForm(): React.ReactNode {
           placeholder="Enter 9-char policy numbers (comma, space, or newline separated)"
           value={policyInput}
           onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPolicyInput(e.target.value)}
-          disabled={isRunning}
         />
         {invalidCount > 0 && (
           <p className="mt-1 text-xs text-yellow-600 dark:text-yellow-400">

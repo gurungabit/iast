@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================================
 # Terminal Development Runner
-# Starts all services: Valkey, API, Web, Gateway
+# Starts all services: DynamoDB, API, Web, Gateway
 # ============================================================================
 
 set -e
@@ -51,22 +51,22 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 # ----------------------------------------------------------------------------
-# Start Valkey
+# Start DynamoDB Local
 # ----------------------------------------------------------------------------
-log "Starting Valkey..."
+log "Starting DynamoDB Local..."
 docker compose -f infra/docker-compose.dev.yml up -d
 
-# Wait for Valkey to be ready
-log "Waiting for Valkey to be ready..."
-until docker exec terminal-valkey valkey-cli ping 2>/dev/null | grep -q PONG; do
+# Wait for DynamoDB to be ready
+log "Waiting for DynamoDB to be ready..."
+until curl -s http://localhost:8042 > /dev/null 2>&1; do
     sleep 0.5
 done
-success "Valkey is ready"
+success "DynamoDB is ready"
 
 # ----------------------------------------------------------------------------
-# Setup DynamoDB
+# Setup DynamoDB Tables
 # ----------------------------------------------------------------------------
-log "Setting up DynamoDB..."
+log "Setting up DynamoDB tables..."
 ./scripts/setup-dynamodb.sh
 success "DynamoDB setup complete"
 
@@ -112,9 +112,9 @@ else
 fi
 success "=========================================="
 echo ""
-log "  Web:     http://localhost:5173"
-log "  API:     http://localhost:3000"
-log "  Valkey:  localhost:6379"
+log "  Web:      http://localhost:5173"
+log "  API:      http://localhost:3000"
+log "  DynamoDB: http://localhost:8042"
 echo ""
 log "Press Ctrl+C to stop all services"
 echo ""

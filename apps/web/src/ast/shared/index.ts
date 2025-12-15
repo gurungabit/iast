@@ -3,4 +3,5 @@
 // ============================================================================
 
 export { CredentialsInput } from './CredentialsInput';
-export { ASTFormWrapper } from './ASTFormWrapper';
+export { ASTFormWrapper, type CommonFormParams } from './ASTFormWrapper';
+

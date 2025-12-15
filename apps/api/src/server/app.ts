@@ -6,7 +6,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import { config } from '../config';
-import { authRoutes, historyRoutes, sessionRoutes } from '../routes';
+import { authRoutes, historyRoutes, sessionRoutes, scheduleRoutes } from '../routes';
 import { terminalWebSocket } from '../ws';
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -93,6 +93,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   authRoutes(app);
   historyRoutes(app);
   sessionRoutes(app);
+  scheduleRoutes(app);
   terminalWebSocket(app);
 
   // Graceful shutdown

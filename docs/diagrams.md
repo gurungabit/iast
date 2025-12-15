@@ -27,12 +27,12 @@ flowchart TB
         end
 
         subgraph Private["Private Subnet"]
-            subgraph APICluster["API Cluster (ECS)"]
-                API1["⚡ API Server 1"]
-                API2["⚡ API Server 2"]
+            subgraph ROSACluster["ROSA Cluster"]
+                API1["⚡ API Pod 1"]
+                API2["⚡ API Pod 2"]
             end
 
-            subgraph GatewayCluster["Gateway Cluster (ECS)"]
+            subgraph GatewayLayer["Gateway (ROSA or EC2)"]
                 GW1["🐍 Gateway 1"]
                 GW2["🐍 Gateway 2"]
             end
@@ -314,6 +314,55 @@ sequenceDiagram
     B->>B: Show "Session Expired" modal
 ```
 
+### Scheduled AST Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant FE as Frontend
+    participant API as API Server
+    participant DB as DynamoDB
+    participant EB as EventBridge Scheduler
+    participant Lambda as Lambda
+    participant GW as Gateway
+    participant M as Mainframe
+
+    Note over U,M: 1. User Schedules an AST
+    U->>FE: Select "Schedule for Later"
+    U->>FE: Pick date/time + timezone
+    FE->>API: POST /schedules {astName, params, scheduledTime, timezone}
+    API->>API: Encrypt credentials (AES-256-GCM)
+    API->>DB: Store schedule record
+    API->>EB: Create one-time schedule
+    EB-->>API: Schedule created
+    API->>FE: Success (scheduleId)
+    FE->>U: "Scheduled for Dec 15, 9:00 AM CT"
+
+    Note over U,M: 2. At Scheduled Time
+    EB->>Lambda: Trigger (scheduleId, userId)
+    Lambda->>DB: Get schedule record
+    Lambda->>Lambda: Decrypt credentials
+    Lambda->>GW: Execute AST (via API or direct)
+    
+    loop For each item
+        GW->>M: TN3270 commands
+        M->>GW: Response
+        GW->>DB: Save result
+    end
+    
+    GW->>Lambda: Execution complete
+    Lambda->>DB: Update schedule status
+    Lambda->>U: Email notification (optional)
+    
+    Note over EB: Schedule auto-deletes after execution
+```
+
+**Key Points:**
+- Credentials are encrypted before storing in DynamoDB
+- EventBridge Scheduler triggers Lambda at the scheduled time
+- Lambda decrypts credentials and initiates AST execution
+- Schedule auto-deletes after completion (`ActionAfterCompletion: DELETE`)
+
 ---
 
 ## Deployment Architecture
@@ -328,9 +377,12 @@ flowchart TB
         end
         
         subgraph Private["Private Subnets (2 AZs)"]
-            subgraph ECS["ECS Cluster"]
-                APIService["API Service<br>(Fargate)"]
-                GatewayService["Gateway Service<br>(Fargate)"]
+            subgraph ROSA["ROSA Cluster"]
+                APIService["API Service<br>(Pods)"]
+            end
+            
+            subgraph GatewayLayer["Gateway (ROSA or EC2)"]
+                GatewayService["Gateway Service<br>(Pods or Instances)"]
             end
         end
     end
@@ -340,6 +392,8 @@ flowchart TB
         ECR["ECR<br>(Container Images)"]
         Secrets["Secrets Manager"]
         CW["CloudWatch<br>(Logs & Metrics)"]
+        EventBridge["EventBridge Scheduler<br>(Scheduled ASTs)"]
+        Lambda["Lambda<br>(AST Scheduler)"]
     end
     
     subgraph External
@@ -355,9 +409,13 @@ flowchart TB
     GatewayService --> DDB
     GatewayService --> Mainframe
     
-    ECS --> ECR
-    ECS --> Secrets
-    ECS --> CW
+    ROSA --> ECR
+    ROSA --> Secrets
+    ROSA --> CW
+    
+    EventBridge --> Lambda
+    Lambda --> DDB
+    Lambda --> GatewayService
 ```
 
 ### Container Architecture

@@ -1,0 +1,21 @@
+{
+    "name": "@terminal/lambda-scheduler",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "build": "pnpm tsx scripts/build.ts",
+        "zip": "pnpm tsx scripts/zip.ts",
+        "package": "pnpm build && pnpm zip",
+        "typecheck": "tsc --noEmit"
+    },
+    "devDependencies": {
+        "@types/archiver": "^7.0.0",
+        "@types/aws-lambda": "^8.10.159",
+        "@types/node": "^25.0.0",
+        "archiver": "^7.0.1",
+        "esbuild": "^0.27.1",
+        "tsx": "^4.21.0",
+        "typescript": "^5.9.3"
+    }
+}

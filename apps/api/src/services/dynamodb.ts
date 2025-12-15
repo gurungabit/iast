@@ -20,7 +20,12 @@ export const KeyPrefix = {
   EXECUTION: 'EXECUTION#',
   POLICY: 'POLICY#',
   PROFILE: 'PROFILE',
+  SCHEDULE: 'SCHEDULE#',
+  SCHEDULE_PENDING: 'SCHEDULE#PENDING',
 } as const;
+
+// Schedule status types
+export type ScheduleStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 
 // Execution status types
 export type ExecutionStatus = 'running' | 'success' | 'failed' | 'paused' | 'cancelled';
@@ -82,6 +87,37 @@ export interface SessionRecord {
   name: string;
   createdAt: number;
   updatedAt: number;
+}
+
+// Schedule record from DynamoDB
+export interface ScheduleRecord {
+  PK: string; // USER#{userId}
+  SK: string; // SCHEDULE#{scheduleId}
+  GSI1PK: string; // SCHEDULE#PENDING (for querying pending schedules)
+  GSI1SK: string; // {scheduledTime}#{scheduleId}
+  scheduleId: string;
+  userId: string;
+  astName: string;
+  params: Record<string, unknown>;
+  scheduledTime: string; // ISO 8601 UTC
+  timezone: string;
+  notifyEmail?: string;
+  status: ScheduleStatus;
+  sessionId?: string; // Set when job starts
+  executionId?: string; // Set when execution starts
+  createdAt: number;
+  updatedAt: number;
+  // Encrypted credentials (when CREDENTIALS_ENCRYPTION_KEY is set)
+  encryptedCredentials?: {
+    iv: string;
+    ciphertext: string;
+    tag: string;
+  };
+  // Raw credentials (fallback when encryption is not configured - NOT RECOMMENDED)
+  rawCredentials?: {
+    username: string;
+    password: string;
+  };
 }
 
 // Import config
@@ -243,7 +279,7 @@ export async function getFailedPolicies(executionId: string): Promise<PolicyResu
 export async function getActiveExecutionBySession(sessionId: string): Promise<ExecutionRecord | null> {
   // Query the main table using PK=SESSION#<sessionId> and SK begins_with EXECUTION#
   const pk = `${KeyPrefix.SESSION}${sessionId}`;
-  
+
   // Now filter for running/paused
   const result = await docClient.send(
     new QueryCommand({
@@ -424,3 +460,120 @@ export async function deleteSession(userId: string, sessionId: string): Promise<
     })
   );
 }
+
+// ============================================================================
+// Schedule Functions
+// ============================================================================
+
+/**
+ * Create a new scheduled AST job
+ */
+export async function createScheduleRecord(schedule: ScheduleRecord): Promise<void> {
+  await docClient.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: schedule,
+    })
+  );
+}
+
+/**
+ * Get schedule by ID
+ */
+export async function getScheduleById(
+  userId: string,
+  scheduleId: string
+): Promise<ScheduleRecord | null> {
+  const result = await docClient.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        PK: `${KeyPrefix.USER}${userId}`,
+        SK: `${KeyPrefix.SCHEDULE}${scheduleId}`,
+      },
+    })
+  );
+
+  return result.Item ? (result.Item as ScheduleRecord) : null;
+}
+
+/**
+ * Get all schedules for a user
+ */
+export async function getSchedulesByUser(userId: string): Promise<ScheduleRecord[]> {
+  const result = await docClient.send(
+    new QueryCommand({
+      TableName: TABLE_NAME,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+      ExpressionAttributeValues: {
+        ':pk': `${KeyPrefix.USER}${userId}`,
+        ':sk': KeyPrefix.SCHEDULE,
+      },
+      ScanIndexForward: false, // Most recent first
+    })
+  );
+
+  return (result.Items ?? []) as ScheduleRecord[];
+}
+
+/**
+ * Update schedule status and optional fields
+ */
+export async function updateScheduleStatus(
+  userId: string,
+  scheduleId: string,
+  status: ScheduleStatus,
+  updates?: { sessionId?: string; executionId?: string }
+): Promise<void> {
+  let updateExpression = 'SET #status = :status, updatedAt = :updatedAt';
+  const expressionAttributeNames: Record<string, string> = { '#status': 'status' };
+  const expressionAttributeValues: Record<string, unknown> = {
+    ':status': status,
+    ':updatedAt': Date.now(),
+  };
+
+  // Update GSI1PK based on status (remove from pending index if not pending)
+  if (status !== 'pending') {
+    updateExpression += ', GSI1PK = :gsi1pk';
+    expressionAttributeValues[':gsi1pk'] = `SCHEDULE#${status.toUpperCase()}`;
+  }
+
+  if (updates?.sessionId) {
+    updateExpression += ', sessionId = :sessionId';
+    expressionAttributeValues[':sessionId'] = updates.sessionId;
+  }
+
+  if (updates?.executionId) {
+    updateExpression += ', executionId = :executionId';
+    expressionAttributeValues[':executionId'] = updates.executionId;
+  }
+
+  await docClient.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        PK: `${KeyPrefix.USER}${userId}`,
+        SK: `${KeyPrefix.SCHEDULE}${scheduleId}`,
+      },
+      UpdateExpression: updateExpression,
+      ExpressionAttributeNames: expressionAttributeNames,
+      ExpressionAttributeValues: expressionAttributeValues,
+    })
+  );
+}
+
+/**
+ * Delete a schedule
+ */
+export async function deleteSchedule(userId: string, scheduleId: string): Promise<void> {
+  await docClient.send(
+    new DeleteCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        PK: `${KeyPrefix.USER}${userId}`,
+        SK: `${KeyPrefix.SCHEDULE}${scheduleId}`,
+      },
+    })
+  );
+}
+

@@ -4,10 +4,25 @@
 // Uses Zustand store to persist form state across tab switches
 
 import type { ReactNode } from 'react';
-import { Card, StatusBadge, Toggle, ProgressBar, ItemResultList, StatusLogList, Button } from '../../components/ui';
+import { useState, useCallback } from 'react';
+import { Card, StatusBadge, Toggle, ProgressBar, ItemResultList, StatusLogList, Button, DateTimePicker, Input } from '../../components/ui';
 import { CredentialsInput } from './CredentialsInput';
 import { useASTStore } from '../../stores/astStore';
 import { useAST } from '../../hooks/useAST';
+import { useFormField } from '../../hooks/useFormField';
+import { createSchedule } from '../../services/schedules';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+/** Common params provided by the wrapper */
+export interface CommonFormParams {
+  username: string;
+  password: string;
+  testMode: boolean;
+  parallel: boolean;
+}
 
 interface ASTFormWrapperProps {
   /** Card title */
@@ -16,26 +31,31 @@ interface ASTFormWrapperProps {
   description: string;
   /** Form children (AST-specific inputs) */
   children: ReactNode;
-  /** Footer content (buttons, etc.) */
-  footer?: ReactNode;
   /** Whether to show parallel processing toggle */
   showParallel?: boolean;
-  /** Form submission handler - receives credentials and options */
-  onSubmit: (params: {
-    username: string;
-    password: string;
-    testMode: boolean;
-    parallel: boolean;
-  }) => void;
+  /** Button label for run now (auto-prefixed with "Schedule" when scheduling) */
+  submitLabel?: string;
+  /** AST name (e.g., "login", "bi_renew") */
+  astName: string;
+  /** Build the full AST payload from common params - AST form adds its specific params */
+  buildPayload: (common: CommonFormParams) => Record<string, unknown>;
+  /** Execute the AST (called for immediate run) */
+  onRun: (payload: Record<string, unknown>) => void;
 }
+
+// ============================================================================
+// Component
+// ============================================================================
 
 export function ASTFormWrapper({
   title,
   description,
   children,
-  footer,
   showParallel = false,
-  onSubmit,
+  submitLabel = 'Run',
+  astName,
+  buildPayload,
+  onRun,
 }: ASTFormWrapperProps): React.ReactNode {
   // Get the active tab ID
   const activeTabId = useASTStore((state) => state.activeTabId);
@@ -57,6 +77,17 @@ export function ASTFormWrapper({
     statusMessages,
     clearLogs
   } = useAST();
+
+  // Schedule state - persisted per tab using useFormField
+  const [scheduleMode, setScheduleMode] = useFormField<boolean>('schedule.enabled', false);
+  const [scheduledTime, setScheduledTime] = useFormField<string>('schedule.time', '');
+  const [timezone, setTimezone] = useFormField<string>('schedule.timezone', 'America/Chicago');
+  const [notifyEmail, setNotifyEmail] = useFormField<string>('schedule.email', '');
+
+  // Transient state (not persisted)
+  const [isScheduling, setIsScheduling] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [scheduleSuccess, setScheduleSuccess] = useState<string | null>(null);
 
   // Default values if no tab state
   const credentials = tabState?.credentials ?? { username: '', password: '' };
@@ -89,17 +120,71 @@ export function ASTFormWrapper({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (isValid && !isRunning) {
-      onSubmit({
-        username: credentials.username,
-        password: credentials.password,
-        testMode: formOptions.testMode,
-        parallel: formOptions.parallel,
+  const handleDateTimeChange = useCallback((isoString: string, tz: string) => {
+    setScheduledTime(isoString);
+    setTimezone(tz);
+  }, [setScheduledTime, setTimezone]);
+
+  // Build the common params
+  const getCommonParams = (): CommonFormParams => ({
+    username: credentials.username,
+    password: credentials.password,
+    testMode: formOptions.testMode,
+    parallel: formOptions.parallel,
+  });
+
+  // Schedule handler - POST to /schedules with full payload
+  const handleSchedule = async () => {
+    setIsScheduling(true);
+    setScheduleError(null);
+    setScheduleSuccess(null);
+
+    try {
+      // Build full payload using AST form's buildPayload
+      const fullPayload = buildPayload(getCommonParams());
+
+      const result = await createSchedule({
+        astName,
+        scheduledTime,
+        timezone,
+        credentials: {
+          username: credentials.username,
+          password: credentials.password,
+        },
+        params: fullPayload, // Full payload including AST-specific params
+        notifyEmail: notifyEmail || undefined,
       });
+
+      setScheduleSuccess(`Scheduled! ID: ${result.scheduleId}`);
+      setScheduleMode(false);
+    } catch (err) {
+      setScheduleError(err instanceof Error ? err.message : 'Failed to schedule');
+    } finally {
+      setIsScheduling(false);
     }
   };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isValid || isRunning || isScheduling) return;
+
+    if (scheduleMode) {
+      void handleSchedule();
+    } else {
+      // Build and run immediately
+      const payload = buildPayload(getCommonParams());
+      onRun(payload);
+    }
+  };
+
+  // Button label changes based on mode
+  const buttonLabel = isScheduling
+    ? 'Scheduling...'
+    : isRunning
+      ? 'Processing...'
+      : scheduleMode
+        ? `Schedule ${submitLabel.replace(/^Run\s*/i, '')}`
+        : submitLabel;
 
   return (
     <Card
@@ -133,19 +218,45 @@ export function ASTFormWrapper({
               password={credentials.password}
               onUsernameChange={handleSetUsername}
               onPasswordChange={handleSetPassword}
-              disabled={isRunning}
+              disabled={isRunning || isScheduling}
             />
 
             {/* AST-specific inputs */}
             {children}
 
-            {/* Test Mode Toggle - common to all ASTs */}
+            {/* Schedule Toggle */}
+            <Toggle
+              label="Schedule for Later"
+              description="Run this automation at a specific time"
+              checked={scheduleMode}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setScheduleMode(e.target.checked)}
+              disabled={isRunning || isScheduling}
+            />
+
+            {scheduleMode && (
+              <div className="pl-4 border-l-2 border-blue-500 space-y-3">
+                <DateTimePicker
+                  value={scheduledTime || null}
+                  onChange={handleDateTimeChange}
+                />
+                <Input
+                  label="Notify Email (optional)"
+                  type="email"
+                  value={notifyEmail}
+                  onChange={(e) => setNotifyEmail(e.target.value)}
+                  placeholder="user@example.com"
+                  disabled={isRunning || isScheduling}
+                />
+              </div>
+            )}
+
+            {/* Test Mode Toggle */}
             <Toggle
               label="Test Mode"
               description="Run without making actual changes"
               checked={formOptions.testMode}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSetTestMode(e.target.checked)}
-              disabled={isRunning}
+              disabled={isRunning || isScheduling}
             />
 
             {/* Parallel Processing Toggle (optional) */}
@@ -155,7 +266,7 @@ export function ASTFormWrapper({
                 description="Process items concurrently (faster but uses more resources)"
                 checked={formOptions.parallel}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSetParallel(e.target.checked)}
-                disabled={isRunning}
+                disabled={isRunning || isScheduling}
               />
             )}
 
@@ -163,15 +274,38 @@ export function ASTFormWrapper({
             {isRunning && progress && (
               <ProgressBar
                 value={progress.percentage}
-                label={`Processing ${progress.current} of ${progress.total}`}
+                label={`Processing ${String(progress.current)} of ${String(progress.total)}`}
                 currentItem={progress.currentItem}
                 message={progress.message}
                 variant={progress.itemStatus === 'failed' ? 'error' : 'default'}
               />
             )}
 
-            {/* Custom footer (submit button, etc.) */}
-            {footer}
+            {/* Submit Button */}
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              className="w-full"
+              isLoading={isRunning || isScheduling}
+              disabled={!isValid}
+            >
+              {buttonLabel}
+            </Button>
+
+            {/* Schedule Success Message */}
+            {scheduleSuccess && (
+              <div className="p-2 text-xs bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-green-700 dark:text-green-400">
+                {scheduleSuccess}
+              </div>
+            )}
+
+            {/* Schedule Error */}
+            {scheduleError && (
+              <div className="p-2 text-xs bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-700 dark:text-red-400">
+                {scheduleError}
+              </div>
+            )}
 
             {/* Error display */}
             {lastResult?.error && (
@@ -200,7 +334,7 @@ export function ASTFormWrapper({
                 </div>
               )}
 
-              {/* Clear Button - show when there are logs and not running */}
+              {/* Clear Button */}
               {!isRunning && (
                 <Button
                   type="button"

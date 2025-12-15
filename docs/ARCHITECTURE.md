@@ -66,6 +66,12 @@ All data stored in one DynamoDB table with composite keys:
 | Gateway Mapping | `SESSION#{sessionId}` | `GATEWAY#mapping` |
 | Execution | `SESSION#{sessionId}` | `EXEC#{executionId}` |
 | Policy Result | `EXEC#{executionId}` | `POLICY#{policyNumber}` |
+| Schedule | `USER#{userId}` | `SCHEDULE#{scheduleId}` |
+
+**GSI1** (for pending schedules):
+| GSI1PK | GSI1SK |
+|--------|--------|
+| `SCHEDULE#PENDING` | `{scheduledTime}#{scheduleId}` |
 
 ### 3. Per-Tab State Management
 
@@ -325,10 +331,13 @@ One record per policy processed.
 | | MSAL.js | Azure AD auth |
 | **API** | Node.js, Fastify | HTTP/WebSocket server |
 | | jose | JWT validation |
-| | AWS SDK v3 | DynamoDB |
+| | AWS SDK v3 | DynamoDB, EventBridge Scheduler |
+| | Node crypto | AES-256-GCM credential encryption |
 | **Gateway** | Python 3.12+, asyncio | TN3270 protocol |
 | | tnz | 3270 emulation |
 | | websockets | WebSocket server |
 | | boto3 | DynamoDB |
 | **Database** | DynamoDB | Session/execution storage |
+| **Scheduler** | EventBridge Scheduler | Trigger scheduled ASTs |
 | **Auth** | Azure Entra ID | SSO/JWT tokens |
+

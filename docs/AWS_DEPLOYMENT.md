@@ -530,6 +530,74 @@ Allow traffic between subnets for API ↔ Gateway communication.
 
 ---
 
+## EventBridge Scheduler (Scheduled ASTs)
+
+For scheduled AST execution, configure AWS EventBridge Scheduler:
+
+### Lambda Function
+
+Create a Lambda function to process scheduled ASTs:
+
+```bash
+# Package and deploy lambda-scheduler
+cd apps/lambda-scheduler
+pnpm build
+aws lambda create-function \
+  --function-name iast-scheduler \
+  --runtime nodejs20.x \
+  --handler index.handler \
+  --role arn:aws:iam::ACCOUNT:role/iast-scheduler-role \
+  --zip-file fileb://dist/lambda.zip
+```
+
+### IAM Role for Scheduler
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "scheduler.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+```
+
+Policy permissions:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "lambda:InvokeFunction",
+      "Resource": "arn:aws:lambda:*:*:function:iast-scheduler"
+    }
+  ]
+}
+```
+
+### Schedule Group
+
+```bash
+aws scheduler create-schedule-group --name ast-schedules
+```
+
+### Environment Variables
+
+Add to API server:
+```env
+SCHEDULER_LAMBDA_ARN=arn:aws:lambda:REGION:ACCOUNT:function:iast-scheduler
+SCHEDULER_ROLE_ARN=arn:aws:iam::ACCOUNT:role/iast-scheduler-invoke-role
+SCHEDULER_GROUP_NAME=ast-schedules
+```
+
+---
+
 ## Deployment Checklist
 
 ### Prerequisites
@@ -541,7 +609,7 @@ Allow traffic between subnets for API ↔ Gateway communication.
 - [ ] Security groups configured
 - [ ] SSL certificate in ACM
 
-### Deployment
+### Core Deployment
 
 - [ ] Build container images (ROSA) or AMIs (EC2)
 - [ ] Deploy API service/instances
@@ -551,3 +619,13 @@ Allow traffic between subnets for API ↔ Gateway communication.
 - [ ] Test WebSocket connectivity
 - [ ] Configure auto-scaling
 - [ ] Set up monitoring/alerts
+
+### Scheduled ASTs (Optional)
+
+- [ ] Create Lambda function (`iast-scheduler`)
+- [ ] Create EventBridge Scheduler IAM role
+- [ ] Create schedule group (`ast-schedules`)
+- [ ] Configure `SCHEDULER_*` env vars in API
+- [ ] Generate and set `CREDENTIALS_ENCRYPTION_KEY`
+- [ ] Test scheduled AST creation and execution
+

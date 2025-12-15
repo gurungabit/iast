@@ -101,6 +101,14 @@ GATEWAY_WS_URL=ws://localhost:8765
 ENTRA_TENANT_ID=your-tenant-id
 ENTRA_CLIENT_ID=your-api-client-id
 ENTRA_AUDIENCE=api://your-api-client-id
+
+# Credential Encryption (required for scheduled ASTs)
+# Generate: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+CREDENTIALS_ENCRYPTION_KEY=your-64-char-hex-key
+
+# EventBridge Scheduler (optional - AWS deployment only)
+# SCHEDULER_LAMBDA_ARN=arn:aws:lambda:region:account:function:ast-scheduler
+# SCHEDULER_ROLE_ARN=arn:aws:iam::account:role/EventBridgeSchedulerRole
 ```
 
 ### Web Frontend (`apps/web/.env`)
@@ -235,35 +243,30 @@ pnpm --filter @terminal/api <script>
 - Real-time progress tracking
 - Pause/Resume/Cancel controls
 - Execution history with detailed results
+- **Schedule for Later**: Run ASTs at a specific time with timezone support
+- **Email notifications**: Get notified when scheduled ASTs complete
 
-### Authentication
+### Security
 
-- Azure Entra ID SSO
-- JWT token validation
+- Azure Entra ID SSO with JWT validation
 - Automatic user provisioning
+- **AES-256-GCM encryption** for stored credentials
+- Credentials encrypted at rest in DynamoDB
 
 ---
 
 ## Testing
 
-### Local Mainframe (Hercules)
+### TN3270 Connection
 
-For local development without VPN, use Hercules mainframe emulator:
-
-```bash
-# Install Hercules (macOS)
-brew install hercules
-
-# Start with MVS configuration
-hercules -f /path/to/mvs.cnf
-```
-
-Configure gateway to connect to local Hercules:
+Configure the gateway to connect to the mainframe:
 
 ```env
-TN3270_HOST=localhost
-TN3270_PORT=3270
+TN3270_HOST=hometn3270p.opr.statefarm.com
+TN3270_PORT=1023
 ```
+
+**Note:** VPN connection is required to access the mainframe.
 
 ---
 
@@ -271,10 +274,37 @@ TN3270_PORT=3270
 
 See [docs/AWS_DEPLOYMENT.md](docs/AWS_DEPLOYMENT.md) for AWS deployment instructions including:
 
-- ECS Fargate for API and Gateway
+- ROSA (OpenShift) or EC2 deployment
 - DynamoDB tables
 - Application Load Balancer with WebSocket support
 - Azure Entra ID app registration
+- **EventBridge Scheduler** for scheduled ASTs
+
+---
+
+## Remaining Tasks / TODO
+
+### Scheduled AST Execution (AWS)
+
+To enable scheduled AST execution in production:
+
+1. **Create Lambda Function** (`apps/lambda-scheduler`)
+   - Build and deploy the Lambda that processes scheduled ASTs
+   - Configure IAM role with DynamoDB and Gateway access
+
+2. **Configure EventBridge Scheduler**
+   - Create schedule group (`ast-schedules`)
+   - Create IAM role for EventBridge to invoke Lambda
+   - Set `SCHEDULER_*` environment variables in API
+
+3. **Enable Encryption**
+   - Generate `CREDENTIALS_ENCRYPTION_KEY` (32-byte hex)
+   - Configure in API environment
+
+4. **Uncomment EventBridge Integration**
+   - In `apps/api/src/routes/schedules.ts`, uncomment the EventBridge code
+
+See [docs/AWS_DEPLOYMENT.md](docs/AWS_DEPLOYMENT.md#eventbridge-scheduler-scheduled-asts) for details.
 
 ---
 
@@ -290,3 +320,4 @@ See [docs/AWS_DEPLOYMENT.md](docs/AWS_DEPLOYMENT.md) for AWS deployment instruct
 ## License
 
 Proprietary - Internal use only.
+
