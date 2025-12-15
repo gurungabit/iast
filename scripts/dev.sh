@@ -93,6 +93,24 @@ success "Web frontend started (PID: $WEB_PID)"
 # ----------------------------------------------------------------------------
 if [ "$APP_ONLY" = false ]; then
     log "Starting Python gateway..."
+    
+    # Set library path for gcc (platform-specific)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS - check if gcc is installed via Homebrew
+        if [ -d "/usr/local/Cellar/gcc@12/12.4.0/lib/gcc/12" ]; then
+            export DYLD_LIBRARY_PATH="/usr/local/Cellar/gcc@12/12.4.0/lib/gcc/12:${DYLD_LIBRARY_PATH}"
+            log "DYLD_LIBRARY_PATH=${DYLD_LIBRARY_PATH}"
+        else
+            warn "gcc@12 not found at expected Homebrew path - TN3270 may not work"
+        fi
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Linux - typically doesn't need special setup
+        log "Linux detected - using system gcc"
+    elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
+        # Windows (Git Bash / Cygwin / WSL)
+        log "Windows detected - ensure gcc is in PATH"
+    fi
+    
     cd gateway
     uv run gateway &
     GATEWAY_PID=$!

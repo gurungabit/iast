@@ -9,9 +9,6 @@ import logging
 import os
 from typing import Any
 
-import ibm_db
-import ibm_db_dbi
-
 from src.core.config import get_config
 
 logger = logging.getLogger(__name__)
@@ -44,6 +41,9 @@ def connect() -> tuple[Any, Any] | None:
         Tuple of (ibm_db connection, dbi connection) or None on failure
     """
     try:
+        import ibm_db
+        import ibm_db_dbi
+
         connection_string = get_connection_string()
         conn = ibm_db.connect(connection_string, "", "")
         if not conn:
@@ -68,6 +68,8 @@ def disconnect(conn: Any, dbi_conn: Any) -> None:
             dbi_conn.close()
     if conn:
         with contextlib.suppress(Exception):
+            import ibm_db
+
             ibm_db.close(conn)
 
 

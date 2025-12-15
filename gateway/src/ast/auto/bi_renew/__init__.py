@@ -5,6 +5,6 @@
 BI (Billing Invoice) Renewal processing AST.
 """
 
-from .bi_renew_ import BiRenew as BiRenewAST
+from .bi_renew import BiRenew as BiRenewAST
 
 __all__ = ["BiRenewAST"]

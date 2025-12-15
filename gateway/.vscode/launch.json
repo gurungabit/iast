@@ -10,7 +10,9 @@
       "console": "integratedTerminal",
       "justMyCode": true,
       "subProcess": true,
-      "env": {}
+      "env": {
+        "DYLD_LIBRARY_PATH": "${env:DYLD_LIBRARY_PATH}"
+      }
     },
     {
       "name": "Python: Gateway App (All Code)",
@@ -21,7 +23,9 @@
       "console": "integratedTerminal",
       "justMyCode": false,
       "subProcess": true,
-      "env": {}
+      "env": {
+        "DYLD_LIBRARY_PATH": "${env:DYLD_LIBRARY_PATH}"
+      }
     }
   ]
 }

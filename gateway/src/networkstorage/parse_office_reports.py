@@ -3,6 +3,7 @@
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from smbclient import open_file, register_session, scandir
@@ -83,7 +84,7 @@ def list_smb_files(
     remote_path: str,
     identifier: str,
     target_date: datetime,
-) -> list[dict[str, object]]:
+) -> list[dict[str, Any]]:
     """List files in SMB share matching the office identifier for a specific date."""
     register_session(server, username=username, password=password)
 
@@ -250,9 +251,9 @@ def get_office_report(office_code: str, target_date: datetime) -> pd.DataFrame:
             print(f"Warning: Could not save cache: {e}")
 
         return combined_df
-    else:
-        print("\nNo data was successfully parsed")
-        return pd.DataFrame()
+
+    print("\nNo data was successfully parsed")
+    return pd.DataFrame()
 
 
 def main() -> None:

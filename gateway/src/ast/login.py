@@ -9,10 +9,11 @@ This AST authenticates once, processes all policies, then logs off:
 2. Phase 2: Process all policy numbers sequentially
 3. Phase 3: Logoff (sign off from Host)
 """
-import time
+
 from typing import TYPE_CHECKING, Any, Literal
 
 import structlog
+import time
 
 from ..core.ast import AST
 
@@ -58,88 +59,23 @@ class LoginAST(AST):
         self, host: "Host", target_screen_keywords: list[str] | None = None
     ) -> tuple[bool, str]:
         """Sign off from TSO system."""
-        screenshots: list[str] = []
+        log.info("🔒 Signing off from terminal session...")
+        max_backoff_count = 20
+        while not host.wait_for_text("Exit Menu", timeout=0.8) and max_backoff_count > 0:
+            host.pf(15)
+            max_backoff_count -= 1
 
-        # Step 1: Exit with PF3
-        log.info("Phase 3.1: Pressing PF3 to exit...")
-        host.pf(3)
-
-        # Step 2: Wait for termination message
-        log.info("Phase 3.2: Waiting for termination message...")
-        if not host.wait_for_text("TSO Applications Menu terminated", timeout=30):
-            return False, "Failed to exit TSO Applications"
-
-        screenshots.append(host.show_screen("Menu Terminated"))
-
-        # Step 3: Logoff
-        log.info("Phase 3.3: Logging off...")
-        host.type_text("logoff")
+        host.fill_field_at_position(36, 5, "1")
         host.enter()
 
-        screenshots.append(host.show_screen("After Logoff"))
+        # Check for target screen or default SIGNON
+        target_keywords = target_screen_keywords or ["**** SIGNON ****", "SIGNON"]
+        for keyword in target_keywords:
+            if host.wait_for_text(keyword, timeout=10):
+                log.info("✅ Signed off successfully.", keyword=keyword)
+                return True, ""
 
-        # Wait a moment for logoff to complete
-        time.sleep(0.5)
-
-        return True, ""
-
-    def authenticate(
-        self,
-        host: "Host",
-        user: str,
-        password: str,
-        expected_keywords_after_login: list[str],
-        application: str = "",
-        group: str = "",
-    ) -> tuple[bool, str]:
-
-        screenshots = []
-        if not host.wait_for_text("Logon", timeout=120):
-            return False, "Timeout waiting for Logon screen"
-
-        screenshots.append(host.show_screen("Logon Screen"))
-
-        # Step 2: Enter username
-        log.info(f"Phase 1.2: Entering username '{user}'...")
-        host.fill_field_by_label("Logon", user)
-        host.enter()
-
-        # Step 3: Wait for password prompt and enter password
-        log.info("Phase 1.3: Waiting for password prompt...")
-        if not host.wait_for_text("ENTER CURRENT PASSWORD FOR", timeout=2):
-            return False, "Failed to reach password prompt"
-
-        screenshots.append(host.show_screen("Password Prompt"))
-
-        # Enter password
-        log.info("Phase 1.4: Entering password...")
-        host.fill_field_at_position(1, 1, password)
-        host.enter()
-
-        # Step 4: Wait for Welcome message
-        log.info("Phase 1.5: Waiting for Welcome message...")
-        if not host.wait_for_text("Welcome to the TSO system", timeout=2):
-            return False, "Failed to reach Welcome screen"
-
-        screenshots.append(host.show_screen("Welcome Screen"))
-        host.enter()
-
-        # Step 5: Wait for fortune cookie
-        log.info("Phase 1.6: Waiting for fortune cookie...")
-        if not host.wait_for_text("fortune cookie", timeout=2):
-            return False, "Failed to reach fortune cookie screen"
-
-        screenshots.append(host.show_screen("Fortune Cookie"))
-        host.enter()
-
-        # Step 6: Wait for TSO Applications menu
-        log.info("Phase 1.7: Waiting for TSO Applications menu...")
-        if not host.wait_for_text("TSO Applications", timeout=2):
-            return False, "Failed to reach TSO Applications menu"
-
-        screenshots.append(host.show_screen("TSO Applications"))
-
-        return True, ""
+        return False, "Failed to sign off"
 
     def prepare_items(self, **kwargs: Any) -> list[Any]:
         """Prepare policy numbers to process.

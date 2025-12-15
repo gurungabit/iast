@@ -12,7 +12,6 @@ Structure:
     └── app.py          # Application entry point
 """
 
-from .app import main
 from .core import (
     Config,
     ErrorCodes,
@@ -52,7 +51,6 @@ from .services import (
 
 __all__ = [
     # App
-    "main",
     # Config
     "Config",
     "TN3270Config",

@@ -27,6 +27,7 @@ Optional parameters:
 """
 
 from datetime import datetime
+from email import policy
 from typing import TYPE_CHECKING, Any, Literal
 
 import pandas as pd
@@ -47,7 +48,10 @@ PolicyStatus = Literal["success", "failed", "skipped"]
 
 def validate_policy_number(policy_number: str) -> bool:
     """Validate a policy number format (9 char alphanumeric)."""
-    return bool(policy_number and len(policy_number) == 9 and policy_number.isalnum())
+    log.debug("Validating policy number", policy_number=policy_number)
+    res = bool(policy_number and len(policy_number) == 7 and policy_number.isalnum())
+    log.debug("Policy number validation result", policy_number=policy_number, is_valid=res)
+    return res
 
 
 class BiRenew(AST):
@@ -93,6 +97,8 @@ class BiRenew(AST):
     ) -> tuple[bool, str]:
         """Sign off from TSO system."""
         log.info("🔒 Signing off from terminal session...")
+        # TODO: for now.. This will need to changed..
+        host.pa(3)
         max_backoff_count = 20
         while not host.wait_for_text("Exit Menu", timeout=0.8) and max_backoff_count > 0:
             host.pf(15)
@@ -111,7 +117,12 @@ class BiRenew(AST):
         return False, "Failed to sign off"
 
     def validate_item(self, item: Any) -> bool:
-        return validate_policy_number(str(item))
+        policy_number = item.get("policy") if isinstance(item, dict) else None
+        if not policy_number:
+            log.warning("⚠️ Missing policy number in item", item=item)
+            self.report_status("⚠️ Missing policy number in item")
+            return False
+        return validate_policy_number(str(policy_number))
 
     def _get_and_filter_db_records(
         self, office_code: str, date_obj: datetime
@@ -158,9 +169,7 @@ class BiRenew(AST):
         )
         return pnd_df, excluded_df
 
-    def _transform_bi_renew_records(
-        self, db_records: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    def _transform_bi_renew_records(self, db_records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         Transform BI renewal pending records into a policy-keyed dictionary.
 
@@ -218,7 +227,7 @@ class BiRenew(AST):
         self,
         items: list[dict[str, Any]],
         pnd_df: pd.DataFrame,
-        excluded_df: pd.DataFrame,
+        excluded_df: pd.DataFrame | None = None,
     ) -> None:
         """Enrich items with Access database data and mark problematic policies for non-processing.
 
@@ -233,7 +242,11 @@ class BiRenew(AST):
 
         # Build policy count dictionaries for O(1) lookups
         pnd_policy_counts = pnd_df["POLICY"].astype(str).value_counts().to_dict()
-        excluded_policy_counts = excluded_df["POLICY"].astype(str).value_counts().to_dict()
+        excluded_policy_counts = (
+            excluded_df["POLICY"].astype(str).value_counts().to_dict()
+            if excluded_df is not None and not excluded_df.empty
+            else {}
+        )
 
         for item in items:
             policy = item.get("policy")
@@ -277,9 +290,7 @@ class BiRenew(AST):
                     excluded_count,
                 )
 
-    def _filter_processable_items(
-        self, items: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    def _filter_processable_items(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Filter items to only those that can be processed.
 
         Args:
@@ -292,7 +303,7 @@ class BiRenew(AST):
         filtered_items = [item for item in items if "PolicyStatus" not in item]
 
         if original_count != len(filtered_items):
-            logger.info(
+            log.info(
                 "🔍 Filtered out %d policies with issues, %d policies remaining for processing",
                 original_count - len(filtered_items),
                 len(filtered_items),
@@ -312,14 +323,15 @@ class BiRenew(AST):
         self.report_status("Preparing items from database...")
 
         run_date = kwargs.get("date") or datetime.now().strftime("%m/%d/%Y")
-        date = datetime.strptime(get_previous_business_date(run_date), "%m/%d/%Y")
+        prev_business_date = get_previous_business_date(run_date)
+        date = datetime.strptime(prev_business_date, "%m/%d/%Y")
         pnd_df, excluded_df = self._get_and_filter_db_records(office_code, date)
 
         if pnd_df is None:
             return []
 
         self.report_status("Fetching BI_RENEW records from DB2...")
-        db_records = get_bi_renew_pending_records(date)
+        db_records = get_bi_renew_pending_records(prev_business_date)
 
         if db_records is None:
             self.report_status("Failed to fetch DB2 records.")
