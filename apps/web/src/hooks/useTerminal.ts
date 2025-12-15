@@ -40,14 +40,10 @@ export interface UseTerminalReturn {
   fields: TN3270Field[];
   /** TN3270 cursor position */
   cursorPosition: { row: number; col: number };
-  /** Whether the TN3270 session has expired */
-  isExpired: boolean;
   connect: () => void;
   disconnect: () => void;
   /** Disconnect and destroy the TN3270 session on the backend */
   destroySession: () => void;
-  /** Reset expired state and create a new session */
-  resetExpired: () => void;
   write: (data: string) => void;
   sendKey: (key: string) => void;
   resize: (cols: number, rows: number) => void;
@@ -90,7 +86,6 @@ export function useTerminal(options: UseTerminalOptions): UseTerminalReturn {
   const disconnect = useSessionStore((state) => state.disconnect);
   const destroySessionAction = useSessionStore((state) => state.destroySession);
   const initSession = useSessionStore((state) => state.initSession);
-  const resetExpiredAction = useSessionStore((state) => state.resetExpired);
   const sendKeyAction = useSessionStore((state) => state.sendKey);
   const runASTAction = useSessionStore((state) => state.runAST);
   const pauseASTAction = useSessionStore((state) => state.pauseAST);
@@ -370,12 +365,6 @@ export function useTerminal(options: UseTerminalOptions): UseTerminalReturn {
   const cancelAST = useCallback((): void => {
     cancelASTAction(sessionId);
   }, [cancelASTAction, sessionId]);
-  // Create a new session after expiry
-  const handleResetExpired = useCallback((): void => {
-    resetExpiredAction(sessionId);
-    // Reconnect will create a new session
-    connect(sessionId);
-  }, [resetExpiredAction, connect, sessionId]);
 
   return {
     terminalRef,
@@ -384,11 +373,9 @@ export function useTerminal(options: UseTerminalOptions): UseTerminalReturn {
     sessionId,
     fields,
     cursorPosition: localCursorPosition,
-    isExpired: session?.isExpired ?? false,
     connect: handleConnect,
     disconnect: handleDisconnect,
     destroySession: handleDestroySession,
-    resetExpired: handleResetExpired,
     write,
     sendKey,
     resize,

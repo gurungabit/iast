@@ -306,9 +306,7 @@ class Host:
             field_start = (fa_addr + 1) % buffer_size
 
             # Field ends at the next field attribute (or wraps to first)
-            field_end = (
-                field_starts[i + 1][0] if i + 1 < len(field_starts) else field_starts[0][0]
-            )
+            field_end = field_starts[i + 1][0] if i + 1 < len(field_starts) else field_starts[0][0]
 
             # Calculate length
             if field_end > field_start:
@@ -817,12 +815,12 @@ class Host:
 
         return False
 
-    def wait_for_keyboard(self, timeout: float = 30.0) -> bool:
+    def wait_for_keyboard(self, timeout: float = 2) -> bool:
         """
         Wait for keyboard to become unlocked.
 
         Args:
-            timeout: Maximum seconds to wait (default: 30)
+            timeout: Maximum seconds to wait (default: 2)
 
         Returns:
             True if keyboard unlocked, False if timeout.

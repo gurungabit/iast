@@ -7,7 +7,6 @@ import { useTerminal } from '../hooks/useTerminal';
 import { useAST } from '../hooks/useAST';
 import { Pause, Play } from 'lucide-react';
 import { Tooltip } from './ui';
-import { SessionExpiredModal } from './SessionExpiredModal';
 import type { ConnectionStatus } from '../types';
 import type { ASTStatusMeta, ASTProgressMeta, ASTItemResultMeta } from '@terminal/shared';
 import '@xterm/xterm/css/xterm.css';
@@ -123,7 +122,6 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
     status,
     sessionId: activeSessionId,
     cursorPosition,
-    isExpired,
     connect,
     disconnect,
     focus,
@@ -132,7 +130,6 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
     pauseAST,
     resumeAST,
     cancelAST,
-    resetExpired,
   } = useTerminal({
     sessionId,
     autoConnect,
@@ -352,12 +349,6 @@ export function Terminal({ sessionId, autoConnect = true, onStatusChange, onRead
         ref={terminalRef}
         className="p-1"
         onClick={focus}
-      />
-
-      {/* Session Expired Modal */}
-      <SessionExpiredModal
-        isOpen={isExpired}
-        onCreateNew={resetExpired}
       />
     </div>
   );

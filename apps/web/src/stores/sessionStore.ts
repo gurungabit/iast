@@ -49,8 +49,6 @@ export interface SessionState {
     lastError: string | null;
     /** Whether the session has been initialized (first connect done) */
     initialized: boolean;
-    /** Whether the session has expired (TN3270 session was destroyed on backend) */
-    isExpired: boolean;
 }
 
 interface SessionStore {
@@ -78,9 +76,6 @@ interface SessionStore {
 
     /** Destroy a session completely (disconnect + clear state) */
     destroySession: (sessionId: string) => void;
-
-    /** Reset the expired flag and clear screen for a new session */
-    resetExpired: (sessionId: string) => void;
 
     // -------------------------------------------------------------------------
     // Callbacks for AST events (set by components that care about AST updates)
@@ -147,7 +142,6 @@ const createInitialSessionState = (): SessionState => ({
     cursorPosition: { row: 0, col: 0 },
     lastError: null,
     initialized: false,
-    isExpired: false,
 });
 
 // ============================================================================
@@ -262,25 +256,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
         set({ sessions: rest });
     },
 
-    resetExpired: (sessionId) => {
-        const { sessions } = get();
-        const session = sessions[sessionId];
-        if (!session) return;
-
-        set({
-            sessions: {
-                ...sessions,
-                [sessionId]: {
-                    ...session,
-                    isExpired: false,
-                    lastError: null,
-                    screenBuffer: [],
-                    initialized: false,
-                },
-            },
-        });
-    },
-
     // AST callback setters
     setASTStatusCallback: (cb) => set({ onASTStatus: cb }),
     setASTProgressCallback: (cb) => set({ onASTProgress: cb }),
@@ -363,20 +338,13 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
                 },
             });
         } else if (isErrorMessage(message)) {
-            // Check for SESSION_EXPIRED error
-            const isSessionExpired = message.meta?.code === 'SESSION_EXPIRED';
-
             set({
                 sessions: {
                     ...sessions,
                     [sessionId]: {
                         ...session,
                         lastError: message.payload,
-                        isExpired: isSessionExpired || session.isExpired,
-                        // Only show error in terminal if not session expired (modal will handle that)
-                        screenBuffer: isSessionExpired
-                            ? session.screenBuffer
-                            : [...session.screenBuffer, `\r\n\x1b[31mError: ${message.payload}\x1b[0m\r\n`],
+                        screenBuffer: [...session.screenBuffer, `\r\n\x1b[31mError: ${message.payload}\x1b[0m\r\n`],
                     },
                 },
             });
