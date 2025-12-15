@@ -37,6 +37,15 @@ export function Navbar(): React.ReactNode {
           >
             History
           </Link>
+          <Link
+            to="/schedules"
+            className="px-3 py-1.5 text-sm rounded-md transition-colors
+              [&.active]:bg-blue-100 [&.active]:text-blue-700 
+              dark:[&.active]:bg-blue-900/30 dark:[&.active]:text-blue-400
+              hover:bg-gray-100 dark:hover:bg-zinc-800"
+          >
+            Schedules
+          </Link>
         </nav>
       </div>
 
